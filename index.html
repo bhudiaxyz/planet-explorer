@@ -1,0 +1,60 @@
+<!doctype html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Procedural Planet Explorer</title>
+  <style>
+    html,
+    body {
+      margin: 0;
+      height: 100%;
+      overflow: hidden;
+      background: #000;
+      font: 13px system-ui, sans-serif;
+      color: #fff
+    }
+
+    canvas {
+      display: block
+    }
+
+    #ov {
+      position: fixed;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      pointer-events: none;
+      text-align: center;
+      background: rgba(0, 0, 0, .4)
+    }
+
+    #ov div {
+      max-width: 440px;
+      line-height: 1.7
+    }
+
+    #hud {
+      position: fixed;
+      left: 12px;
+      bottom: 10px;
+      opacity: .9;
+      text-shadow: 0 1px 3px #000
+    }
+  </style>
+</head>
+
+<body>
+  <div id="ov">
+    <div>
+      <h2>Procedural Planet Explorer</h2>Click to play · Esc releases the mouse (use the settings panel)<br>
+      <b>WASD</b> move · <b>Shift</b> sprint · <b>Space</b> jump / ascend · <b>C</b> descend (fly)<br><b>F</b> toggle
+      walk ⇄ fly · <b>Q/E</b> roll (fly) · <b>G</b> hide panel
+    </div>
+  </div>
+  <div id="hud"></div>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+
+</html>
