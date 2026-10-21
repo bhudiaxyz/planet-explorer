@@ -154,6 +154,39 @@
     #ls.ready #ls-bar, #ls.ready #ls-tip { display: none }
     #ls.ready #ls-enter { display: block }
     #ls.ready #ls-controls { display: block }
+    /* --- lil-gui theme --- */
+    .lil-gui {
+      --background-color: #141318;
+      --title-background-color: #0c0b0f;
+      --title-text-color: #c9ad73;
+      --text-color: #e8dcc1;
+      --widget-color: #1e1c23;
+      --hover-color: #2a2730;
+      --focus-color: #35303e;
+      --number-color: #c9ad73;
+      --string-color: #a89870;
+      --font-family: 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+      --font-size: 11px;
+      --border-radius: 3px;
+      --padding: 4px;
+      --widget-height: 20px;
+      --name-width: 48%;
+    }
+    .lil-gui .title {
+      font-family: 'Roboto Condensed', 'Arial Narrow', Arial, sans-serif;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      font-size: 11px;
+      border-bottom: 1px solid rgba(201,173,115,.18);
+    }
+    .lil-gui.root {
+      border: 1px solid rgba(201,173,115,.12);
+    }
+    .lil-gui select,
+    .lil-gui select option {
+      background-color: #141318;
+      color: #e8dcc1;
+    }
     @keyframes ls-spin { to { transform: rotate(360deg) } }
     @keyframes ls-sweep {
       0%   { transform: translateX(-120%) }
