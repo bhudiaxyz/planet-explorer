@@ -4,6 +4,7 @@ import type { Planet } from "./planet";
 import type { Obs } from "./collision";
 import { rng } from "./noise";
 import { S } from "./settings";
+import { CurrentPalette } from "./palette";
 const UP = new THREE.Vector3(0, 1, 0);
 export type Landmark = { name: string; pos: THREE.Vector3 };
 // Rare deterministic landmarks: monolith rings, twisted spires, tombstone fields, floating islands.
@@ -17,10 +18,10 @@ export function buildLandmarks(pl: Planet, group: THREE.Group) {
     vertexColors: true,
     roughness: 0.95,
   });
-  const STONE = new THREE.Color(0x8d8a84),
-    DARK = new THREE.Color(0x4b4a50),
-    TURF = new THREE.Color(S.colors.grass),
-    STONE_BARK = new THREE.Color(0x5a4636),
+  const STONE = new THREE.Color(CurrentPalette.landmarkStone),
+    DARK = new THREE.Color(CurrentPalette.landmarkDark),
+    TURF = new THREE.Color(CurrentPalette.grass),
+    STONE_BARK = new THREE.Color(CurrentPalette.landmarkStoneBark),
     crystalMat = new THREE.MeshBasicMaterial({ vertexColors: true });
   const part = (
     parts: THREE.BufferGeometry[],
@@ -149,12 +150,9 @@ export function buildLandmarks(pl: Planet, group: THREE.Group) {
         E = (x: number, y: number, z: number) => new THREE.Euler(x, y, z);
       const turfs = [
           TURF,
-          new THREE.Color(0xb8742a),
-          new THREE.Color(0x2f9d8a),
-          new THREE.Color(0x7b5fb8),
-          new THREE.Color(0xe8f0ff),
+          ...CurrentPalette.islandTurf.map(c => new THREE.Color(c)),
         ],
-        rocks = [0x8d8a84, 0xa08060, 0x4b4a50, 0x6a5a70];
+        rocks = CurrentPalette.islandRock;
       const turf = turfs[v % 5],
         rock = new THREE.Color(rocks[(v + ((r() * 3) | 0)) % 4]),
         tiers = 2 + ((r() * 3) | 0),
@@ -204,7 +202,7 @@ export function buildLandmarks(pl: Planet, group: THREE.Group) {
           rock,
         );
       }
-      const foliage = [0x2f6b30, 0xd9822b, 0x1f8f7a, 0x9a6ad0, 0xcfe4f0][v % 5];
+      const foliage = CurrentPalette.islandFoliage[v % 5];
       for (let k = 0, n2 = 3 + ((r() * 5) | 0); k < n2; k++) {
         const a2 = r() * 6.283,
           d2 = r() * rad * 0.7,
@@ -236,7 +234,7 @@ export function buildLandmarks(pl: Planet, group: THREE.Group) {
           new THREE.CylinderGeometry(rad * 0.25, rad * 0.25, 0.2, 10),
           new THREE.Vector3(rad * 0.6 * (r() - 0.5), 0.82, rad * 0.6 * (r() - 0.5)),
           E(0, 0, 0),
-          new THREE.Color(0x2a8fb8),
+          new THREE.Color(CurrentPalette.islandPond),
         );
       if (r() < 0.5) {
         const a2 = r() * 6.283,
@@ -250,7 +248,7 @@ export function buildLandmarks(pl: Planet, group: THREE.Group) {
             Math.sin(a2) * rad * 0.98,
           ),
           E(0, -a2, 0),
-          new THREE.Color(0xcfe9ff),
+          new THREE.Color(CurrentPalette.islandFoam),
         );
       }
       if (r() < 0.65)
@@ -258,11 +256,7 @@ export function buildLandmarks(pl: Planet, group: THREE.Group) {
           const a2 = r() * 6.283,
             d2 = rad * (0.4 + r() * 0.5),
             s2 = 0.5 + r() * 0.8,
-            hue = [
-              new THREE.Color(0.4, 1.6, 1.9),
-              new THREE.Color(1.8, 0.5, 1.6),
-              new THREE.Color(1.9, 1.2, 0.4),
-            ][v % 3];
+            hue = new THREE.Color(...CurrentPalette.crystals[v % 3]);
           part(
             crystals,
             new THREE.OctahedronGeometry(1, 0),

@@ -19,35 +19,60 @@ import {
 //   inner: vInnerF =     smoothstep(TI_GONE, TI_FULL, dist)  — fragment discards if ign(coord+off) > vInnerF  (plants fade out at full size when finer tier takes over)
 // The two noise offsets are uncorrelated so inner and outer stipples don't align.
 const DECIDE = decideGLSL();
-const BEGIN = `bool kill=dot(aCell,aCell)>uK*uK;vec3 gP=vec3(0.),gN=vec3(0.,1.,0.),tint=vec3(1.);vOuterF=1.;vInnerF=1.;
-{vec4 Dv=texelFetch(uP,ivec2(aCell+uK+.5),0);float D=Dv.x;kill=kill||D<-5000.;
-if(!kill){float I=uSC.x+aCell.x,J=uSC.y+aCell.y,F=uSC.z,h1=hs(I,J,F),h2=hs(I,J,F+9.),h3=hs(I,J,F+17.),h7=hs(I,J,F+23.);
-vec3 nA,uu,vv;basis(F,nA,uu,vv);vec3 d=normalize(nA*uR+uu*(I+h1-.5)*CELLSZ+vv*(J+h2-.5)*CELLSZ),sc=vec3(1.);
+const BEGIN = `
+bool kill = dot(aCell, aCell) > uK * uK;
+vec3  gP   = vec3(0.), gN = vec3(0., 1., 0.), tint = vec3(1.);
+vOuterF = 1.;
+vInnerF = 1.;
+{
+  vec4  Dv = texelFetch(uP, ivec2(aCell + uK + .5), 0);
+  float D  = Dv.x;
+  kill = kill || D < -5000.;
+  if (!kill) {
+    float I  = uSC.x + aCell.x, J = uSC.y + aCell.y, F = uSC.z;
+    float h1 = hs(I, J, F), h2 = hs(I, J, F + 9.), h3 = hs(I, J, F + 17.), h7 = hs(I, J, F + 23.);
+    vec3  nA, uu, vv;
+    basis(F, nA, uu, vv);
+    vec3  d  = normalize(nA * uR + uu * (I + h1 - .5) * CELLSZ + vv * (J + h2 - .5) * CELLSZ);
+    vec3  sc = vec3(1.);
 ${lookGLSL()}
-float dist=length(d*(uR+D)-cameraPosition);
-vOuterF=1.-smoothstep(TO_FULL,TO_GONE,dist);if(vOuterF<=0.)kill=true;
-vInnerF=smoothstep(TI_GONE,TI_FULL,dist);if(vInnerF<=0.)kill=true;
-sc*=vec3(SCW,SCH,SCW)*uVeg;
-vec3 t1=normalize(cross(d,abs(d.y)<.99?vec3(0.,1.,0.):vec3(1.,0.,0.))),t2=cross(d,t1);float ca=cos(h3*6.283),sa=sin(h3*6.283);
-vec3 ax=t1*ca+t2*sa,az=cross(ax,d);
+    float dist = length(d * (uR + D) - cameraPosition);
+    vOuterF = 1. - smoothstep(TO_FULL, TO_GONE, dist);
+    if (vOuterF <= 0.) kill = true;
+    vInnerF = smoothstep(TI_GONE, TI_FULL, dist);
+    if (vInnerF <= 0.) kill = true;
+    sc *= vec3(SCW, SCH, SCW) * uVeg;
+    vec3  t1 = normalize(cross(d, abs(d.y) < .99 ? vec3(0., 1., 0.) : vec3(1., 0., 0.)));
+    vec3  t2 = cross(d, t1);
+    float ca = cos(h3 * 6.283), sa = sin(h3 * 6.283);
+    vec3  ax = t1 * ca + t2 * sa, az = cross(ax, d);
 #if DISP
-vec3 pp=position+normal*(hs(position.x*9.+I,position.y*9.+J,position.z*9.+F)-.5)*.22;
+    vec3 pp = position + normal * (hs(position.x * 9. + I, position.y * 9. + J, position.z * 9. + F) - .5) * .22;
 #else
-vec3 pp=position;
+    vec3 pp = position;
 #endif
-vec3 u2=normalize(d+(ax*(h1-.5)+az*(h2-.5))*LEAN),lp=pp*sc;float y=max(lp.y,0.),a=uWind*WK*y*y,ph=I*.11+J*.13;
-gP=d*(uR+D-.03)+ax*lp.x+u2*lp.y+az*lp.z+(ax*sin(uTime*1.6+ph+y*.3)+az*cos(uTime*1.3+ph*1.3+y*.2))*a;
+    vec3  u2 = normalize(d + (ax * (h1 - .5) + az * (h2 - .5)) * LEAN);
+    vec3  lp = pp * sc;
+    float y  = max(lp.y, 0.), a = uWind * WK * y * y, ph = I * .11 + J * .13;
+    gP = d * (uR + D - .03) + ax * lp.x + u2 * lp.y + az * lp.z
+       + (ax * sin(uTime * 1.6 + ph + y * .3) + az * cos(uTime * 1.3 + ph * 1.3 + y * .2)) * a;
 #if PUSH
-{vec3 tp=d*(uR+D)-uPl,pr=tp-d*dot(tp,d);float pu=1.-smoothstep(.3,1.5,length(tp));gP+=normalize(pr+d*.001)*pu*y*.5-d*pu*lp.y*.3;}
+    {
+      vec3  tp = d * (uR + D) - uPl;
+      vec3  pr = tp - d * dot(tp, d);
+      float pu = 1. - smoothstep(.3, 1.5, length(tp));
+      gP += normalize(pr + d * .001) * pu * y * .5 - d * pu * lp.y * .3;
+    }
 #endif
-gN=normalize(ax*normal.x+u2*normal.y+az*normal.z);
+    gN = normalize(ax * normal.x + u2 * normal.y + az * normal.z);
 #if MOSS
-tint=mix(tint,vec3(.32,.77,.25),smoothstep(.6,.95,clamp(dot(gN,d),0.,1.))*step(.55,h1)*.7);
+    tint = mix(tint, vec3(.32, .77, .25), smoothstep(.6, .95, clamp(dot(gN, d), 0., 1.)) * step(.55, h1) * .7);
 #endif
-}}
-vec3 objectNormal=gN;
+  }
+}
+vec3 objectNormal = gN;
 #ifdef USE_COLOR
-vColor.rgb*=tint;
+vColor.rgb *= tint;
 #endif`;
 
 class Layer {

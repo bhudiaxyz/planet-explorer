@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { Planet, smoothstep } from "./planet";
 import { S } from "./settings";
+import { CurrentPalette } from "./palette";
 import { Precip } from "./precip";
 const PRECIP_COUNT = 3500;
 export class Sky {
@@ -14,8 +15,8 @@ export class Sky {
   timer = 0;
   snow = false;
   light = new THREE.DirectionalLight(0xffffff, 3);
-  moon = new THREE.DirectionalLight(0x6f86c8, 0.12);
-  ambientLight = new THREE.AmbientLight(0x9ab0e0, 0.3);
+  moon = new THREE.DirectionalLight(CurrentPalette.moonLight, 0.12);
+  ambientLight = new THREE.AmbientLight(CurrentPalette.ambientLight, 0.3);
   bg = new THREE.Color();
   scratchColor = new THREE.Color();
   disc: THREE.Mesh;
@@ -115,10 +116,10 @@ export class Sky {
     // sky colour
     const skyGrey = this.dayF * 0.55 + 0.03;
     this.bg
-      .set(0x03050d)
-      .lerp(this.scratchColor.set(0x5b9bdc), this.dayF)
+      .set(CurrentPalette.skyNight)
+      .lerp(this.scratchColor.set(CurrentPalette.skyDay), this.dayF)
       .lerp(
-        this.scratchColor.set(0xff8a4a),
+        this.scratchColor.set(CurrentPalette.skySunset),
         Math.exp(-((sunElevation / 0.15) ** 2)) *
           0.55 *
           (1 - this.cloud),
@@ -135,9 +136,9 @@ export class Sky {
     this.light.position.copy(this.sun).multiplyScalar(planetRadius * 6);
     this.moon.position.copy(this.sun).multiplyScalar(-planetRadius * 6);
     this.light.color
-      .set(0xfff4e0)
+      .set(CurrentPalette.sunLight)
       .lerp(
-        this.scratchColor.set(0xff9040),
+        this.scratchColor.set(CurrentPalette.sunsetLight),
         Math.exp(-((sunElevation / 0.15) ** 2)) * 0.8,
       );
     this.light.intensity = 3 * (1 - 0.55 * this.cloud);
@@ -155,9 +156,9 @@ export class Sky {
     {
       const discVisibility = Math.max(0, 1 - this.cloud / 0.6);
       (this.disc.material as THREE.MeshBasicMaterial).color.setRGB(
-        8 * discVisibility,
-        7 * discVisibility,
-        5.5 * discVisibility,
+        CurrentPalette.sunDisc[0] * discVisibility,
+        CurrentPalette.sunDisc[1] * discVisibility,
+        CurrentPalette.sunDisc[2] * discVisibility,
       );
       this.disc.visible = discVisibility > 0.01;
     }
@@ -169,9 +170,9 @@ export class Sky {
         .copy(cam.position)
         .addScaledVector(this.sun, -12000);
       (this.moonDisc.material as THREE.MeshBasicMaterial).color.setRGB(
-        1.6 * moonVisibility,
-        1.7 * moonVisibility,
-        2 * moonVisibility,
+        CurrentPalette.moonDisc[0] * moonVisibility,
+        CurrentPalette.moonDisc[1] * moonVisibility,
+        CurrentPalette.moonDisc[2] * moonVisibility,
       );
       this.moonDisc.visible = moonVisibility > 0.01;
     }

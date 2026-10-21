@@ -18,15 +18,32 @@ export class CloudShell {
       uDay: { value: 1 },
       uSpace: { value: 0 },
     },
-    vertexShader:
-      "varying vec3 vP;void main(){vP=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}",
-    fragmentShader: `varying vec3 vP;uniform vec3 uSun,uCam,uFog;uniform float uDay,uSpace;${NOISE}${CLOUD_GLSL}
-void main(){vec3 d=normalize(vP);float c=cdens(d,3);if(c<.01)discard;
-float c2=cdens(normalize(d+uSun*.025),2),lit=clamp(1.-(c2-c)*2.2,.3,1.2),su=dot(d,uSun);
-vec3 sunC=mix(vec3(1.,.5,.28),vec3(1.05,1.02,.98),smoothstep(-.02,.4,su));
-vec3 col=mix(vec3(.16,.19,.26)*(.25+.75*uDay),sunC*lit,smoothstep(-.12,.18,su));
-col+=sunC*(1.-smoothstep(0.,.4,c))*.35*smoothstep(-.1,.3,su);
-float k=smoothstep(140.,520.,length(vP-uCam))*(1.-uSpace);col=mix(col,uFog,k);gl_FragColor=vec4(col,c*(1.-k));}`,
+    vertexShader: `
+varying vec3 vP;
+void main() {
+  vP = position;
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.);
+}`,
+    fragmentShader: `
+varying vec3 vP;
+uniform vec3 uSun, uCam, uFog;
+uniform float uDay, uSpace;
+${NOISE}
+${CLOUD_GLSL}
+void main() {
+  vec3  d = normalize(vP);
+  float c = cdens(d, 3);
+  if (c < .01) discard;
+  float c2  = cdens(normalize(d + uSun * .025), 2);
+  float lit = clamp(1. - (c2 - c) * 2.2, .3, 1.2);
+  float su  = dot(d, uSun);
+  vec3 sunC = mix(vec3(1., .5, .28), vec3(1.05, 1.02, .98), smoothstep(-.02, .4, su));
+  vec3 col  = mix(vec3(.16, .19, .26) * (.25 + .75 * uDay), sunC * lit, smoothstep(-.12, .18, su));
+  col += sunC * (1. - smoothstep(0., .4, c)) * .35 * smoothstep(-.1, .3, su);
+  float k = smoothstep(140., 520., length(vP - uCam)) * (1. - uSpace);
+  col = mix(col, uFog, k);
+  gl_FragColor = vec4(col, c * (1. - k));
+}`,
   });
   make(R: number) {
     const m = new THREE.Mesh(new THREE.SphereGeometry(R, 96, 64), this.mat);
@@ -56,12 +73,26 @@ export class SkyDome {
       uSpace: { value: 0 },
       uCloud: { value: 0 },
     },
-    vertexShader:
-      "varying vec3 vD;void main(){vD=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}",
-    fragmentShader: `varying vec3 vD;uniform vec3 uUp,uSun,uBg;uniform float uDay,uSpace,uCloud;
-void main(){vec3 d=normalize(vD);float h=dot(d,uUp),s=max(dot(d,uSun),0.);vec3 col=h<0.?uBg:mix(uBg,uBg*.62,smoothstep(0.,.65,h));
-col+=vec3(.5,.55,.65)*pow(1.-clamp(abs(h),0.,1.),6.)*.08*uDay*(1.-uSpace);
-col+=vec3(1.,.78,.5)*(pow(s,64.)*.7+pow(s,10.)*.15+pow(s,3.)*.04*(1.-smoothstep(0.,.5,h)))*uDay*(1.-uCloud)*(1.-uSpace);gl_FragColor=vec4(col,1.);}`,
+    vertexShader: `
+varying vec3 vD;
+void main() {
+  vD = position;
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.);
+}`,
+    fragmentShader: `
+varying vec3 vD;
+uniform vec3 uUp, uSun, uBg;
+uniform float uDay, uSpace, uCloud;
+void main() {
+  vec3  d   = normalize(vD);
+  float h   = dot(d, uUp);
+  float s   = max(dot(d, uSun), 0.);
+  vec3  col = h < 0. ? uBg : mix(uBg, uBg * .62, smoothstep(0., .65, h));
+  col += vec3(.5, .55, .65) * pow(1. - clamp(abs(h), 0., 1.), 6.) * .08 * uDay * (1. - uSpace);
+  col += vec3(1., .78, .5) * (pow(s, 64.) * .7 + pow(s, 10.) * .15 + pow(s, 3.) * .04 * (1. - smoothstep(0., .5, h)))
+       * uDay * (1. - uCloud) * (1. - uSpace);
+  gl_FragColor = vec4(col, 1.);
+}`,
   });
   mesh = new THREE.Mesh(new THREE.SphereGeometry(17000, 32, 16), this.mat);
   constructor(scene: THREE.Scene) {

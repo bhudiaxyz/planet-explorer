@@ -8,6 +8,7 @@ import { ChunkManager } from "./chunks";
 import { CFG } from "./config";
 import { smoothstep, frame } from "./util";
 import { Forest } from "./forest";
+import { CurrentPalette, biomeColors } from "./palette";
 import { buildLandmarks } from "./landmarks";
 import { CloudShell } from "./skyfx";
 export { smoothstep, frame };
@@ -32,16 +33,28 @@ export class Planet {
     blending: THREE.AdditiveBlending,
     uniforms: {
       sun: { value: new THREE.Vector3(1, 0, 0) },
-      col: { value: new THREE.Color(0x5aa0ff) },
+      col: { value: new THREE.Color(CurrentPalette.atmosphereLimb) },
       fade: { value: 0 },
     },
-    vertexShader:
-      "varying vec3 vN,vW;void main(){vN=normalize(normalMatrix*normal);vW=normalize(position);gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}",
-    fragmentShader:
-      "uniform vec3 sun,col;uniform float fade;varying vec3 vN,vW;void main(){float a=pow(clamp(-dot(vN,vec3(0.,0.,1.)),0.,1.),1.5)*3.4;float l=clamp(dot(vW,sun)+.35,0.,1.);gl_FragColor=vec4(col,a*l*fade);}",
+    vertexShader: `
+varying vec3 vN, vW;
+void main() {
+  vN = normalize(normalMatrix * normal);
+  vW = normalize(position);
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.);
+}`,
+    fragmentShader: `
+uniform vec3 sun, col;
+uniform float fade;
+varying vec3 vN, vW;
+void main() {
+  float a = pow(clamp(-dot(vN, vec3(0., 0., 1.)), 0., 1.), 1.5) * 3.4;
+  float l = clamp(dot(vW, sun) + .35, 0., 1.);
+  gl_FragColor = vec4(col, a * l * fade);
+}`,
   });
   water = new THREE.MeshStandardMaterial({
-    color: S.colors.water,
+    color: biomeColors.water,
     transparent: true,
     opacity: 0.74,
     roughness: 0.2,
@@ -289,7 +302,7 @@ export class Planet {
     );
     terrain.receiveShadow = false;
     this.group.add(terrain);
-    this.water.color.set(S.colors.water);
+    this.water.color.set(biomeColors.water);
     this.cloudRadius = this.radius + Math.max(110, S.amplitude * 1.3 + 50);
     U.uCloudR.value = this.cloudRadius; // clouds float above the highest peaks
     const waterMesh = new THREE.Mesh(

@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { rng } from "./noise";
-import { UP, C, N0, add, T, cyl, blob, done } from "./geoutil";
+import { CurrentPalette } from "./palette";
+import { UP, N0, add, T, cyl, blob, done } from "./geoutil";
 
 export function grassGeo(blades: number, segs: number, wScale = 1) {
   const pos: number[] = [],
@@ -67,7 +68,7 @@ export function shrubLow() {
 }
 export function flowerGeo() {
   const p: THREE.BufferGeometry[] = [];
-  cyl(p, new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0.35, 0), 0.015, 0.012, C(0x3f7a30), 6);
+  cyl(p, new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0.35, 0), 0.015, 0.012, new THREE.Color(CurrentPalette.plantStem), 6);
   blob(p, new THREE.Vector3(0, 0.38, 0), 0.09, new THREE.Color(1, 1, 1), 0.6, 1);
   return done(p);
 }
@@ -139,7 +140,7 @@ export function mushroomGeo() {
       z = i ? -0.12 : 0,
       h = 0.30 + i * 0.10,
       s = 1 - i * 0.3;
-    cyl(p, new THREE.Vector3(x, 0, z), new THREE.Vector3(x, h, z), 0.038 * s, 0.028 * s, C(0x9a8f7a), 6);
+    cyl(p, new THREE.Vector3(x, 0, z), new THREE.Vector3(x, h, z), 0.038 * s, 0.028 * s, new THREE.Color(CurrentPalette.cactusSkin), 6);
     const scaled = capProfile.map(v => new THREE.Vector2(v.x * s, v.y * s));
     add(p, new THREE.LatheGeometry(scaled, 8), T(x, h + 0.02 * s, z), new THREE.Color(1, 1, 1), 0.18 * s, false, true);
   }
@@ -174,7 +175,7 @@ export function reedGeo(blades = 8) {
       new THREE.Vector3(i * 0.1 - 0.05, 1.55, 0),
       0.05,
       0.05,
-      C(0x5a3b1e),
+      new THREE.Color(CurrentPalette.cactusBase),
       6,
     );
   return done(p);

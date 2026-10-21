@@ -38,10 +38,20 @@ export class PostFX {
     );
     const clean = new ShaderPass({
       uniforms: { tDiffuse: { value: null } },
-      vertexShader:
-        "varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}",
-      fragmentShader:
-        "uniform sampler2D tDiffuse;varying vec2 vUv;void main(){vec4 c=texture2D(tDiffuse,vUv);if(any(isnan(c))||any(isinf(c)))c=vec4(0.,0.,0.,1.);gl_FragColor=vec4(clamp(c.rgb,0.,32.),1.);}",
+      vertexShader: `
+varying vec2 vUv;
+void main() {
+  vUv = uv;
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.);
+}`,
+      fragmentShader: `
+uniform sampler2D tDiffuse;
+varying vec2 vUv;
+void main() {
+  vec4 c = texture2D(tDiffuse, vUv);
+  if (any(isnan(c)) || any(isinf(c))) c = vec4(0., 0., 0., 1.);
+  gl_FragColor = vec4(clamp(c.rgb, 0., 32.), 1.);
+}`,
     });
     this.composer.addPass(new RenderPass(scene, camera));
     this.composer.addPass(clean);

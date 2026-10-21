@@ -1,5 +1,6 @@
 import GUI from "lil-gui";
 import { S } from "./settings";
+import { PALETTES, biomeColors, setPalette } from "./palette";
 import type { Planet } from "./planet";
 import type { Player } from "./player";
 import type { PostFX } from "./postfx";
@@ -27,6 +28,15 @@ const TERRAIN: [string, number, number, number][] = [
 /** Builds the settings panel (G toggles it). */
 export function setupGui({ planet, player, post, rebuild }: Ctx) {
   const gui = new GUI({ title: "Planet settings" });
+  const paletteState = { palette: "Earth" };
+  gui.add(paletteState, "palette", Object.keys(PALETTES))
+    .name("🪐 Planet palette")
+    .onChange((name: string) => {
+      setPalette(PALETTES[name]);
+      planet.water.color.set(biomeColors.water);
+      gui.controllersRecursive().forEach((c) => c.updateDisplay());
+      rebuild();
+    });
   const terrain = gui.addFolder("Terrain");
   for (const [k, min, max, step] of TERRAIN)
     terrain
@@ -40,11 +50,11 @@ export function setupGui({ planet, player, post, rebuild }: Ctx) {
   biomes.add(S, "snowline", -0.2, 0.8, 0.01).onFinishChange(() => rebuild());
   for (const k of ["sand", "grass", "forest", "rock", "snow"])
     biomes
-      .addColor(S.colors, k)
+      .addColor(biomeColors, k)
       .name(k + " colour")
       .onFinishChange(() => rebuild());
   biomes
-    .addColor(S.colors, "water")
+    .addColor(biomeColors, "water")
     .onChange((v: string) => planet.water.color.set(v));
   const sky = gui.addFolder("Sky & weather");
   sky.add(S, "timeOfDay", 0, 1, 0.001).listen();

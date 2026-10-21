@@ -1,4 +1,4 @@
-export const S: Record<string, any> & { colors: Record<string, string> } = {
+export const S: Record<string, any> = {
   seed: 1337,
   radius: 700,
   resolution: 220,
@@ -12,14 +12,6 @@ export const S: Record<string, any> & { colors: Record<string, string> } = {
   forest: 0.7,
   snowline: 0.3,
   renderScale: 1,
-  colors: {
-    sand: "#d8c690",
-    grass: "#5a9440",
-    forest: "#2d5a2b",
-    rock: "#7a736b",
-    snow: "#f4f8ff",
-    water: "#2a6fb0",
-  },
   timeOfDay: 0.3,
   dayLength: 240,
   weather: "auto",

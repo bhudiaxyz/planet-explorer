@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { U } from "./fx";
+import { CurrentPalette } from "./palette";
 const N = 3500,
   FW = new THREE.Vector3(),
   RR = new THREE.Vector3();
@@ -27,13 +28,27 @@ export class Precip {
         uF2: { value: new THREE.Vector3() },
         uSnow: { value: 0 },
         uAmt: { value: 0 },
-        uCol: { value: new THREE.Color(0xaabbd0) },
+        uCol: { value: new THREE.Color(CurrentPalette.rain) },
       },
-      vertexShader: `attribute vec3 sd;uniform float uT,uSnow;uniform vec3 uCam,uRt,uUp,uF2;
-void main(){float spd=uSnow>.5?3.:38.;vec3 L=vec3((sd.x-.5)*50.,mod(sd.y*36.-uT*spd,36.)-8.,(sd.z-.5)*50.);if(uSnow>.5)L.x+=sin(L.y*.7+sd.y*100.)*.8;
-vec4 mv=viewMatrix*vec4(uCam+uRt*L.x+uUp*L.y+uF2*L.z,1.);gl_PointSize=min((uSnow>.5?220.:160.)/-mv.z,48.);gl_Position=projectionMatrix*mv;}`,
-      fragmentShader:
-        "uniform vec3 uCol;uniform float uAmt;void main(){float d=length(gl_PointCoord-.5);gl_FragColor=vec4(uCol,smoothstep(.5,.1,d)*uAmt*.7);}",
+      vertexShader: `
+attribute vec3 sd;
+uniform float uT, uSnow;
+uniform vec3 uCam, uRt, uUp, uF2;
+void main() {
+  float spd = uSnow > .5 ? 3. : 38.;
+  vec3 L = vec3((sd.x - .5) * 50., mod(sd.y * 36. - uT * spd, 36.) - 8., (sd.z - .5) * 50.);
+  if (uSnow > .5) L.x += sin(L.y * .7 + sd.y * 100.) * .8;
+  vec4 mv = viewMatrix * vec4(uCam + uRt * L.x + uUp * L.y + uF2 * L.z, 1.);
+  gl_PointSize = min((uSnow > .5 ? 220. : 160.) / -mv.z, 48.);
+  gl_Position = projectionMatrix * mv;
+}`,
+      fragmentShader: `
+uniform vec3 uCol;
+uniform float uAmt;
+void main() {
+  float d = length(gl_PointCoord - .5);
+  gl_FragColor = vec4(uCol, smoothstep(.5, .1, d) * uAmt * .7);
+}`,
     });
     this.pts = new THREE.Points(g, this.mat);
     this.pts.frustumCulled = false;
