@@ -181,7 +181,7 @@ tint=(h7<.25?vec3(.3,.29,.28):(h7<.5?vec3(.42,.32,.2):(h7<.7?vec3(.16,.16,.19):(
       tier(() => reedGeo(3), 6.8, RAD.mid, LOD.mid, 1.8, 1.1),
     ],
     pre: "cf=clusterField(d,5.);if(h6>=.12*PMUL*cf*3.)REJECT;",
-    gate: "if(e>=.05||sl>=.35||m<-.25)REJECT;",
+    gate: "if(e<-.03||e>=.025||sl>=.35||m<-.25)REJECT;",
     look: "sc=vec3(.8+h1*.7,.8+h2*.9,.8+h1*.7);tint=vec3(.85+h2*.3);",
   }),
   plant({
@@ -258,7 +258,11 @@ vec3 nA,uu,vv;basis(F,nA,uu,vv);vec3 P=nA*uR+uu*(I+h1-.5)*CELLSZ+vv*(J+h2-.5)*CE
 float cf=1.,fo=0.,m0=0.,pt=0.;
 ${perKind("pre")}
 float e=e3(d,true),m=pn(d*uFreq*2.2+vec3(30.,0.,0.),1),tt=1.-1.1*d.y*d.y-1.2*max(e,0.);
+#if KIND==5
+if(e<-.03||e>.6||tt<uSnow+TSN)REJECT;
+#else
 if(e<.015||e>.6||tt<uSnow+TSN)REJECT;
+#endif
 float sl=abs(uR+e3(normalize(P+uu*.8),true)*uAmp-(uR+e*uAmp))/.8;
 ${perKind("gate")}
 ${perKind("result")}
