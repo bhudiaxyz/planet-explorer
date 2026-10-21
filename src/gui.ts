@@ -10,6 +10,7 @@ interface Ctx {
   player: Player;
   post: PostFX;
   rebuild: (respawn?: boolean) => void;
+  rebuildVeg: () => void;
 }
 // [setting, min, max, step]; terrain settings rebuild the planet when released (seed/radius also respawn the player)
 const TERRAIN: [string, number, number, number][] = [
@@ -26,8 +27,8 @@ const TERRAIN: [string, number, number, number][] = [
 ];
 
 /** Builds the settings panel (G toggles it). */
-export function setupGui({ planet, player, post, rebuild }: Ctx) {
-  const gui = new GUI({ title: "Planet settings" });
+export function setupGui({ planet, player, post, rebuild, rebuildVeg }: Ctx) {
+  const gui = new GUI({ title: "Planet settings", width: Math.min(280, innerWidth - 8) });
   const paletteState = { palette: "Earth" };
   gui.add(paletteState, "palette", Object.keys(PALETTES))
     .name("🪐 Planet palette")
@@ -38,6 +39,7 @@ export function setupGui({ planet, player, post, rebuild }: Ctx) {
       S.forest = p.forestDensity;
       planet.water.color.set(biomeColors.water);
       gui.controllersRecursive().forEach((c) => c.updateDisplay());
+      rebuildVeg();
       rebuild();
     });
   const terrain = gui.addFolder("Terrain");
@@ -87,3 +89,4 @@ export function setupGui({ planet, player, post, rebuild }: Ctx) {
   });
   return gui;
 }
+export type { GUI };

@@ -75,6 +75,6 @@ void main() {
     u.uF2.value.crossVectors(up, r);
     u.uSnow.value = snow ? 1 : 0;
     u.uAmt.value = a2;
-    u.uCol.value.set(snow ? 0xffffff : 0xaabbd0);
+    u.uCol.value.set(snow ? 0xffffff : CurrentPalette.rain);
   }
 }

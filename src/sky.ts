@@ -142,6 +142,8 @@ export class Sky {
         Math.exp(-((sunElevation / 0.15) ** 2)) * 0.8,
       );
     this.light.intensity = 3 * (1 - 0.55 * this.cloud);
+    this.moon.color.set(CurrentPalette.moonLight);
+    this.ambientLight.color.set(CurrentPalette.ambientLight);
     this.ambientLight.intensity =
       0.05 + 0.25 * this.dayF * (1 - this.space);
     // bodies

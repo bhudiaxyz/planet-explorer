@@ -14,9 +14,16 @@ import { setRenderer } from "./bake";
 import { U } from "./fx";
 import { smoothstep } from "./util";
 import { S } from "./settings";
+import { isTouchDevice, setupTouch, setGuiToggle } from "./touch";
+
+// lower default resolution on mobile/tablet to stay within GPU budget
+if (isTouchDevice) S.resolution = 128;
 
 // ---- renderer & scene ------------------------------------------------------------------------------------------------------------------------
-const renderer = new THREE.WebGLRenderer({ antialias: true });
+const renderer = new THREE.WebGLRenderer({
+  antialias: !isTouchDevice,
+  powerPreference: "high-performance",
+});
 renderer.setPixelRatio(Math.min(devicePixelRatio, S.renderScale));
 renderer.setSize(innerWidth, innerHeight);
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -64,12 +71,15 @@ renderer.domElement.addEventListener("webglcontextlost", (e) =>
 renderer.domElement.addEventListener("webglcontextrestored", () =>
   rebuild(false),
 );
-setupGui({ planet, player, post: postFX, rebuild });
+const gui = setupGui({ planet, player, post: postFX, rebuild, rebuildVeg: () => scatter.rebuild() });
 addEventListener("resize", () => {
+  renderer.setSize(innerWidth, innerHeight);
   postFX.resize();
   camera.aspect = innerWidth / innerHeight;
   camera.updateProjectionMatrix();
 });
+setupTouch(player, renderer.domElement);
+if (isTouchDevice) setGuiToggle(() => gui.show(gui._hidden));
 const hud = document.getElementById("hud")!
 
 // temperature under the player, recomputed only when they moved ≥ ~0.15 m
@@ -117,18 +127,20 @@ const showSplash = (label: string, compiled = true) => {
 const hideSplash = () => {
   splash.classList.add("dismissed");
 };
-showSplash("Click to enter", false);
+showSplash(isTouchDevice ? "Tap to enter" : "Click to enter", false);
 splash.addEventListener("click", () => {
   hideSplash();
-  renderer.domElement.requestPointerLock();
+  if (!isTouchDevice) renderer.domElement.requestPointerLock();
 });
-document.addEventListener("pointerlockchange", () => {
-  if (document.pointerLockElement) {
-    hideSplash();
-  } else {
-    showSplash("Click to resume");
-  }
-});
+if (!isTouchDevice) {
+  document.addEventListener("pointerlockchange", () => {
+    if (document.pointerLockElement) {
+      hideSplash();
+    } else {
+      showSplash("Click to resume");
+    }
+  });
+}
 
 // ---- frame loop ----------------------------------------------------------------------------------------------------------------------------------
 let lastFrameTime = performance.now(),

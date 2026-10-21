@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "lil-gui": "^0.21.0",
+    "nipplejs": "^1.0.4",
     "three": "^0.180.0"
   },
   "devDependencies": {

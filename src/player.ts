@@ -3,6 +3,7 @@ import { Planet } from "./planet";
 import { S } from "./settings";
 import { rng } from "./noise";
 import type { Collider } from "./collision";
+import { isTouchDevice } from "./touch";
 const EYE_HEIGHT = 2.4,
   scratchRight = new THREE.Vector3(),
   scratchStep = new THREE.Vector3(),
@@ -25,22 +26,29 @@ export class Player {
   keys = new Set<string>();
   col?: Collider;
   boost = 0;
+  // touch virtual input — set by touch.ts
+  touchMove = 0;
+  touchStrafe = 0;
+  touchJump = false;
+  touchSprint = false;
   constructor(
     private cam: THREE.PerspectiveCamera,
     private planet: Planet,
     dom: HTMLElement,
   ) {
-    dom.addEventListener("click", () => dom.requestPointerLock());
+    if (!isTouchDevice) {
+      dom.addEventListener("click", () => dom.requestPointerLock());
+      addEventListener("mousemove", (e) => {
+        if (document.pointerLockElement === dom)
+          this.look(e.movementX, e.movementY);
+      });
+    }
     addEventListener("keydown", (e) => {
       this.keys.add(e.code);
       if (e.code === "KeyF" && !e.repeat) this.toggle();
       if (e.code === "Space") e.preventDefault();
     });
     addEventListener("keyup", (e) => this.keys.delete(e.code));
-    addEventListener("mousemove", (e) => {
-      if (document.pointerLockElement === dom)
-        this.look(e.movementX, e.movementY);
-    });
   }
   private isKeyDown(code: string) {
     return this.keys.has(code) ? 1 : 0;
@@ -92,7 +100,7 @@ export class Player {
     this.mode = "walk";
     this.planet.forest.last.set(1e9, 0, 0); // force tree LOD rebuild at landing position
   }
-  private look(dx: number, dy: number) {
+  look(dx: number, dy: number) {
     const mouseSensitivity = 0.0022;
     if (this.mode === "walk") {
       this.forward.applyAxisAngle(this.dir, -dx * mouseSensitivity);
@@ -109,9 +117,9 @@ export class Player {
   update(dt: number) {
     const camera = this.cam,
       sprint =
-        this.isKeyDown("ShiftLeft") || this.isKeyDown("ShiftRight"),
-      moveAxis = this.isKeyDown("KeyW") - this.isKeyDown("KeyS"),
-      strafeAxis = this.isKeyDown("KeyD") - this.isKeyDown("KeyA");
+        this.touchSprint || this.isKeyDown("ShiftLeft") || this.isKeyDown("ShiftRight"),
+      moveAxis   = this.touchMove   + this.isKeyDown("KeyW") - this.isKeyDown("KeyS"),
+      strafeAxis = this.touchStrafe + this.isKeyDown("KeyD") - this.isKeyDown("KeyA");
     if (this.mode === "walk") {
       const up = this.up.copy(this.dir),
         planetRadius = this.planet.radius;
@@ -157,7 +165,7 @@ export class Player {
       this.verticalVelocity -= 28 * dt;
       if (
         this.groundRadius <= floorRadius + 0.05 &&
-        this.isKeyDown("Space")
+        (this.touchJump || this.isKeyDown("Space"))
       )
         this.verticalVelocity = 10;
       this.groundRadius += this.verticalVelocity * dt;
@@ -191,7 +199,7 @@ export class Player {
         .addScaledVector(flyRight, strafeAxis)
         .addScaledVector(
           flyUp,
-          this.isKeyDown("Space") - this.isKeyDown("KeyC"),
+          (this.touchJump ? 1 : 0) + this.isKeyDown("Space") - this.isKeyDown("KeyC"),
         );
       if (scratchMove.lengthSq())
         flyPos.addScaledVector(scratchMove.normalize(), flySpeed * dt);
