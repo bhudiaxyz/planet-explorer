@@ -12,7 +12,7 @@ import { Footprints } from "./footprints";
 import { setupGui } from "./gui";
 import { setRenderer } from "./bake";
 import { U } from "./fx";
-import { sm } from "./util";
+import { smoothstep } from "./util";
 import { S } from "./settings";
 
 // ---- renderer & scene ------------------------------------------------------------------------------------------------------------------------
@@ -36,14 +36,14 @@ planet.build();
 const player = new Player(camera, planet, renderer.domElement);
 player.spawn();
 const sky = new Sky(scene, planet),
-  dome = new SkyDome(scene),
+  skyDome = new SkyDome(scene),
   scatter = new Scatter(planet),
   collider = new Collider(planet, scatter),
   shadows = new Shadows(renderer, sky.light);
 const aurora = new Aurora(scene),
-  flies = new Fireflies(scene),
+  fireflies = new Fireflies(scene),
   footprints = new Footprints(player, planet),
-  post = new PostFX(renderer, scene, camera);
+  postFX = new PostFX(renderer, scene, camera);
 scene.add(scatter.group, sky.light.target);
 player.col = collider;
 
@@ -64,9 +64,9 @@ renderer.domElement.addEventListener("webglcontextlost", (e) =>
 renderer.domElement.addEventListener("webglcontextrestored", () =>
   rebuild(false),
 );
-setupGui({ planet, player, post, rebuild });
+setupGui({ planet, player, post: postFX, rebuild });
 addEventListener("resize", () => {
-  post.resize();
+  postFX.resize();
   camera.aspect = innerWidth / innerHeight;
   camera.updateProjectionMatrix();
 });
@@ -78,18 +78,18 @@ document.addEventListener(
 );
 
 // temperature under the player, recomputed only when they moved ≥ ~0.15 m
-const tPos = new THREE.Vector3(1e9, 0, 0);
-let tVal = 0.5;
+const lastTempDir = new THREE.Vector3(1e9, 0, 0);
+let lastTempValue = 0.5;
 const tempAt = () => {
-  if (player.up.distanceToSquared(tPos) > 4e-8) {
-    tPos.copy(player.up);
-    tVal = planet.temp(player.up, planet.elev(player.up));
+  if (player.up.distanceToSquared(lastTempDir) > 4e-8) {
+    lastTempDir.copy(player.up);
+    lastTempValue = planet.temp(player.up, planet.elev(player.up));
   }
-  return tVal;
+  return lastTempValue;
 };
 const hudText = () => {
-  const h = ((S.timeOfDay + 0.25) % 1) * 24,
-    lm = planet.lm.list.reduce(
+  const hourOfDay = ((S.timeOfDay + 0.25) % 1) * 24,
+    nearestLandmark = planet.lm.list.reduce(
       (a, l) => {
         const d = l.pos.distanceTo(camera.position);
         return d < a.d ? { d, n: l.name } : a;
@@ -97,28 +97,31 @@ const hudText = () => {
       { d: 1e9, n: "" },
     );
   const weather =
-    sky.snow && sky.pAmt > 0.3
+    sky.snow && sky.precipitationAmount > 0.3
       ? "snow"
       : sky.kind === "precip"
         ? "rain"
         : sky.kind;
-  return `${player.mode.toUpperCase()} · alt ${Math.round(player.alt)} m · ${String(Math.floor(h)).padStart(2, "0")}:${String(Math.floor((h % 1) * 60)).padStart(2, "0")}${lm.n ? " · " + lm.n + " " + Math.round(lm.d) + " m" : ""} · ${weather}`;
+  return `${player.mode.toUpperCase()} · alt ${Math.round(player.alt)} m · ${String(Math.floor(hourOfDay)).padStart(2, "0")}:${String(Math.floor((hourOfDay % 1) * 60)).padStart(2, "0")}${nearestLandmark.n ? " · " + nearestLandmark.n + " " + Math.round(nearestLandmark.d) + " m" : ""} · ${weather}`;
 };
 
 planet.update(player.up, player.alt);
 renderer.compile(scene, camera); // precompile every shader (incl. shadow variants and the first chunk) so nothing compiles mid-game
 
 // ---- frame loop ----------------------------------------------------------------------------------------------------------------------------------
-let last = performance.now(),
+let lastFrameTime = performance.now(),
   hudTimer = 0;
 renderer.setAnimationLoop(() => {
   const now = performance.now(),
-    dt = Math.min(0.1, (now - last) / 1000);
-  last = now;
+    dt = Math.min(0.1, (now - lastFrameTime) / 1000);
+  lastFrameTime = now;
   // movement runs in ≤33 ms sub-steps so walking speed and collision stay correct even at low frame rates
   const steps = Math.ceil(dt / 0.033);
   for (let i = 0; i < steps; i++) player.update(dt / steps);
-  if (!Number.isFinite(player.alt) || !Number.isFinite(camera.position.x)) {
+  if (
+    !Number.isFinite(player.alt) ||
+    !Number.isFinite(camera.position.x)
+  ) {
     player.spawn();
     player.update(0);
   } // NaN safety net
@@ -140,7 +143,7 @@ renderer.setAnimationLoop(() => {
   U.uCov.value = Math.min(1, S.cloudiness * 0.75 + sky.cloud * 0.55);
   U.uCT.value += dt * (0.6 + S.wind * 0.5);
   planet.clouds.update(camera.position, sky);
-  dome.update(camera.position, player.up, sky);
+  skyDome.update(camera.position, player.up, sky);
   planet.atmo.visible = planet.atmo.uniforms.fade.value > 0.01;
 
   planet.update(player.up, player.alt);
@@ -152,19 +155,19 @@ renderer.setAnimationLoop(() => {
   aurora.update(
     camera.position,
     player.up,
-    night * sm(0.35, 0.75, Math.abs(player.up.y)),
+    night * smoothstep(0.35, 0.75, Math.abs(player.up.y)),
     U.uTime.value,
   );
-  flies.update(
+  fireflies.update(
     dt,
     U.uTime.value,
     camera.position,
-    night * (1 - sm(20, 40, player.alt)) * (1 - sky.pAmt),
+    night * (1 - smoothstep(20, 40, player.alt)) * (1 - sky.precipitationAmount),
   );
   shadows.update(dt, player.alt, sky.dayF, sky.sun, camera.position);
   if ((hudTimer += dt) > 0.25) {
     hudTimer = 0;
     hud.textContent = hudText();
   }
-  post.render(dt);
+  postFX.render(dt);
 });

@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { rng } from "./noise";
-import { V, UP, C, N0, add, T, cyl, blob, done } from "./geoutil";
+import { UP, C, N0, add, T, cyl, blob, done } from "./geoutil";
 
 export function grassGeo(blades: number, segs: number, wScale = 1) {
   const pos: number[] = [],
@@ -52,7 +52,7 @@ export function shrubGeo() {
   for (let i = 0; i < 3; i++)
     blob(
       p,
-      new V((r() - 0.5) * 0.7, 0.35, (r() - 0.5) * 0.7),
+      new THREE.Vector3((r() - 0.5) * 0.7, 0.35, (r() - 0.5) * 0.7),
       0.5 + r() * 0.2,
       N0,
       0.8,
@@ -62,7 +62,7 @@ export function shrubGeo() {
 }
 export function shrubLow() {
   const p: THREE.BufferGeometry[] = [];
-  blob(p, new V(0, 0.4, 0), 0.75, N0, 0.7, 0);
+  blob(p, new THREE.Vector3(0, 0.4, 0), 0.75, N0, 0.7, 0);
   return done(p);
 }
 export function rockGeo() {
@@ -91,8 +91,8 @@ export function rockLow() {
 }
 export function flowerGeo() {
   const p: THREE.BufferGeometry[] = [];
-  cyl(p, new V(0, 0, 0), new V(0, 0.35, 0), 0.015, 0.012, C(0x3f7a30), 4);
-  blob(p, new V(0, 0.38, 0), 0.09, new THREE.Color(1, 1, 1), 0.6, 0);
+  cyl(p, new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0.35, 0), 0.015, 0.012, C(0x3f7a30), 4);
+  blob(p, new THREE.Vector3(0, 0.38, 0), 0.09, new THREE.Color(1, 1, 1), 0.6, 0);
   return done(p);
 }
 export function alpineGeo() {
@@ -101,7 +101,7 @@ export function alpineGeo() {
   for (let i = 0; i < 3; i++)
     blob(
       p,
-      new V((r() - 0.5) * 0.7, 0.22, (r() - 0.5) * 0.7),
+      new THREE.Vector3((r() - 0.5) * 0.7, 0.22, (r() - 0.5) * 0.7),
       0.28 + r() * 0.14,
       N0,
       0.7,
@@ -111,7 +111,7 @@ export function alpineGeo() {
 }
 export function alpineLow() {
   const p: THREE.BufferGeometry[] = [];
-  blob(p, new V(0, 0.25, 0), 0.5, N0, 0.6, 0);
+  blob(p, new THREE.Vector3(0, 0.25, 0), 0.5, N0, 0.6, 0);
   return done(p);
 }
 export function fernGeo(n = 6) {
@@ -120,7 +120,7 @@ export function fernGeo(n = 6) {
     r = rng(21);
   for (let i = 0; i < n; i++) {
     const a = (i / n) * 6.283 + r() * 0.4,
-      dir = new V(
+      dir = new THREE.Vector3(
         Math.cos(a) * 0.85,
         0.55 + r() * 0.2,
         Math.sin(a) * 0.85,
@@ -130,9 +130,9 @@ export function fernGeo(n = 6) {
       dir
         .clone()
         .multiplyScalar(len / 2)
-        .add(new V(0, 0.05, 0)),
+        .add(new THREE.Vector3(0, 0.05, 0)),
       new THREE.Quaternion().setFromUnitVectors(UP, dir),
-      new V(1, 1, 0.3),
+      new THREE.Vector3(1, 1, 0.3),
     );
     add(
       p,
@@ -154,8 +154,8 @@ export function mushroomGeo() {
       z = i ? -0.12 : 0,
       h = 0.14 + i * 0.05,
       s = 1 - i * 0.3;
-    cyl(p, new V(x, 0, z), new V(x, h, z), 0.035 * s, 0.03 * s, C(0x9a8f7a), 4);
-    blob(p, new V(x, h + 0.02, z), 0.11 * s, new THREE.Color(1, 1, 1), 0.55, 0);
+    cyl(p, new THREE.Vector3(x, 0, z), new THREE.Vector3(x, h, z), 0.035 * s, 0.03 * s, C(0x9a8f7a), 4);
+    blob(p, new THREE.Vector3(x, h + 0.02, z), 0.11 * s, new THREE.Color(1, 1, 1), 0.55, 0);
   }
   return done(p);
 }
@@ -167,11 +167,11 @@ export function reedGeo(blades = 8) {
       a = r() * 6.283,
       rad = r() * 0.18,
       m = new THREE.Matrix4().compose(
-        new V(Math.cos(a) * rad, h / 2, Math.sin(a) * rad),
+        new THREE.Vector3(Math.cos(a) * rad, h / 2, Math.sin(a) * rad),
         new THREE.Quaternion().setFromEuler(
           new THREE.Euler((r() - 0.5) * 0.25, 0, (r() - 0.5) * 0.25),
         ),
-        new V(1, 1, 1),
+        new THREE.Vector3(1, 1, 1),
       );
     add(
       p,
@@ -184,8 +184,8 @@ export function reedGeo(blades = 8) {
   for (let i = 0; i < (blades > 4 ? 2 : 1); i++)
     cyl(
       p,
-      new V(i * 0.1 - 0.05, 1.3, 0),
-      new V(i * 0.1 - 0.05, 1.55, 0),
+      new THREE.Vector3(i * 0.1 - 0.05, 1.3, 0),
+      new THREE.Vector3(i * 0.1 - 0.05, 1.55, 0),
       0.05,
       0.05,
       C(0x5a3b1e),
@@ -206,9 +206,9 @@ const tiny = (
     p,
     new THREE.OctahedronGeometry(1, 0),
     new THREE.Matrix4().compose(
-      new V(0, y, 0),
+      new THREE.Vector3(0, y, 0),
       new THREE.Quaternion(),
-      new V(sx, sy, sx),
+      new THREE.Vector3(sx, sy, sx),
     ),
     c,
     sy,

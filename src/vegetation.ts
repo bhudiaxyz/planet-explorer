@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import type { Planet } from "./planet";
-import { frame, sm } from "./util";
+import { frame, smoothstep } from "./util";
 import { T, TERRAIN_GLSL } from "./gpu";
 import { makeRT, draw, QUAD_VS, readRT } from "./bake";
 import { U, TINT_GLSL } from "./fx";
@@ -11,7 +11,6 @@ import {
   decideGLSL,
   lookGLSL,
 } from "./plants";
-const V = THREE.Vector3;
 
 // GPU ground cover. Layer = one plant type at one distance tier. Placement is decided in a bake pass (one texel per instance cell) that reruns only when the
 // lattice centre moves; the per-frame vertex shader reads that texel, rebuilds orientation/scale/tint from hashes (catalog `look`), applies wind, lean, player
@@ -50,7 +49,7 @@ vColor.rgb*=tint;
 #endif`;
 
 class Layer {
-  uSC = { value: new V() };
+  uSC = { value: new THREE.Vector3() };
   mesh: THREE.Mesh;
   rt: THREE.WebGLRenderTarget;
   bake: THREE.ShaderMaterial;
@@ -58,13 +57,13 @@ class Layer {
   readonly cell: number;
   readonly K: number;
   readonly near: boolean;
-  fr = frame(new V(0, 1, 0), 1, 1);
-  lf = -1;
-  li = 0;
-  lj = 0; // last baked lattice (face, i, j)
+  scratchFrame = frame(new THREE.Vector3(0, 1, 0), 1, 1);
+  lastFace = -1;
+  lastCellI = 0;
+  lastCellJ = 0; // last baked lattice (face, i, j)
   collide = false;
   pix: Float32Array | null = null;
-  psnap: { i: number; j: number; f: number } | null = null;
+  psnap: { cellI: number; cellJ: number; faceCode: number } | null = null;
   onData?: () => void;
   private seq = 0;
   private acc = 0;
@@ -88,7 +87,7 @@ class Layer {
       new THREE.InstancedBufferAttribute(new Float32Array(cells), 2),
     );
     g.instanceCount = cells.length / 2;
-    const [of, og, ig, if_] = tier.lod,
+    const [outerFull, outerGone, innerGone, innerFull] = tier.lod,
       f = (v: number) => v.toFixed(2);
     const defines = {
       KIND: spec.kind,
@@ -96,10 +95,10 @@ class Layer {
       CELLSZ: f(tier.cell),
       WK: spec.wind.toFixed(3),
       TSN: spec.hardy ? ".02" : ".14",
-      TO_FULL: of.toFixed(1),
-      TO_GONE: og.toFixed(1),
-      TI_GONE: ig.toFixed(1),
-      TI_FULL: if_.toFixed(1),
+      TO_FULL: outerFull.toFixed(1),
+      TO_GONE: outerGone.toFixed(1),
+      TI_GONE: innerGone.toFixed(1),
+      TI_FULL: innerFull.toFixed(1),
       SCW: f(tier.sw),
       SCH: f(tier.sh),
       LEAN: f(spec.lean),
@@ -122,9 +121,9 @@ void main(){vec2 L=floor(gl_FragCoord.xy)-vec2(uK);gl_FragColor=decide(uSC.x+L.x
       roughness: 1,
       side: spec.dbl ? THREE.DoubleSide : THREE.FrontSide,
     });
-    m.defines = defines;
-    m.onBeforeCompile = (s) => {
-      Object.assign(s.uniforms, T, {
+    (m as any).defines = defines;
+    m.onBeforeCompile = (shaderParams) => {
+      Object.assign(shaderParams.uniforms, T, {
         uTime: U.uTime,
         uWind: U.uWind,
         uVeg: U.uVeg,
@@ -135,7 +134,7 @@ void main(){vec2 L=floor(gl_FragCoord.xy)-vec2(uK);gl_FragColor=decide(uSC.x+L.x
         uK,
         uP: { value: this.rt.texture },
       });
-      s.vertexShader = s.vertexShader
+      shaderParams.vertexShader = shaderParams.vertexShader
         .replace(
           "#include <common>",
           `#include <common>\nattribute vec2 aCell;uniform vec3 uSC,uPl;uniform float uK,uTime,uWind,uVeg;uniform sampler2D uP;\n${TERRAIN_GLSL}`,
@@ -146,7 +145,7 @@ void main(){vec2 L=floor(gl_FragCoord.xy)-vec2(uK);gl_FragColor=decide(uSC.x+L.x
           "#include <project_vertex>",
           "#include <project_vertex>\nif(kill)gl_Position=vec4(2.,2.,2.,1.);",
         );
-      s.fragmentShader = s.fragmentShader
+      shaderParams.fragmentShader = shaderParams.fragmentShader
         .replace(
           "#include <common>",
           "#include <common>\nuniform vec3 uSun;uniform float uDayF;",
@@ -161,26 +160,36 @@ void main(){vec2 L=floor(gl_FragCoord.xy)-vec2(uK);gl_FragColor=decide(uSC.x+L.x
     this.mesh.matrixAutoUpdate = false;
   }
   /** Rebakes placement when the lattice centre moved. Returns true if a bake happened (so the caller can budget bakes per frame). */
-  update(d: THREE.Vector3, R: number, allow = true): boolean {
-    const fr = frame(d, R, this.cell, this.fr);
-    if (fr.f === this.lf && fr.i === this.li && fr.j === this.lj) return false;
-    if (!allow) return false;
-    this.lf = fr.f;
-    this.li = fr.i;
-    this.lj = fr.j;
-    const code = fr.f * 2 + (fr.n.getComponent(fr.f) < 0 ? 1 : 0);
-    this.uSC.value.set(fr.i, fr.j, code);
+  update(playerDirection: THREE.Vector3, planetRadius: number, allowBake = true): boolean {
+    const fr = frame(playerDirection, planetRadius, this.cell, this.scratchFrame);
+    if (
+      fr.face === this.lastFace &&
+      fr.cellI === this.lastCellI &&
+      fr.cellJ === this.lastCellJ
+    )
+      return false;
+    if (!allowBake) return false;
+    this.lastFace = fr.face;
+    this.lastCellI = fr.cellI;
+    this.lastCellJ = fr.cellJ;
+    const faceCode =
+      fr.face * 2 + (fr.normal.getComponent(fr.face) < 0 ? 1 : 0);
+    this.uSC.value.set(fr.cellI, fr.cellJ, faceCode);
     draw(this.rt, this.bake);
     if (this.collide) {
       // tiny async read-back so the CPU collider sees exactly the plants the shader draws
-      const sn = { i: fr.i, j: fr.j, f: code },
-        my = ++this.seq,
+      const bakeSnapshot = {
+          cellI: fr.cellI,
+          cellJ: fr.cellJ,
+          faceCode,
+        },
+        sequenceId = ++this.seq,
         n = 2 * this.K + 1;
       readRT(this.rt, n, n, (a) => {
-        if (my < this.acc) return;
-        this.acc = my;
+        if (sequenceId < this.acc) return;
+        this.acc = sequenceId;
         this.pix = a;
-        this.psnap = sn;
+        this.psnap = bakeSnapshot;
         this.onData?.();
       });
     }
@@ -193,7 +202,7 @@ export class Scatter {
   dirty = true;
   version = 0;
   layers: Layer[] = [];
-  private rr = 0;
+  private roundRobinIndex = 0;
   constructor(private pl: Planet) {
     for (const spec of PLANTS)
       for (const tier of spec.tiers) {
@@ -206,19 +215,26 @@ export class Scatter {
         this.group.add(l.mesh);
       }
   }
-  update(d: THREE.Vector3, alt: number) {
-    U.uVeg.value = 1 - sm(150, 250, alt);
+  update(playerDirection: THREE.Vector3, alt: number) {
+    U.uVeg.value = 1 - smoothstep(150, 250, alt);
     this.group.visible = alt < 255;
     if (this.dirty) {
-      this.layers.forEach((l) => (l.lf = -1));
+      this.layers.forEach((l) => (l.lastFace = -1));
       this.dirty = false;
     }
     if (alt >= 255) return;
     let budget = 4;
     const n = this.layers.length,
-      s = this.rr;
-    this.rr = (this.rr + 1) % n; // at most 4 placement bakes per frame, round-robin
+      s = this.roundRobinIndex;
+    this.roundRobinIndex = (this.roundRobinIndex + 1) % n; // at most 4 placement bakes per frame, round-robin
     for (let i = 0; i < n; i++)
-      if (this.layers[(s + i) % n].update(d, this.pl.R, budget > 0)) budget--;
+      if (
+        this.layers[(s + i) % n].update(
+          playerDirection,
+          this.pl.radius,
+          budget > 0,
+        )
+      )
+        budget--;
   }
 }

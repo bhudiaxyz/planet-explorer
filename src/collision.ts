@@ -2,9 +2,8 @@ import * as THREE from "three";
 import type { Planet } from "./planet";
 import type { Scatter } from "./vegetation";
 import { basisFromCode } from "./util";
-const V = THREE.Vector3,
-  Y = new V(0, 1, 0),
-  X = new V(1, 0, 0),
+const Y = new THREE.Vector3(0, 1, 0),
+  X = new THREE.Vector3(1, 0, 0),
   PR = 0.4; // PR = player radius (m)
 // One obstacle = an elliptical footprint (semi-axes rx along ax, rz along ax×d) at unit direction d.
 // mode 0: solid pillar (trees, monoliths, tombstones, spire) · mode 1: solid unless the player's feet are above ~its top (small rocks, shrubs: jump onto/over them)
@@ -24,66 +23,81 @@ export const domeAt = (H: number, rho: number) =>
 export class Collider {
   obs: Obs[] = [];
   dirty = true;
-  private last = new V(1e9, 0, 0);
+  private last = new THREE.Vector3(1e9, 0, 0);
   private seen = -1;
-  private fl: unknown = null;
-  private off = new V();
-  private az = new V();
-  private tn = new V();
-  private tu = new V();
-  private tv = new V();
-  private P = new V();
-  private t1 = new V();
-  private t2 = new V();
+  private forestSpeciesLists: unknown = null;
+  private offset = new THREE.Vector3();
+  private azimuthAxis = new THREE.Vector3();
+  private basisNormal = new THREE.Vector3();
+  private basisTangentU = new THREE.Vector3();
+  private basisTangentV = new THREE.Vector3();
+  private obstaclePos = new THREE.Vector3();
+  private tangent1 = new THREE.Vector3();
+  private tangent2 = new THREE.Vector3();
   constructor(
-    private pl: Planet,
-    private sc: Scatter,
+    private planet: Planet,
+    private scatter: Scatter,
   ) {}
   private refresh(dir: THREE.Vector3) {
-    const R = this.pl.R;
+    const planetRadius = this.planet.radius;
     this.obs.length = 0;
     this.last.copy(dir);
     this.dirty = false;
-    this.seen = this.sc.version;
-    this.fl = this.pl.forest.L;
-    this.pl.forest.collect(dir, 18, this.obs);
-    for (const o of this.pl.lm.obs)
-      if (o.d.distanceTo(dir) * R < 22) this.obs.push(o);
-    for (const l of this.sc.layers)
-      if (l.collide && l.pix && l.psnap) this.fromLayer(l, dir);
+    this.seen = this.scatter.version;
+    this.forestSpeciesLists = this.planet.forest.speciesLists;
+    this.planet.forest.collect(dir, 18, this.obs);
+    for (const o of this.planet.lm.obs)
+      if (o.d.distanceTo(dir) * planetRadius < 22) this.obs.push(o);
+    for (const layer of this.scatter.layers)
+      if (layer.collide && layer.pix && layer.psnap)
+        this.fromLayer(layer, dir);
   }
-  private fromLayer(l: any, dir: THREE.Vector3) {
-    const R = this.pl.R,
-      K = l.K,
-      n = 2 * K + 1,
-      cell = l.cell,
-      pix = l.pix as Float32Array,
-      sn = l.psnap;
-    basisFromCode(sn.f, this.tn, this.tu, this.tv);
-    for (let y = 0; y < n; y++)
-      for (let x = 0; x < n; x++) {
-        const o = (y * n + x) * 4;
-        if (pix[o] < -5000) continue;
-        const h1 = pix[o + 1],
-          h2 = pix[o + 2],
-          h3 = pix[o + 3];
-        this.P.copy(this.tn)
-          .multiplyScalar(R)
-          .addScaledVector(this.tu, (sn.i + x - K + h1 - 0.5) * cell)
-          .addScaledVector(this.tv, (sn.j + y - K + h2 - 0.5) * cell);
-        const d = this.P.clone().normalize();
-        if (d.distanceTo(dir) * R > 18) continue;
-        this.t1.crossVectors(d, Math.abs(d.y) < 0.99 ? Y : X).normalize();
-        this.t2.crossVectors(d, this.t1);
-        if (l.kind === 3) {
+  private fromLayer(layer: any, dir: THREE.Vector3) {
+    const planetRadius = this.planet.radius,
+      K = layer.K,
+      gridWidth = 2 * K + 1,
+      cell = layer.cell,
+      pix = layer.pix as Float32Array,
+      bakeSnapshot = layer.psnap;
+    basisFromCode(
+      bakeSnapshot.faceCode,
+      this.basisNormal,
+      this.basisTangentU,
+      this.basisTangentV,
+    );
+    for (let y = 0; y < gridWidth; y++)
+      for (let x = 0; x < gridWidth; x++) {
+        const pixelOffset = (y * gridWidth + x) * 4;
+        if (pix[pixelOffset] < -5000) continue;
+        const h1 = pix[pixelOffset + 1],
+          h2 = pix[pixelOffset + 2],
+          h3 = pix[pixelOffset + 3];
+        this.obstaclePos
+          .copy(this.basisNormal)
+          .multiplyScalar(planetRadius)
+          .addScaledVector(
+            this.basisTangentU,
+            (bakeSnapshot.cellI + x - K + h1 - 0.5) * cell,
+          )
+          .addScaledVector(
+            this.basisTangentV,
+            (bakeSnapshot.cellJ + y - K + h2 - 0.5) * cell,
+          );
+        const d = this.obstaclePos.clone().normalize();
+        if (d.distanceTo(dir) * planetRadius > 18) continue;
+        this.tangent1
+          .crossVectors(d, Math.abs(d.y) < 0.99 ? Y : X)
+          .normalize();
+        this.tangent2.crossVectors(d, this.tangent1);
+        if (layer.kind === 3) {
           // rocks: scale s = .3+1.6·h1, yaw from h3 (identical to the vertex shader)
           const s = 0.3 + h1 * 1.6;
           if (s < 0.45) continue; // pebbles are stepped over
           const a = h3 * 6.283,
-            ax = this.t1
+            ax = this.tangent1
               .clone()
               .multiplyScalar(Math.cos(a))
-              .addScaledVector(this.t2, Math.sin(a));
+              .addScaledVector(this.tangent2, Math.sin(a));
           this.obs.push({
             d,
             ax,
@@ -97,7 +111,7 @@ export class Collider {
           const s = 0.8 + h2 * 1.1;
           this.obs.push({
             d,
-            ax: this.t1.clone(),
+            ax: this.tangent1.clone(),
             rx: 0.8 * s,
             rz: 0.8 * s,
             H: 0.9 * s,
@@ -110,18 +124,18 @@ export class Collider {
   resolve(dir: THREE.Vector3, feet: number, rad: number): number {
     if (
       this.dirty ||
-      this.seen !== this.sc.version ||
-      this.fl !== this.pl.forest.L ||
+      this.seen !== this.scatter.version ||
+      this.forestSpeciesLists !== this.planet.forest.speciesLists ||
       dir.distanceTo(this.last) * rad > 4
     )
       this.refresh(dir);
     let boost = 0;
-    for (let it = 0; it < 2; it++)
+    for (let iteration = 0; iteration < 2; iteration++)
       for (const o of this.obs) {
-        this.off.copy(dir).sub(o.d).multiplyScalar(rad);
-        this.az.crossVectors(o.ax, o.d);
-        const lx = this.off.dot(o.ax),
-          lz = this.off.dot(this.az),
+        this.offset.copy(dir).sub(o.d).multiplyScalar(rad);
+        this.azimuthAxis.crossVectors(o.ax, o.d);
+        const lx = this.offset.dot(o.ax),
+          lz = this.offset.dot(this.azimuthAxis),
           rho = Math.hypot(lx / o.rx, lz / o.rz);
         if (o.mode === 2) {
           if (rho < 1) boost = Math.max(boost, domeAt(o.H, rho));
@@ -131,13 +145,13 @@ export class Collider {
           if (rho < 1) boost = Math.max(boost, domeAt(o.H, rho));
           continue;
         }
-        const re = Math.hypot(lx / (o.rx + PR), lz / (o.rz + PR));
-        if (re < 1) {
-          const f = 1 / Math.max(re, 1e-3);
+        const radialExtent = Math.hypot(lx / (o.rx + PR), lz / (o.rz + PR));
+        if (radialExtent < 1) {
+          const pushFactor = 1 / Math.max(radialExtent, 1e-3);
           dir
             .copy(o.d)
-            .addScaledVector(o.ax, (lx * f) / rad)
-            .addScaledVector(this.az, (lz * f) / rad)
+            .addScaledVector(o.ax, (lx * pushFactor) / rad)
+            .addScaledVector(this.azimuthAxis, (lz * pushFactor) / rad)
             .normalize();
         }
       }

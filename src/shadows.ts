@@ -1,8 +1,7 @@
 import * as THREE from "three";
 import { CFG } from "./config";
-const V = THREE.Vector3,
-  X = new V(1, 0, 0),
-  Y = new V(0, 1, 0);
+const X = new THREE.Vector3(1, 0, 0),
+  Y = new THREE.Vector3(0, 1, 0);
 
 /**
  * Sun shadow rig. One ortho shadow frustum follows the camera, snapped to shadow-texel steps (no crawling) and refreshed at CFG.shadow.hz instead of every frame.
@@ -12,9 +11,9 @@ export class Shadows {
   private on = false;
   private timer = 0;
   private strength = 0;
-  private tgt = new V();
-  private right = new V();
-  private up = new V();
+  private tgt = new THREE.Vector3();
+  private right = new THREE.Vector3();
+  private up = new THREE.Vector3();
   constructor(
     private renderer: THREE.WebGLRenderer,
     private light: THREE.DirectionalLight,

@@ -1,21 +1,27 @@
 import * as THREE from "three";
-const V = THREE.Vector3;
-export const sm = (a: number, b: number, x: number) => {
-  const t = Math.min(1, Math.max(0, (x - a) / (b - a)));
+export const smoothstep = (edge0: number, edge1: number, value: number) => {
+  const t = Math.min(1, Math.max(0, (value - edge0) / (edge1 - edge0)));
   return t * t * (3 - 2 * t);
 };
-const mk = () => ({ f: 0, n: new V(), u: new V(), v: new V(), i: 0, j: 0 });
-export type Frame = ReturnType<typeof mk>;
-// Fixed cube-face lattice anchored to the planet (chunks, ground cover and the coarse mesh share it). Pass a scratch `o` to avoid allocations in per-frame code.
+const makeFrame = () => ({
+  face: 0,
+  normal: new THREE.Vector3(),
+  tangentU: new THREE.Vector3(),
+  tangentV: new THREE.Vector3(),
+  cellI: 0,
+  cellJ: 0,
+});
+export type Frame = ReturnType<typeof makeFrame>;
+// Fixed cube-face lattice anchored to the planet (chunks, ground cover and the coarse mesh share it). Pass a scratch frame to avoid allocations in per-frame code.
 export function frame(
-  d: THREE.Vector3,
-  R: number,
-  cell: number,
-  o: Frame = mk(),
+  direction: THREE.Vector3,
+  radius: number,
+  cellSize: number,
+  scratch: Frame = makeFrame(),
 ): Frame {
-  const ax = Math.abs(d.x),
-    ay = Math.abs(d.y),
-    az = Math.abs(d.z);
+  const ax = Math.abs(direction.x),
+    ay = Math.abs(direction.y),
+    az = Math.abs(direction.z);
   let f = 0,
     m = ax;
   if (ay > m) {
@@ -23,28 +29,35 @@ export function frame(
     m = ay;
   }
   if (az > m) f = 2;
-  o.f = f;
-  o.n
+  scratch.face = f;
+  scratch.normal
     .set(0, 0, 0)
-    .setComponent(f, Math.sign(f === 0 ? d.x : f === 1 ? d.y : d.z));
-  if (f === 1) o.u.set(1, 0, 0);
-  else o.u.set(0, 1, 0);
-  o.v.crossVectors(o.n, o.u);
-  const dn = d.dot(o.n);
-  o.i = Math.round(((d.dot(o.u) / dn) * R) / cell);
-  o.j = Math.round(((d.dot(o.v) / dn) * R) / cell);
-  return o;
+    .setComponent(
+      f,
+      Math.sign(f === 0 ? direction.x : f === 1 ? direction.y : direction.z),
+    );
+  if (f === 1) scratch.tangentU.set(1, 0, 0);
+  else scratch.tangentU.set(0, 1, 0);
+  scratch.tangentV.crossVectors(scratch.normal, scratch.tangentU);
+  const dn = direction.dot(scratch.normal);
+  scratch.cellI = Math.round(
+    ((direction.dot(scratch.tangentU) / dn) * radius) / cellSize,
+  );
+  scratch.cellJ = Math.round(
+    ((direction.dot(scratch.tangentV) / dn) * radius) / cellSize,
+  );
+  return scratch;
 }
 
 export function basisFromCode(
   code: number,
-  n: THREE.Vector3,
-  u: THREE.Vector3,
-  v: THREE.Vector3,
+  normal: THREE.Vector3,
+  tangentU: THREE.Vector3,
+  tangentV: THREE.Vector3,
 ) {
   const f = (code / 2) | 0;
-  n.set(0, 0, 0).setComponent(f, code % 2 === 0 ? 1 : -1);
-  if (f === 1) u.set(1, 0, 0);
-  else u.set(0, 1, 0);
-  v.crossVectors(n, u);
+  normal.set(0, 0, 0).setComponent(f, code % 2 === 0 ? 1 : -1);
+  if (f === 1) tangentU.set(1, 0, 0);
+  else tangentU.set(0, 1, 0);
+  tangentV.crossVectors(normal, tangentU);
 }

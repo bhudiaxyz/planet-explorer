@@ -2,8 +2,7 @@ import * as THREE from "three";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 // Shared procedural-geometry helpers: every plant/tree part is baked into one merged, vertex-coloured, non-indexed geometry.
 // Foliage parts carry aLeaf = 1 and a neutral height-AO shade (hue is supplied per tree / per plant); other parts keep their own colour.
-export const V = THREE.Vector3,
-  UP = new V(0, 1, 0),
+export const UP = new THREE.Vector3(0, 1, 0),
   C = (h: number) => new THREE.Color(h);
 export const N0 = C(0);
 const hh = (x: number, y: number, z: number) => {
@@ -25,9 +24,9 @@ export function add(
   g.deleteAttribute("uv");
   const p = g.attributes.position,
     n = g.attributes.normal,
-    ctr = new V().setFromMatrixPosition(m),
+    ctr = new THREE.Vector3().setFromMatrixPosition(m),
     col = new Float32Array(p.count * 3),
-    t = new V(),
+    t = new THREE.Vector3(),
     cc = new THREE.Color();
   if (soft)
     for (let i = 0; i < p.count; i++) {
@@ -69,7 +68,7 @@ export function cyl(
   const m = new THREE.Matrix4().compose(
     a.clone().add(b).multiplyScalar(0.5),
     new THREE.Quaternion().setFromUnitVectors(UP, b.clone().sub(a).normalize()),
-    new V(1, 1, 1),
+    new THREE.Vector3(1, 1, 1),
   );
   add(p, new THREE.CylinderGeometry(r1, r0, a.distanceTo(b), seg, 1), m, c);
 }
@@ -88,7 +87,7 @@ export const blob = (
     new THREE.Matrix4().compose(
       c0,
       new THREE.Quaternion(),
-      new V(r, r * sy, r),
+      new THREE.Vector3(r, r * sy, r),
     ),
     c,
     r * sy,
@@ -110,7 +109,7 @@ export function frond(
         UP,
         b.clone().sub(a).normalize(),
       ),
-      new V(1, 1, 0.28),
+      new THREE.Vector3(1, 1, 0.28),
     );
   add(p, new THREE.ConeGeometry(w, len, 4), m, c, len / 2, false, true);
 }

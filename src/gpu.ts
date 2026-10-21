@@ -2,18 +2,19 @@ import * as THREE from "three";
 import type { Noise3 } from "./noise";
 // Shared terrain-function uniforms. The permutation tables of the CPU noise are uploaded as a 512×2 float texture,
 // so the GLSL height field is the same function the CPU samples for physics, trees and placement.
-const tex = new THREE.DataTexture(
+const permutationTexture = new THREE.DataTexture(
   new Float32Array(1024),
   512,
   2,
   THREE.RedFormat,
   THREE.FloatType,
 );
-tex.minFilter = tex.magFilter = THREE.NearestFilter;
-tex.needsUpdate = true;
-const C = () => ({ value: new THREE.Color() });
+permutationTexture.minFilter = permutationTexture.magFilter =
+  THREE.NearestFilter;
+permutationTexture.needsUpdate = true;
+const colorUniform = () => ({ value: new THREE.Color() });
 export const T = {
-  uPerm: { value: tex },
+  uPerm: { value: permutationTexture },
   uFreq: { value: 1.6 },
   uOct: { value: 6 },
   uLac: { value: 2 },
@@ -23,31 +24,31 @@ export const T = {
   uAmp: { value: 70 },
   uSnow: { value: 0.3 },
   uR: { value: 700 },
-  uCs: C(),
-  uCg: C(),
-  uCf: C(),
-  uCr: C(),
-  uCw: C(),
+  uCs: colorUniform(),
+  uCg: colorUniform(),
+  uCf: colorUniform(),
+  uCr: colorUniform(),
+  uCw: colorUniform(),
 };
-export function syncTerrain(S: any, n: Noise3, n2: Noise3) {
-  const a = tex.image.data as Float32Array;
-  a.set(n.p, 0);
-  a.set(n2.p, 512);
-  tex.needsUpdate = true;
-  T.uFreq.value = S.frequency;
-  T.uOct.value = S.octaves;
-  T.uLac.value = S.lacunarity;
-  T.uPer.value = S.persistence;
-  T.uMtn.value = S.mountains;
-  T.uSea.value = S.seaLevel;
-  T.uAmp.value = S.amplitude;
-  T.uSnow.value = S.snowline;
-  T.uR.value = S.radius;
-  T.uCs.value.set(S.colors.sand);
-  T.uCg.value.set(S.colors.grass);
-  T.uCf.value.set(S.colors.forest);
-  T.uCr.value.set(S.colors.rock);
-  T.uCw.value.set(S.colors.snow);
+export function syncTerrain(settings: any, noise1: Noise3, noise2: Noise3) {
+  const permData = permutationTexture.image.data as Float32Array;
+  permData.set(noise1.permutation, 0);
+  permData.set(noise2.permutation, 512);
+  permutationTexture.needsUpdate = true;
+  T.uFreq.value = settings.frequency;
+  T.uOct.value = settings.octaves;
+  T.uLac.value = settings.lacunarity;
+  T.uPer.value = settings.persistence;
+  T.uMtn.value = settings.mountains;
+  T.uSea.value = settings.seaLevel;
+  T.uAmp.value = settings.amplitude;
+  T.uSnow.value = settings.snowline;
+  T.uR.value = settings.radius;
+  T.uCs.value.set(settings.colors.sand);
+  T.uCg.value.set(settings.colors.grass);
+  T.uCf.value.set(settings.colors.forest);
+  T.uCr.value.set(settings.colors.rock);
+  T.uCw.value.set(settings.colors.snow);
 }
 export const TERRAIN_GLSL = `uniform sampler2D uPerm;uniform float uFreq,uOct,uLac,uPer,uMtn,uSea,uAmp,uSnow,uR;uniform vec3 uCs,uCg,uCf,uCr,uCw;
 int pi_(int i,int r){return int(texelFetch(uPerm,ivec2(i,r),0).r+.5);}

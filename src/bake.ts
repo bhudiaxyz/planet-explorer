@@ -4,16 +4,17 @@ import { S } from "./settings";
 import { CFG } from "./config";
 const CELL = CFG.chunk.cell.toFixed(2);
 // GPU "compute" via render-to-texture: the terrain function is evaluated on the GPU once (rebuild / chunk load / lattice move), never per frame.
-let R: THREE.WebGLRenderer | null = null;
+let renderer: THREE.WebGLRenderer | null = null;
 export const setRenderer = (r: THREE.WebGLRenderer) => {
-  R = r;
+  renderer = r;
 };
-export const canBake = () => !!R && R.extensions.has("EXT_color_buffer_float");
+export const canBake = () =>
+  !!renderer && renderer.extensions.has("EXT_color_buffer_float");
 const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2));
 quad.frustumCulled = false;
-const qs = new THREE.Scene();
-qs.add(quad);
-const qc = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+const quadScene = new THREE.Scene();
+quadScene.add(quad);
+const quadCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
 export const makeRT = (w: number, h: number) =>
   new THREE.WebGLRenderTarget(w, h, {
     type: canBake() ? THREE.FloatType : THREE.HalfFloatType,
@@ -22,15 +23,18 @@ export const makeRT = (w: number, h: number) =>
     depthBuffer: false,
     generateMipmaps: false,
   });
-function pass(rt: THREE.WebGLRenderTarget, scene: THREE.Scene) {
-  const prev = R!.getRenderTarget();
-  R!.setRenderTarget(rt);
-  R!.render(scene, qc);
-  R!.setRenderTarget(prev);
+function renderToTarget(
+  rt: THREE.WebGLRenderTarget,
+  scene: THREE.Scene,
+) {
+  const prev = renderer!.getRenderTarget();
+  renderer!.setRenderTarget(rt);
+  renderer!.render(scene, quadCamera);
+  renderer!.setRenderTarget(prev);
 }
 export function draw(rt: THREE.WebGLRenderTarget, mat: THREE.Material) {
   quad.material = mat;
-  pass(rt, qs);
+  renderToTarget(rt, quadScene);
 }
 export const QUAD_VS = "void main(){gl_Position=vec4(position.xy,0.,1.);}";
 const uCh = { value: new THREE.Vector3() };
@@ -45,15 +49,15 @@ gl_FragColor=vec4(biome(d0,e,pn(d0*uFreq*2.2+vec3(30.,0.,0.),1),n)*ao,1.);
 gl_FragColor=vec4(e,n);
 #endif
 }`;
-const mkCh = (col: boolean) =>
+const makeChunkMat = (isColor: boolean) =>
   new THREE.ShaderMaterial({
-    defines: col ? { COL: "" } : {},
+    defines: isColor ? { COL: "" } : {},
     uniforms: { ...T, uCh },
     vertexShader: QUAD_VS,
     fragmentShader: CHFS,
   });
-const chH = mkCh(false),
-  chC = mkCh(true);
+const chunkNormalMat = makeChunkMat(false),
+  chunkColorMat = makeChunkMat(true);
 // per chunk: rt = (elevation, normal.xyz), rtC = biome colour. Both are sampled by the chunk vertex shader; nothing is evaluated per frame.
 export function bakeChunk(
   rt: THREE.WebGLRenderTarget,
@@ -63,8 +67,8 @@ export function bakeChunk(
   face: number,
 ) {
   uCh.value.set(i0, j0, face);
-  draw(rt, chH);
-  draw(rtC, chC);
+  draw(rt, chunkNormalMat);
+  draw(rtC, chunkColorMat);
 }
 const PV = `varying vec4 vO;uniform float uW,uH,uRes,uStep;${TERRAIN_GLSL}${BIOME_GLSL}
 #if MODE==4
@@ -98,68 +102,76 @@ export function bakePoints(
   mode: number,
   extra?: { nrm: Float32Array; em: Float32Array },
 ) {
-  const n = dirs.length / 3,
-    W = 2048,
-    H = Math.max(1, Math.ceil(n / W)),
-    rt = makeRT(W, H);
-  const mat = new THREE.ShaderMaterial({
+  const pointCount = dirs.length / 3,
+    texWidth = 2048,
+    texHeight = Math.max(1, Math.ceil(pointCount / texWidth)),
+    rt = makeRT(texWidth, texHeight);
+  const bakeMat = new THREE.ShaderMaterial({
     defines: { MODE: mode },
     depthTest: false,
     depthWrite: false,
     uniforms: {
       ...T,
-      uW: { value: W },
-      uH: { value: H },
+      uW: { value: texWidth },
+      uH: { value: texHeight },
       uRes: { value: S.resolution },
       uStep: { value: 1.57 / S.resolution },
     },
     vertexShader: PV,
     fragmentShader: "varying vec4 vO;void main(){gl_FragColor=vO;}",
   });
-  const g = new THREE.BufferGeometry().setAttribute(
+  const pointsGeo = new THREE.BufferGeometry().setAttribute(
     "position",
     new THREE.BufferAttribute(dirs, 3),
   );
   if (extra) {
-    g.setAttribute("nrm", new THREE.BufferAttribute(extra.nrm, 3));
-    g.setAttribute("em", new THREE.BufferAttribute(extra.em, 2));
+    pointsGeo.setAttribute("nrm", new THREE.BufferAttribute(extra.nrm, 3));
+    pointsGeo.setAttribute("em", new THREE.BufferAttribute(extra.em, 2));
   }
-  const p = new THREE.Points(g, mat),
-    sc = new THREE.Scene();
-  p.frustumCulled = false;
-  sc.add(p);
-  pass(rt, sc);
-  const out = new Float32Array(W * H * 4);
-  R!.readRenderTargetPixels(rt, 0, 0, W, H, out);
+  const pointsMesh = new THREE.Points(pointsGeo, bakeMat),
+    bakeScene = new THREE.Scene();
+  pointsMesh.frustumCulled = false;
+  bakeScene.add(pointsMesh);
+  renderToTarget(rt, bakeScene);
+  const results = new Float32Array(texWidth * texHeight * 4);
+  renderer!.readRenderTargetPixels(rt, 0, 0, texWidth, texHeight, results);
   rt.dispose();
-  mat.dispose();
-  g.dispose();
-  return out;
+  bakeMat.dispose();
+  pointsGeo.dispose();
+  return results;
 }
 
 // small texture read-back for CPU collision (async when the renderer supports it, so there is no pipeline stall)
 export function readRT(
-  rt: THREE.WebGLRenderTarget,
-  w: number,
-  h: number,
-  cb: (a: Float32Array) => void,
+  renderTarget: THREE.WebGLRenderTarget,
+  width: number,
+  height: number,
+  callback: (a: Float32Array) => void,
 ) {
-  const buf = new Float32Array(w * h * 4),
-    r: any = R;
-  if (typeof r.readRenderTargetPixelsAsync === "function")
-    r.readRenderTargetPixelsAsync(rt, 0, 0, w, h, buf)
-      .then(() => cb(buf))
+  const pixelBuffer = new Float32Array(width * height * 4),
+    rendererAny: any = renderer;
+  if (typeof rendererAny.readRenderTargetPixelsAsync === "function")
+    rendererAny
+      .readRenderTargetPixelsAsync(renderTarget, 0, 0, width, height, pixelBuffer)
+      .then(() => callback(pixelBuffer))
       .catch(() => {});
   else {
-    R!.readRenderTargetPixels(rt, 0, 0, w, h, buf);
-    cb(buf);
+    renderer!.readRenderTargetPixels(
+      renderTarget,
+      0,
+      0,
+      width,
+      height,
+      pixelBuffer,
+    );
+    callback(pixelBuffer);
   }
 }
 
 // ---- Planet cube maps. The coarse planet mesh used to carry per-vertex colours/normals, which showed as a triangle grid, cube-face seams, a mismatch with the
 // detailed chunks, and shimmering at altitude. Now normal+AO and biome colour are baked per pixel (512² per face, fine terrain function) into mip-mapped cube maps
 // and sampled by direction: seamless, trilinear-filtered, identical in character to the chunks. Baked one face per frame (no hitch), then cross-faded in.
-const atU = { value: new THREE.Vector2(0, 512) };
+const atlasUniform = { value: new THREE.Vector2(0, 512) };
 const ATFS = `uniform vec2 uAt;uniform samplerCube uSrcN;${TERRAIN_GLSL}${BIOME_GLSL}
 vec3 faceDir(float f,vec2 s){if(f<.5)return vec3(1.,-s.y,-s.x);if(f<1.5)return vec3(-1.,-s.y,s.x);if(f<2.5)return vec3(s.x,1.,s.y);if(f<3.5)return vec3(s.x,-1.,-s.y);if(f<4.5)return vec3(s.x,-s.y,1.);return vec3(-s.x,-s.y,-1.);}
 void main(){vec2 st=gl_FragCoord.xy/uAt.y*2.-1.;float da=2./uAt.y;vec3 d0=normalize(faceDir(uAt.x,st));
@@ -172,10 +184,10 @@ vec3 p0=d0*(uR+e*uAmp),p1=d1*(uR+ea*uAmp),p2=d2*(uR+eb*uAmp),n=normalize(cross(p
 float em=(ea+eb+ec+ed)*.25,ao=1.-clamp((em-e)*uAmp*.6,0.,.35)+clamp((e-em)*uAmp*.2,0.,.1);gl_FragColor=vec4(n,ao);
 #endif
 }`;
-const mkAt = (col: boolean) =>
+const makeAtlasMat = (isColor: boolean) =>
   new THREE.ShaderMaterial({
-    defines: col ? { COL: "" } : {},
-    uniforms: { ...T, uAt: atU, uSrcN: { value: null as any } },
+    defines: isColor ? { COL: "" } : {},
+    uniforms: { ...T, uAt: atlasUniform, uSrcN: { value: null as any } },
     vertexShader: QUAD_VS,
     fragmentShader: ATFS,
   });
@@ -183,8 +195,8 @@ export class Atlas {
   rtN: THREE.WebGLCubeRenderTarget;
   rtC: THREE.WebGLCubeRenderTarget;
   face = 6;
-  private mN = mkAt(false);
-  private mC = mkAt(true);
+  private normalAtlasMat = makeAtlasMat(false);
+  private colorAtlasMat = makeAtlasMat(true);
   constructor() {
     const o = {
       type: THREE.HalfFloatType,
@@ -195,7 +207,7 @@ export class Atlas {
     };
     this.rtN = new THREE.WebGLCubeRenderTarget(512, o);
     this.rtC = new THREE.WebGLCubeRenderTarget(512, o);
-    this.mC.uniforms.uSrcN.value = this.rtN.texture;
+    this.colorAtlasMat.uniforms.uSrcN.value = this.rtN.texture;
   }
   reset() {
     this.face = 0;
@@ -205,17 +217,17 @@ export class Atlas {
   }
   step() {
     if (this.done) return;
-    const f = this.face++;
-    atU.value.x = f;
-    for (const [rt, m] of [
-      [this.rtN, this.mN],
-      [this.rtC, this.mC],
+    const faceIndex = this.face++;
+    atlasUniform.value.x = faceIndex;
+    for (const [rt, mat] of [
+      [this.rtN, this.normalAtlasMat],
+      [this.rtC, this.colorAtlasMat],
     ] as [THREE.WebGLCubeRenderTarget, THREE.ShaderMaterial][]) {
-      quad.material = m;
-      const prev = R!.getRenderTarget();
-      R!.setRenderTarget(rt, f);
-      R!.render(qs, qc);
-      R!.setRenderTarget(prev);
+      quad.material = mat;
+      const prev = renderer!.getRenderTarget();
+      renderer!.setRenderTarget(rt, faceIndex);
+      renderer!.render(quadScene, quadCamera);
+      renderer!.setRenderTarget(prev);
     }
   }
 }

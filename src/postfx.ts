@@ -14,10 +14,10 @@ import { S } from "./settings";
 export class PostFX {
   readonly composer: EffectComposer;
   readonly bloom: UnrealBloomPass;
-  private pr: number;
-  private pending: number;
-  private ema = 0.016;
-  private since = -2; // since: seconds since the last change (negative = start-up grace)
+  private pixelRatio: number;
+  private pendingPixelRatio: number;
+  private smoothedFrameTime = 0.016;
+  private timeSinceLastScaleChange = -2; // negative = start-up grace
   constructor(
     private renderer: THREE.WebGLRenderer,
     scene: THREE.Scene,
@@ -47,34 +47,34 @@ export class PostFX {
     this.composer.addPass(clean);
     this.composer.addPass(this.bloom);
     this.composer.addPass(new OutputPass());
-    this.pr = this.pending = renderer.getPixelRatio();
+    this.pixelRatio = this.pendingPixelRatio = renderer.getPixelRatio();
   }
   /** Ask for a new pixel ratio (applied at the start of the next render). */
-  requestScale(v: number) {
-    this.pending = v;
+  requestScale(scale: number) {
+    this.pendingPixelRatio = scale;
   }
   resize() {
     this.renderer.setSize(innerWidth, innerHeight);
     this.composer.setSize(innerWidth, innerHeight);
   }
   render(dt: number) {
-    if (this.pending !== this.pr) {
-      this.pr = this.pending;
-      this.since = 0;
-      this.bloom.enabled = this.pr > 0.8;
-      this.renderer.setPixelRatio(this.pr);
-      this.composer.setPixelRatio(this.pr);
+    if (this.pendingPixelRatio !== this.pixelRatio) {
+      this.pixelRatio = this.pendingPixelRatio;
+      this.timeSinceLastScaleChange = 0;
+      this.bloom.enabled = this.pixelRatio > 0.8;
+      this.renderer.setPixelRatio(this.pixelRatio);
+      this.composer.setPixelRatio(this.pixelRatio);
       this.composer.setSize(innerWidth, innerHeight);
     }
     this.composer.render();
-    this.ema += (dt - this.ema) * 0.05;
-    this.since += dt; // smoothed frame time drives the adaptive scale
-    if (this.since > 3) {
+    this.smoothedFrameTime += (dt - this.smoothedFrameTime) * 0.05;
+    this.timeSinceLastScaleChange += dt;
+    if (this.timeSinceLastScaleChange > 3) {
       const cap = Math.min(devicePixelRatio, S.renderScale);
-      if (this.ema > 0.03 && this.pr > 0.5)
-        this.pending = Math.max(0.5, this.pr - 0.15);
-      else if (this.ema < 0.0185 && this.pr < cap)
-        this.pending = Math.min(cap, this.pr + 0.1);
+      if (this.smoothedFrameTime > 0.03 && this.pixelRatio > 0.5)
+        this.pendingPixelRatio = Math.max(0.5, this.pixelRatio - 0.15);
+      else if (this.smoothedFrameTime < 0.0185 && this.pixelRatio < cap)
+        this.pendingPixelRatio = Math.min(cap, this.pixelRatio + 0.1);
     }
   }
 }

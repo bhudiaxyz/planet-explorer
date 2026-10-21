@@ -1,7 +1,6 @@
 import * as THREE from "three";
 import { U, NOISE, CLOUD_GLSL } from "./fx";
 import type { Sky } from "./sky";
-const V = THREE.Vector3;
 // Drifting clouds: a planet-anchored shell above the peaks. Density is 3-octave noise advected by wind; self-shadowing comes from a second
 // sample toward the sun; sunset tint from the cloud's own sun elevation; distance haze when inside the atmosphere. One cheap fragment shader.
 export class CloudShell {
@@ -14,7 +13,7 @@ export class CloudShell {
       uCov: U.uCov,
       uSun: U.uSun,
       uN3: U.uN3,
-      uCam: { value: new V() },
+      uCam: { value: new THREE.Vector3() },
       uFog: { value: new THREE.Color() },
       uDay: { value: 1 },
       uSpace: { value: 0 },
@@ -50,7 +49,7 @@ export class SkyDome {
     depthWrite: false,
     depthTest: false,
     uniforms: {
-      uUp: { value: new V(0, 1, 0) },
+      uUp: { value: new THREE.Vector3(0, 1, 0) },
       uSun: U.uSun,
       uBg: { value: new THREE.Color() },
       uDay: { value: 1 },

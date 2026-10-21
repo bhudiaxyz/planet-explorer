@@ -3,32 +3,31 @@ import { Planet } from "./planet";
 import { S } from "./settings";
 import { rng } from "./noise";
 import type { Collider } from "./collision";
-const V = THREE.Vector3,
-  EYE = 2.4,
-  tR = new V(),
-  tS = new V(),
-  tL = new V(),
-  tF = new V(),
-  tU = new V(),
-  tM = new V(),
-  X = new V(1, 0, 0),
-  Y = new V(0, 1, 0);
+const EYE_HEIGHT = 2.4,
+  scratchRight = new THREE.Vector3(),
+  scratchStep = new THREE.Vector3(),
+  scratchLookAt = new THREE.Vector3(),
+  scratchForward = new THREE.Vector3(),
+  scratchUp = new THREE.Vector3(),
+  scratchMove = new THREE.Vector3(),
+  AXIS_X = new THREE.Vector3(1, 0, 0),
+  AXIS_Y = new THREE.Vector3(0, 1, 0);
 export class Player {
   mode: "walk" | "fly" = "walk";
-  dir = new V(0, 1, 0);
-  rad = 0;
-  vy = 0;
-  fwd = new V(1, 0, 0);
+  dir = new THREE.Vector3(0, 1, 0);
+  groundRadius = 0;
+  verticalVelocity = 0;
+  forward = new THREE.Vector3(1, 0, 0);
   pitch = 0;
-  fpos = new V();
-  up = new V(0, 1, 0);
+  flyPosition = new THREE.Vector3();
+  up = new THREE.Vector3(0, 1, 0);
   alt = 0;
   keys = new Set<string>();
   col?: Collider;
   boost = 0;
   constructor(
     private cam: THREE.PerspectiveCamera,
-    private pl: Planet,
+    private planet: Planet,
     dom: HTMLElement,
   ) {
     dom.addEventListener("click", () => dom.requestPointerLock());
@@ -43,128 +42,167 @@ export class Player {
         this.look(e.movementX, e.movementY);
     });
   }
-  private k(c: string) {
-    return this.keys.has(c) ? 1 : 0;
+  private isKeyDown(code: string) {
+    return this.keys.has(code) ? 1 : 0;
   }
   spawn() {
-    const r = rng(S.seed + 3),
-      d = new V();
+    const rand = rng(S.seed + 3),
+      candidateDir = new THREE.Vector3();
     for (let i = 0; i < 2000; i++) {
-      d.set(r() * 2 - 1, r() * 2 - 1, r() * 2 - 1);
-      if (d.lengthSq() > 1 || d.lengthSq() < 0.01) continue;
-      d.normalize();
-      const e = this.pl.elev(d);
-      if (e > 0.04 && e < 0.25 && this.pl.temp(d, e) > 0.45) break;
+      candidateDir.set(rand() * 2 - 1, rand() * 2 - 1, rand() * 2 - 1);
+      if (
+        candidateDir.lengthSq() > 1 ||
+        candidateDir.lengthSq() < 0.01
+      )
+        continue;
+      candidateDir.normalize();
+      const e = this.planet.elev(candidateDir);
+      if (e > 0.04 && e < 0.25 && this.planet.temp(candidateDir, e) > 0.45)
+        break;
     }
     this.mode = "walk";
     this.boost = 0;
-    this.dir.copy(d);
-    this.rad = this.pl.radiusAt(d);
-    this.vy = 0;
+    this.dir.copy(candidateDir);
+    this.groundRadius = this.planet.radiusAt(candidateDir);
+    this.verticalVelocity = 0;
     this.pitch = 0;
-    this.fwd.crossVectors(d, Y);
+    this.forward.crossVectors(candidateDir, AXIS_Y);
   }
   refresh() {
     if (this.mode === "walk")
-      this.rad = Math.max(this.rad, this.pl.radiusAt(this.dir));
+      this.groundRadius = Math.max(
+        this.groundRadius,
+        this.planet.radiusAt(this.dir),
+      );
   }
   toggle() {
     if (this.mode === "walk") {
-      this.fpos.copy(this.cam.position);
+      this.flyPosition.copy(this.cam.position);
       this.mode = "fly";
       return;
     }
     this.dir.copy(this.cam.position).normalize();
-    this.fwd.copy(this.cam.getWorldDirection(tF));
+    this.forward.copy(this.cam.getWorldDirection(scratchForward));
     this.pitch = 0;
-    this.vy = 0;
-    this.rad = Math.min(
-      this.cam.position.length() - EYE,
-      this.pl.radiusAt(this.dir) + 25,
+    this.verticalVelocity = 0;
+    this.groundRadius = Math.min(
+      this.cam.position.length() - EYE_HEIGHT,
+      this.planet.radiusAt(this.dir) + 25,
     );
     this.mode = "walk";
   }
   private look(dx: number, dy: number) {
-    const s = 0.0022;
+    const mouseSensitivity = 0.0022;
     if (this.mode === "walk") {
-      this.fwd.applyAxisAngle(this.dir, -dx * s);
-      this.pitch = Math.max(-1.5, Math.min(1.5, this.pitch - dy * s));
+      this.forward.applyAxisAngle(this.dir, -dx * mouseSensitivity);
+      this.pitch = Math.max(
+        -1.5,
+        Math.min(1.5, this.pitch - dy * mouseSensitivity),
+      );
     } else {
-      this.cam.rotateY(-dx * s);
-      this.cam.rotateX(-dy * s);
+      this.cam.rotateY(-dx * mouseSensitivity);
+      this.cam.rotateX(-dy * mouseSensitivity);
     }
   }
   // scratch vectors only: no per-frame allocations
   update(dt: number) {
-    const c = this.cam,
-      sprint = this.k("ShiftLeft") || this.k("ShiftRight"),
-      mv = this.k("KeyW") - this.k("KeyS"),
-      st = this.k("KeyD") - this.k("KeyA");
+    const camera = this.cam,
+      sprint =
+        this.isKeyDown("ShiftLeft") || this.isKeyDown("ShiftRight"),
+      moveAxis = this.isKeyDown("KeyW") - this.isKeyDown("KeyS"),
+      strafeAxis = this.isKeyDown("KeyD") - this.isKeyDown("KeyA");
     if (this.mode === "walk") {
       const up = this.up.copy(this.dir),
-        W = this.pl.R;
-      this.fwd.addScaledVector(up, -this.fwd.dot(up));
-      if (this.fwd.lengthSq() < 1e-6) this.fwd.crossVectors(up, X);
-      this.fwd.normalize();
-      const right = tR.crossVectors(this.fwd, up),
-        swim0 = this.pl.radiusAt(this.dir) < W - 0.5;
-      if (mv || st) {
-        tS.set(0, 0, 0)
-          .addScaledVector(this.fwd, mv)
-          .addScaledVector(right, st)
+        planetRadius = this.planet.radius;
+      this.forward.addScaledVector(up, -this.forward.dot(up));
+      if (this.forward.lengthSq() < 1e-6)
+        this.forward.crossVectors(up, AXIS_X);
+      this.forward.normalize();
+      const right = scratchRight.crossVectors(this.forward, up),
+        isUnderwater = this.planet.radiusAt(this.dir) < planetRadius - 0.5;
+      if (moveAxis || strafeAxis) {
+        scratchStep
+          .set(0, 0, 0)
+          .addScaledVector(this.forward, moveAxis)
+          .addScaledVector(right, strafeAxis)
           .normalize()
           .multiplyScalar(
-            ((sprint ? 20 : 9) * (swim0 ? 0.5 : 1) * dt) / this.rad,
+            ((sprint ? 20 : 9) *
+              (isUnderwater ? 0.5 : 1) *
+              dt) /
+              this.groundRadius,
           );
-        this.dir.add(tS).normalize();
+        this.dir.add(scratchStep).normalize();
       }
-      let g = this.pl.radiusAt(this.dir),
-        bt = 0;
-      if (this.col && g > W - 0.5) {
-        bt = this.col.resolve(this.dir, this.rad - g, this.rad);
-        g = this.pl.radiusAt(this.dir);
+      let groundRadius = this.planet.radiusAt(this.dir),
+        boostTarget = 0;
+      if (this.col && groundRadius > planetRadius - 0.5) {
+        boostTarget = this.col.resolve(
+          this.dir,
+          this.groundRadius - groundRadius,
+          this.groundRadius,
+        );
+        groundRadius = this.planet.radiusAt(this.dir);
       }
       this.boost =
-        bt > this.boost
-          ? this.boost + (bt - this.boost) * Math.min(1, dt * 14)
-          : bt;
+        boostTarget > this.boost
+          ? this.boost + (boostTarget - this.boost) * Math.min(1, dt * 14)
+          : boostTarget;
       up.copy(this.dir);
-      const floor = g < W - 0.5 ? W - 1.2 : g + this.boost;
-      this.vy -= 28 * dt;
-      if (this.rad <= floor + 0.05 && this.k("Space")) this.vy = 10;
-      this.rad += this.vy * dt;
-      if (this.rad <= floor) {
-        this.rad = floor;
-        this.vy = 0;
+      const floorRadius =
+        groundRadius < planetRadius - 0.5
+          ? planetRadius - 1.2
+          : groundRadius + this.boost;
+      this.verticalVelocity -= 28 * dt;
+      if (
+        this.groundRadius <= floorRadius + 0.05 &&
+        this.isKeyDown("Space")
+      )
+        this.verticalVelocity = 10;
+      this.groundRadius += this.verticalVelocity * dt;
+      if (this.groundRadius <= floorRadius) {
+        this.groundRadius = floorRadius;
+        this.verticalVelocity = 0;
       }
-      c.position.copy(this.dir).multiplyScalar(this.rad + EYE);
-      c.up.copy(up);
-      tL.copy(this.fwd)
+      camera.position
+        .copy(this.dir)
+        .multiplyScalar(this.groundRadius + EYE_HEIGHT);
+      camera.up.copy(up);
+      scratchLookAt
+        .copy(this.forward)
         .multiplyScalar(Math.cos(this.pitch))
         .addScaledVector(up, Math.sin(this.pitch))
-        .add(c.position);
-      c.lookAt(tL);
-      this.alt = this.rad + EYE - g;
+        .add(camera.position);
+      camera.lookAt(scratchLookAt);
+      this.alt = this.groundRadius + EYE_HEIGHT - groundRadius;
     } else {
-      c.updateMatrixWorld();
-      const p = this.fpos,
-        f = c.getWorldDirection(tF),
-        r = tR.setFromMatrixColumn(c.matrixWorld, 0),
-        u = tU.copy(p).normalize();
-      const alt = p.length() - this.pl.radiusAt(u),
-        sp = Math.max(20, alt * 1.5) * (sprint ? 4 : 1);
-      tM.set(0, 0, 0)
-        .addScaledVector(f, mv)
-        .addScaledVector(r, st)
-        .addScaledVector(u, this.k("Space") - this.k("KeyC"));
-      if (tM.lengthSq()) p.addScaledVector(tM.normalize(), sp * dt);
-      c.rotateZ((this.k("KeyE") - this.k("KeyQ")) * dt * 1.2);
-      u.copy(p).normalize();
-      const min = this.pl.radiusAt(u) + 3;
-      if (p.length() < min) p.setLength(min);
-      c.position.copy(p);
-      this.up.copy(u);
-      this.alt = p.length() - this.pl.radiusAt(u);
+      camera.updateMatrixWorld();
+      const flyPos = this.flyPosition,
+        flyForward = camera.getWorldDirection(scratchForward),
+        flyRight = scratchRight.setFromMatrixColumn(camera.matrixWorld, 0),
+        flyUp = scratchUp.copy(flyPos).normalize();
+      const flyAltitude = flyPos.length() - this.planet.radiusAt(flyUp),
+        flySpeed =
+          Math.max(20, flyAltitude * 1.5) * (sprint ? 4 : 1);
+      scratchMove
+        .set(0, 0, 0)
+        .addScaledVector(flyForward, moveAxis)
+        .addScaledVector(flyRight, strafeAxis)
+        .addScaledVector(
+          flyUp,
+          this.isKeyDown("Space") - this.isKeyDown("KeyC"),
+        );
+      if (scratchMove.lengthSq())
+        flyPos.addScaledVector(scratchMove.normalize(), flySpeed * dt);
+      camera.rotateZ(
+        (this.isKeyDown("KeyE") - this.isKeyDown("KeyQ")) * dt * 1.2,
+      );
+      flyUp.copy(flyPos).normalize();
+      const minRadius = this.planet.radiusAt(flyUp) + 3;
+      if (flyPos.length() < minRadius) flyPos.setLength(minRadius);
+      camera.position.copy(flyPos);
+      this.up.copy(flyUp);
+      this.alt = flyPos.length() - this.planet.radiusAt(flyUp);
     }
   }
 }

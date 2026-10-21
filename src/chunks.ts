@@ -4,16 +4,15 @@ import { CFG } from "./config";
 import { terrainMat } from "./fx";
 import { makeRT, bakeChunk } from "./bake";
 import { frame, type Frame } from "./util";
-const V = THREE.Vector3,
-  {
-    cells: CS,
-    cell: CC,
-    radius: CR,
-    budget: BUDGET,
-    firstBudget: FIRST,
-    makeAlt,
-    clearAlt,
-  } = CFG.chunk;
+const {
+  cells: CS,
+  cell: CC,
+  radius: CR,
+  budget: BUDGET,
+  firstBudget: FIRST,
+  makeAlt,
+  clearAlt,
+} = CFG.chunk;
 
 interface Shared {
   idx: THREE.BufferAttribute;
@@ -34,10 +33,10 @@ export class ChunkManager {
   private pool: THREE.Mesh[] = [];
   private dying: THREE.Mesh[] = [];
   private shared?: Shared;
-  private fr = frame(new V(0, 1, 0), 1, 1);
-  private lf = -1;
-  private lci = 0;
-  private lcj = 0; // last completed (face, chunk i, chunk j)
+  private scratchFrame = frame(new THREE.Vector3(0, 1, 0), 1, 1);
+  private lastFace = -1;
+  private lastChunkI = 0;
+  private lastChunkJ = 0; // last completed (face, chunk i, chunk j)
   constructor(
     private group: THREE.Group,
     private radius: () => number,
@@ -54,7 +53,7 @@ export class ChunkManager {
       });
       this.dying.length = 0;
     }
-    this.lf = -1;
+    this.lastFace = -1;
   }
   private retire(m: THREE.Mesh, instant: boolean) {
     if (instant) {
@@ -63,21 +62,31 @@ export class ChunkManager {
     } else this.dying.push(m);
   }
 
-  update(d: THREE.Vector3, alt: number) {
-    if (alt > clearAlt) {
+  update(playerDirection: THREE.Vector3, altitude: number) {
+    if (altitude > clearAlt) {
       if (this.map.size) this.clear(false);
       return;
     }
-    if (alt > makeAlt && !this.map.size) return; // hysteresis between make/clear altitudes
-    const fr = frame(d, this.radius(), CC, this.fr),
-      ci = Math.floor(fr.i / CS),
-      cj = Math.floor(fr.j / CS);
-    if (fr.f === this.lf && ci === this.lci && cj === this.lcj) return; // still inside the same centre chunk
+    if (altitude > makeAlt && !this.map.size) return; // hysteresis between make/clear altitudes
+    const currentFrame = frame(
+        playerDirection,
+        this.radius(),
+        CC,
+        this.scratchFrame,
+      ),
+      ci = Math.floor(currentFrame.cellI / CS),
+      cj = Math.floor(currentFrame.cellJ / CS);
+    if (
+      currentFrame.face === this.lastFace &&
+      ci === this.lastChunkI &&
+      cj === this.lastChunkJ
+    )
+      return; // still inside the same centre chunk
     const want = new Set<string>(),
       todo: [number, number][] = [];
     for (let a = -CR; a <= CR; a++)
       for (let b = -CR; b <= CR; b++) {
-        const k = `${fr.f},${ci + a},${cj + b}`;
+        const k = `${currentFrame.face},${ci + a},${cj + b}`;
         want.add(k);
         if (!this.map.has(k)) todo.push([ci + a, cj + b]);
       }
@@ -89,50 +98,56 @@ export class ChunkManager {
     for (const [a, b] of todo) {
       if (budget-- <= 0) break;
       this.make(
-        fr,
+        currentFrame,
         a,
         b,
-        `${fr.f},${a},${b}`,
+        `${currentFrame.face},${a},${b}`,
         Math.max(Math.abs(a - ci), Math.abs(b - cj)) >= 2,
       );
     }
     for (const m of this.map.values())
       m.userData.lo =
-        Math.max(Math.abs(m.userData.ci - ci), Math.abs(m.userData.cj - cj)) >=
-        2; // target LOD; tick() geomorphs to it
+        Math.max(
+          Math.abs(m.userData.ci - ci),
+          Math.abs(m.userData.cj - cj),
+        ) >= 2; // target LOD; tick() geomorphs to it
     if (![...want].every((k) => this.map.has(k))) return; // finish loading before retiring anything
     for (const [k, m] of this.map)
       if (!want.has(k)) {
         this.retire(m, false);
         this.map.delete(k);
       }
-    this.lf = fr.f;
-    this.lci = ci;
-    this.lcj = cj;
+    this.lastFace = currentFrame.face;
+    this.lastChunkI = ci;
+    this.lastChunkJ = cj;
   }
 
   /** Per-frame animation: fade-in, geomorph towards the target LOD, fade-out of retired chunks. */
   tick(dt: number) {
     for (const m of this.map.values()) {
-      const u = m.userData,
-        f = u.fade;
-      if (f.value < 1) f.value = Math.min(1, f.value + dt * 1.6);
-      const t = u.lo ? 1 : 0,
-        mo = u.morph;
-      if (mo.value !== t)
-        mo.value +=
-          Math.sign(t - mo.value) * Math.min(Math.abs(t - mo.value), dt * 1.25);
-      const lo = !!u.lo && mo.value >= 1;
-      if (u.usingLo !== lo) {
-        u.usingLo = lo;
-        m.geometry.setIndex(lo ? this.shared!.idxLo : this.shared!.idx);
+      const userData = m.userData,
+        fadeUniform = userData.fade;
+      if (fadeUniform.value < 1)
+        fadeUniform.value = Math.min(1, fadeUniform.value + dt * 1.6);
+      const targetLod = userData.lo ? 1 : 0,
+        morphUniform = userData.morph;
+      if (morphUniform.value !== targetLod)
+        morphUniform.value +=
+          Math.sign(targetLod - morphUniform.value) *
+          Math.min(Math.abs(targetLod - morphUniform.value), dt * 1.25);
+      const isLowLod = !!userData.lo && morphUniform.value >= 1;
+      if (userData.usingLo !== isLowLod) {
+        userData.usingLo = isLowLod;
+        m.geometry.setIndex(
+          isLowLod ? this.shared!.idxLo : this.shared!.idx,
+        );
       } // swap index once the surfaces coincide
     }
     for (let i = this.dying.length - 1; i >= 0; i--) {
       const m = this.dying[i],
-        f = m.userData.fade;
-      f.value -= dt * 1.6;
-      if (f.value <= 0) {
+        fadeUniform = m.userData.fade;
+      fadeUniform.value -= dt * 1.6;
+      if (fadeUniform.value <= 0) {
         this.group.remove(m);
         this.pool.push(m);
         this.dying.splice(i, 1);
@@ -143,81 +158,110 @@ export class ChunkManager {
   /** Vertex data shared by all chunks: full-res and half-res index buffers (with skirts), local grid coordinates, skirt flags. */
   private buffers(): Shared {
     if (this.shared) return this.shared;
-    const G = CS + 1,
-      P = G * G + 4 * CS,
-      per: number[] = []; // per = perimeter vertex ids in loop order (skirt vertices are duplicates of these)
-    for (let a = 0; a < G; a++) per.push(a);
-    for (let b = 1; b < G; b++) per.push(b * G + G - 1);
-    for (let a = G - 2; a >= 0; a--) per.push((G - 1) * G + a);
-    for (let b = G - 2; b >= 1; b--) per.push(b * G);
-    const idx = new Uint32Array(6 * CS * CS + 6 * per.length);
+    const gridSize = CS + 1,
+      totalVertexCount = gridSize * gridSize + 4 * CS,
+      perimeterVertexIds: number[] = []; // perimeter vertex ids in loop order (skirt vertices are duplicates of these)
+    for (let a = 0; a < gridSize; a++) perimeterVertexIds.push(a);
+    for (let b = 1; b < gridSize; b++)
+      perimeterVertexIds.push(b * gridSize + gridSize - 1);
+    for (let a = gridSize - 2; a >= 0; a--)
+      perimeterVertexIds.push((gridSize - 1) * gridSize + a);
+    for (let b = gridSize - 2; b >= 1; b--)
+      perimeterVertexIds.push(b * gridSize);
+    const idx = new Uint32Array(
+      6 * CS * CS + 6 * perimeterVertexIds.length,
+    );
     let t = 0;
     for (let b = 0; b < CS; b++)
       for (let a = 0; a < CS; a++) {
-        const i0 = b * G + a;
-        idx.set([i0, i0 + 1, i0 + G, i0 + 1, i0 + G + 1, i0 + G], t);
+        const i0 = b * gridSize + a;
+        idx.set([i0, i0 + 1, i0 + gridSize, i0 + 1, i0 + gridSize + 1, i0 + gridSize], t);
         t += 6;
       }
-    per.forEach((a, k) => {
-      const n = (k + 1) % per.length,
-        b = per[n],
-        a2 = G * G + k,
-        b2 = G * G + n;
+    perimeterVertexIds.forEach((a, k) => {
+      const n = (k + 1) % perimeterVertexIds.length,
+        b = perimeterVertexIds[n],
+        a2 = gridSize * gridSize + k,
+        b2 = gridSize * gridSize + n;
       idx.set([a, b, a2, b, b2, a2], t);
       t += 6;
     });
-    const H = CS / 2,
-      lo = new Uint32Array(6 * H * H + 3 * per.length);
+    const halfResCount = CS / 2,
+      lo = new Uint32Array(
+        6 * halfResCount * halfResCount + 3 * perimeterVertexIds.length,
+      );
     t = 0; // half resolution (every second vertex); skirts hide LOD seams
-    for (let b = 0; b < H; b++)
-      for (let a = 0; a < H; a++) {
-        const i0 = 2 * b * G + 2 * a;
-        lo.set([i0, i0 + 2, i0 + 2 * G, i0 + 2, i0 + 2 * G + 2, i0 + 2 * G], t);
+    for (let b = 0; b < halfResCount; b++)
+      for (let a = 0; a < halfResCount; a++) {
+        const i0 = 2 * b * gridSize + 2 * a;
+        lo.set(
+          [
+            i0,
+            i0 + 2,
+            i0 + 2 * gridSize,
+            i0 + 2,
+            i0 + 2 * gridSize + 2,
+            i0 + 2 * gridSize,
+          ],
+          t,
+        );
         t += 6;
       }
-    for (let k = 0; k < per.length; k += 2) {
-      const n = (k + 2) % per.length,
-        a = per[k],
-        b = per[n],
-        a2 = G * G + k,
-        b2 = G * G + n;
+    for (let k = 0; k < perimeterVertexIds.length; k += 2) {
+      const n = (k + 2) % perimeterVertexIds.length,
+        a = perimeterVertexIds[k],
+        b = perimeterVertexIds[n],
+        a2 = gridSize * gridSize + k,
+        b2 = gridSize * gridSize + n;
       lo.set([a, b, a2, b, b2, a2], t);
       t += 6;
     }
-    const aL = new Float32Array(P * 2),
-      aS = new Float32Array(P);
-    for (let b = 0; b < G; b++)
-      for (let a = 0; a < G; a++) aL.set([a, b], (b * G + a) * 2);
-    per.forEach((src, k) => {
-      aL.copyWithin((G * G + k) * 2, src * 2, src * 2 + 2);
-      aS[G * G + k] = 1;
+    const aL = new Float32Array(totalVertexCount * 2),
+      aS = new Float32Array(totalVertexCount);
+    for (let b = 0; b < gridSize; b++)
+      for (let a = 0; a < gridSize; a++)
+        aL.set([a, b], (b * gridSize + a) * 2);
+    perimeterVertexIds.forEach((src, k) => {
+      aL.copyWithin(
+        (gridSize * gridSize + k) * 2,
+        src * 2,
+        src * 2 + 2,
+      );
+      aS[gridSize * gridSize + k] = 1;
     });
     return (this.shared = {
       idx: new THREE.BufferAttribute(idx, 1),
       idxLo: new THREE.BufferAttribute(lo, 1),
-      pos: new THREE.BufferAttribute(new Float32Array(P * 3), 3),
+      pos: new THREE.BufferAttribute(new Float32Array(totalVertexCount * 3), 3),
       aL: new THREE.BufferAttribute(aL, 2),
       aS: new THREE.BufferAttribute(aS, 1),
     });
   }
 
-  private make(fr: Frame, ci: number, cj: number, key: string, lo: boolean) {
-    const G = CS + 1,
-      sh = this.buffers(),
-      fcode = fr.f * 2 + (fr.n.getComponent(fr.f) < 0 ? 1 : 0);
+  private make(
+    fr: Frame,
+    ci: number,
+    cj: number,
+    key: string,
+    isLowLod: boolean,
+  ) {
+    const gridSize = CS + 1,
+      shared = this.buffers(),
+      faceCode =
+        fr.face * 2 + (fr.normal.getComponent(fr.face) < 0 ? 1 : 0);
     let m = this.pool.pop();
     if (!m) {
       // new pool slot: material + two bake targets are created once and reused for every chunk
-      const rt = makeRT(G, G),
-        rtC = makeRT(G, G),
+      const rt = makeRT(gridSize, gridSize),
+        rtC = makeRT(gridSize, gridSize),
         fade = { value: 0 },
         morph = { value: 0 },
-        uCh = { value: new V() },
+        uCh = { value: new THREE.Vector3() },
         g = new THREE.BufferGeometry();
-      g.setIndex(sh.idx);
-      g.setAttribute("position", sh.pos);
-      g.setAttribute("aL", sh.aL);
-      g.setAttribute("aS", sh.aS);
+      g.setIndex(shared.idx);
+      g.setAttribute("position", shared.pos);
+      g.setAttribute("aL", shared.aL);
+      g.setAttribute("aS", shared.aS);
       g.boundingSphere = new THREE.Sphere();
       m = new THREE.Mesh(
         g,
@@ -234,25 +278,28 @@ export class ChunkManager {
       m.renderOrder = -1; // drawn before the coarse planet so its hidden fragments fail early-z
       m.userData = { rt, rtC, fade, uCh, morph };
     }
-    const u = m.userData;
-    u.fade.value = 0;
-    u.uCh.value.set(ci * CS, cj * CS, fcode);
-    u.ci = ci;
-    u.cj = cj;
-    u.lo = lo;
-    u.morph.value = lo ? 1 : 0;
-    u.usingLo = lo;
-    m.geometry.setIndex(lo ? sh.idxLo : sh.idx);
-    bakeChunk(u.rt, u.rtC, ci * CS, cj * CS, fcode);
+    const userData = m.userData;
+    userData.fade.value = 0;
+    userData.uCh.value.set(ci * CS, cj * CS, faceCode);
+    userData.ci = ci;
+    userData.cj = cj;
+    userData.lo = isLowLod;
+    userData.morph.value = isLowLod ? 1 : 0;
+    userData.usingLo = isLowLod;
+    m.geometry.setIndex(isLowLod ? shared.idxLo : shared.idx);
+    bakeChunk(userData.rt, userData.rtC, ci * CS, cj * CS, faceCode);
     const R = this.radius(),
-      c = new V()
-        .copy(fr.n)
+      chunkCenter = new THREE.Vector3()
+        .copy(fr.normal)
         .multiplyScalar(R)
-        .addScaledVector(fr.u, (ci * CS + CS / 2) * CC)
-        .addScaledVector(fr.v, (cj * CS + CS / 2) * CC)
+        .addScaledVector(fr.tangentU, (ci * CS + CS / 2) * CC)
+        .addScaledVector(fr.tangentV, (cj * CS + CS / 2) * CC)
         .normalize()
         .multiplyScalar(R);
-    m.geometry.boundingSphere!.set(c, CS * CC * 0.75 + S.amplitude * 1.5 + 10);
+    m.geometry.boundingSphere!.set(
+      chunkCenter,
+      CS * CC * 0.75 + S.amplitude * 1.5 + 10,
+    );
     this.group.add(m);
     this.map.set(key, m);
   }

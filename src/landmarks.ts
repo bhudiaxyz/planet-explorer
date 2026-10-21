@@ -4,8 +4,7 @@ import type { Planet } from "./planet";
 import type { Obs } from "./collision";
 import { rng } from "./noise";
 import { S } from "./settings";
-const V = THREE.Vector3,
-  UP = new V(0, 1, 0);
+const UP = new THREE.Vector3(0, 1, 0);
 export type Landmark = { name: string; pos: THREE.Vector3 };
 // Rare deterministic landmarks: monolith rings, twisted spires, tombstone fields, floating islands.
 // Each landmark's parts are baked into ONE vertex-coloured mesh (about 210 draw calls and as many shadow draws become 16).
@@ -37,7 +36,7 @@ export function buildLandmarks(pl: Planet, group: THREE.Group) {
       new THREE.Matrix4().compose(
         pos,
         new THREE.Quaternion().setFromEuler(rot),
-        sc ?? new V(1, 1, 1),
+        sc ?? new THREE.Vector3(1, 1, 1),
       ),
     );
     const n = g.attributes.position.count,
@@ -55,7 +54,7 @@ export function buildLandmarks(pl: Planet, group: THREE.Group) {
   let nIsl = 0;
   for (let n = 0; n < 16; n++) {
     const kind = kinds[n % 4],
-      d = new V();
+      d = new THREE.Vector3();
     for (let a = 0; a < 400; a++) {
       d.set(r() * 2 - 1, r() * 2 - 1, r() * 2 - 1);
       if (d.lengthSq() > 1 || d.lengthSq() < 0.01) continue;
@@ -70,11 +69,11 @@ export function buildLandmarks(pl: Planet, group: THREE.Group) {
     g.updateMatrixWorld();
     group.add(g);
     const ground = (x: number, z: number) =>
-      pl.radiusAt(g.localToWorld(new V(x, 0, z)).normalize()) - cr;
+      pl.radiusAt(g.localToWorld(new THREE.Vector3(x, 0, z)).normalize()) - cr;
     const parts: THREE.BufferGeometry[] = [],
-      wd = (x: number, z: number) => g.localToWorld(new V(x, 0, z)).normalize(),
+      wd = (x: number, z: number) => g.localToWorld(new THREE.Vector3(x, 0, z)).normalize(),
       wax = (yaw: number) =>
-        new V(Math.cos(yaw), 0, -Math.sin(yaw)).applyQuaternion(g.quaternion);
+        new THREE.Vector3(Math.cos(yaw), 0, -Math.sin(yaw)).applyQuaternion(g.quaternion);
     if (kind === "ring") {
       for (let i = 0; i < 9; i++) {
         const a = (i / 9) * 6.283,
@@ -84,7 +83,7 @@ export function buildLandmarks(pl: Planet, group: THREE.Group) {
         part(
           parts,
           new THREE.BoxGeometry(2.2, h, 1.3),
-          new V(x, ground(x, z) + h / 2 - 0.6, z),
+          new THREE.Vector3(x, ground(x, z) + h / 2 - 0.6, z),
           new THREE.Euler(0, -a, (r() - 0.5) * 0.1),
           STONE,
         );
@@ -103,7 +102,7 @@ export function buildLandmarks(pl: Planet, group: THREE.Group) {
         part(
           parts,
           new THREE.BoxGeometry(5 - i * 0.3, 5.2, 5 - i * 0.3),
-          new V(0, i * 5 + 1, 0),
+          new THREE.Vector3(0, i * 5 + 1, 0),
           new THREE.Euler(0, i * 0.22, 0),
           DARK,
         );
@@ -127,7 +126,7 @@ export function buildLandmarks(pl: Planet, group: THREE.Group) {
         part(
           parts,
           new THREE.BoxGeometry(0.8, h, 0.3),
-          new V(x, ground(x, z) + 0.5, z),
+          new THREE.Vector3(x, ground(x, z) + 0.5, z),
           new THREE.Euler((r() - 0.5) * 0.3, yaw, (r() - 0.5) * 0.3),
           STONE,
         );
@@ -163,7 +162,7 @@ export function buildLandmarks(pl: Planet, group: THREE.Group) {
       part(
         parts,
         new THREE.CylinderGeometry(rad, rad * 0.95, 1.5, 12),
-        new V(0, 0, 0),
+        new THREE.Vector3(0, 0, 0),
         E(0, r() * 3, 0),
         turf,
       );
@@ -173,10 +172,10 @@ export function buildLandmarks(pl: Planet, group: THREE.Group) {
         part(
           parts,
           new THREE.IcosahedronGeometry(1, 1),
-          new V(Math.cos(a2) * d2, 0.1, Math.sin(a2) * d2),
+          new THREE.Vector3(Math.cos(a2) * d2, 0.1, Math.sin(a2) * d2),
           E(0, 0, 0),
           turf.clone().offsetHSL(0, 0, (r() - 0.5) * 0.08),
-          new V(1.2 + r(), 0.5, 1.2 + r()),
+          new THREE.Vector3(1.2 + r(), 0.5, 1.2 + r()),
         );
       }
       let y = -0.4,
@@ -186,7 +185,7 @@ export function buildLandmarks(pl: Planet, group: THREE.Group) {
         part(
           parts,
           new THREE.ConeGeometry(rr, h, 7 + ((r() * 4) | 0)),
-          new V((r() - 0.5) * rad * 0.15, y - h / 2, (r() - 0.5) * rad * 0.15),
+          new THREE.Vector3((r() - 0.5) * rad * 0.15, y - h / 2, (r() - 0.5) * rad * 0.15),
           E(Math.PI, r() * 3, 0),
           rock.clone().offsetHSL(0, 0, -t * 0.05 + (r() - 0.5) * 0.04),
         );
@@ -200,7 +199,7 @@ export function buildLandmarks(pl: Planet, group: THREE.Group) {
         part(
           parts,
           new THREE.ConeGeometry(0.5 + r() * 0.7, h, 5),
-          new V(Math.cos(a2) * d2, y - h / 2 + 1 + r() * 2, Math.sin(a2) * d2),
+          new THREE.Vector3(Math.cos(a2) * d2, y - h / 2 + 1 + r() * 2, Math.sin(a2) * d2),
           E(Math.PI, 0, 0),
           rock,
         );
@@ -215,14 +214,14 @@ export function buildLandmarks(pl: Planet, group: THREE.Group) {
         part(
           parts,
           new THREE.CylinderGeometry(0.18, 0.26, h, 4),
-          new V(x, 0.75 + h / 2, z),
+          new THREE.Vector3(x, 0.75 + h / 2, z),
           E(0, 0, 0),
           STONE_BARK,
         );
         part(
           parts,
           new THREE.ConeGeometry(0.9 + r() * 0.5, 2.6 + r() * 1.5, 6),
-          new V(x, 0.75 + h + 1.3, z),
+          new THREE.Vector3(x, 0.75 + h + 1.3, z),
           E(0, 0, 0),
           new THREE.Color(foliage).offsetHSL(
             (r() - 0.5) * 0.04,
@@ -235,7 +234,7 @@ export function buildLandmarks(pl: Planet, group: THREE.Group) {
         part(
           parts,
           new THREE.CylinderGeometry(rad * 0.25, rad * 0.25, 0.2, 10),
-          new V(rad * 0.6 * (r() - 0.5), 0.82, rad * 0.6 * (r() - 0.5)),
+          new THREE.Vector3(rad * 0.6 * (r() - 0.5), 0.82, rad * 0.6 * (r() - 0.5)),
           E(0, 0, 0),
           new THREE.Color(0x2a8fb8),
         );
@@ -245,7 +244,7 @@ export function buildLandmarks(pl: Planet, group: THREE.Group) {
         part(
           parts,
           new THREE.BoxGeometry(0.9, h, 0.35),
-          new V(
+          new THREE.Vector3(
             Math.cos(a2) * rad * 0.98,
             -h / 2 + 0.5,
             Math.sin(a2) * rad * 0.98,
@@ -267,10 +266,10 @@ export function buildLandmarks(pl: Planet, group: THREE.Group) {
           part(
             crystals,
             new THREE.OctahedronGeometry(1, 0),
-            new V(Math.cos(a2) * d2, 0.75 + s2 * 1.2, Math.sin(a2) * d2),
+            new THREE.Vector3(Math.cos(a2) * d2, 0.75 + s2 * 1.2, Math.sin(a2) * d2),
             E((r() - 0.5) * 0.4, r() * 3, (r() - 0.5) * 0.4),
             hue,
-            new V(0.5 * s2, 1.6 * s2, 0.5 * s2),
+            new THREE.Vector3(0.5 * s2, 1.6 * s2, 0.5 * s2),
           );
         }
       for (let k = 0, n2 = 3 + ((r() * 3) | 0); k < n2; k++) {
@@ -280,10 +279,10 @@ export function buildLandmarks(pl: Planet, group: THREE.Group) {
         part(
           parts,
           new THREE.IcosahedronGeometry(1, 0),
-          new V(Math.cos(a2) * d2, (r() - 0.5) * 8 - 2, Math.sin(a2) * d2),
+          new THREE.Vector3(Math.cos(a2) * d2, (r() - 0.5) * 8 - 2, Math.sin(a2) * d2),
           E(r() * 3, r() * 3, 0),
           rock,
-          new V(s2, s2 * 0.8, s2),
+          new THREE.Vector3(s2, s2 * 0.8, s2),
         );
       }
       const isl = bake(parts);

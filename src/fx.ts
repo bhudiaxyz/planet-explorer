@@ -7,10 +7,10 @@ const CELL = CFG.chunk.cell.toFixed(2),
 // 64³ random-byte texture: value noise = one trilinear fetch at a smoothstepped position (same look as the old 8-hash lattice noise, ~8× cheaper per call)
 const N3 = 64,
   d3 = new Uint8Array(N3 * N3 * N3);
-let sd3 = 12345;
+let noiseRngState = 12345;
 for (let i = 0; i < d3.length; i++) {
-  sd3 = (Math.imul(sd3, 1664525) + 1013904223) | 0;
-  d3[i] = sd3 >>> 24;
+  noiseRngState = (Math.imul(noiseRngState, 1664525) + 1013904223) | 0;
+  d3[i] = noiseRngState >>> 24;
 }
 const tex3 = new THREE.Data3DTexture(d3, N3, N3, N3);
 tex3.format = THREE.RedFormat;
@@ -68,8 +68,8 @@ const VW = (s: P) =>
       "#include <begin_vertex>",
       "#include <begin_vertex>\nvWp=(modelMatrix*vec4(position,1.)).xyz;",
     ));
-const bind = (s: P, ks: string[]) =>
-  ks.forEach((k) => (s.uniforms[k] = (U as any)[k]));
+const bind = (shaderParams: P, uniformKeys: string[]) =>
+  uniformKeys.forEach((k) => (shaderParams.uniforms[k] = (U as any)[k]));
 // Terrain on the GPU. Chunks (GPU_H) are flat lattice grids displaced in the vertex shader (height, normals, skirts); the coarse mesh carries
 // per-vertex elevation/moisture. Biome colour, grain, bump, shoreline foam and snow footprints are all evaluated per pixel.
 const BEGIN = `
@@ -90,19 +90,19 @@ vC=vcol;vec3 objectNormal=gN;`;
 export function terrainMat(
   cut: boolean,
   gpu = false,
-  ex: Record<string, { value: any }> = {},
+  extraUniforms: Record<string, { value: any }> = {},
   baked = false,
 ) {
   const m = new THREE.MeshStandardMaterial({
     roughness: 0.95,
     side: gpu ? THREE.DoubleSide : THREE.FrontSide,
   });
-  if (gpu) m.defines = { GPU_H: "" };
-  else if (baked) m.defines = { BASE_COL: "" };
+  if (gpu) (m as any).defines = { GPU_H: "" };
+  else if (baked) (m as any).defines = { BASE_COL: "" };
   m.customProgramCacheKey = () =>
     (cut ? "c" : "n") + (gpu ? "g" : "b") + (baked ? "k" : "");
   m.onBeforeCompile = (s) => {
-    Object.assign(s.uniforms, U, T, ex);
+    Object.assign(s.uniforms, U, T, extraUniforms);
     s.vertexShader = s.vertexShader
       .replace(
         "#include <common>",
