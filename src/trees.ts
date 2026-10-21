@@ -325,19 +325,72 @@ function cypress(r: () => number, q: number) {
   }
   return done(p);
 }
-const SP = [pine, oak, birch, palm, fir, dead, acacia, cypress]; // species index: pine 0 · oak 1 · birch 2 · palm 3 · fir 4 · snag 5 · acacia 6 · cypress 7 (one geometry each; variety comes from per-tree scale/tilt/hue)
+function willow(r: () => number, q: number) {
+  // weeping silhouette: drooping branches with elongated blob clusters at tips
+  const hq = q > 0.7,
+    det = hq ? 1 : 0,
+    p: THREE.BufferGeometry[] = [],
+    h = 7 + r() * 3,
+    bark = C(0x7a7060),
+    lean = (r() - 0.5) * 0.8;
+  const mid = new THREE.Vector3(lean * 0.3, h * 0.55, 0),
+    top = new THREE.Vector3(lean * 0.6, h * 0.85, 0);
+  cyl(p, new THREE.Vector3(0, 0, 0), mid, 0.5, 0.32, bark, hq ? 6 : 4);
+  cyl(p, mid, top, 0.32, 0.16, bark, hq ? 5 : 4);
+  blob(p, new THREE.Vector3(lean * 0.65, h * 0.92, 0), 2.6, N0, 0.75, det);
+  const nb = hq ? 5 : 3;
+  for (let k = 0; k < nb; k++) {
+    const a = (k / nb) * 6.283 + r() * 0.5,
+      d = new THREE.Vector3(Math.cos(a), 0, Math.sin(a)),
+      base = new THREE.Vector3(lean * 0.4, h * 0.72, 0),
+      elbow = base.clone().addScaledVector(d, 2.2 + r() * 0.8).add(new THREE.Vector3(0, 1.0 + r() * 0.3, 0)),
+      tip = elbow.clone().addScaledVector(d, 1.0 + r() * 0.4).add(new THREE.Vector3(0, -2.5 - r() * 0.8, 0));
+    cyl(p, base, elbow, 0.1, 0.06, bark, hq ? 4 : 3);
+    cyl(p, elbow, tip, 0.06, 0.02, bark, hq ? 4 : 3);
+    blob(p, tip, 1.3 + r() * 0.4, N0, 1.4, det); // sy > 1: elongated droop blob
+  }
+  return done(p);
+}
+function mangrove(r: () => number, q: number) {
+  // arched stilt roots converging to a junction; dense round tropical crown
+  const hq = q > 0.7,
+    det = hq ? 1 : 0,
+    p: THREE.BufferGeometry[] = [],
+    h = 4.5 + r() * 2,
+    bark = C(0x4a3828);
+  const junction = new THREE.Vector3(0, h * 0.6, 0);
+  const nroots = hq ? 4 : 3;
+  for (let k = 0; k < nroots; k++) {
+    const a = (k / nroots) * 6.283 + r() * 0.4,
+      spread = 1.4 + r() * 0.5,
+      ground = new THREE.Vector3(Math.cos(a) * spread, 0, Math.sin(a) * spread),
+      arch = ground.clone().add(junction).multiplyScalar(0.5).add(new THREE.Vector3(0, 0.7, 0));
+    cyl(p, ground, arch, 0.1, 0.09, bark, hq ? 5 : 3);
+    cyl(p, arch, junction, 0.09, 0.13, bark, hq ? 5 : 3);
+  }
+  cyl(p, junction, new THREE.Vector3(0, h, 0), 0.2, 0.1, bark, hq ? 5 : 3);
+  blob(p, new THREE.Vector3(0, h + 1.4, 0), 2.8, N0, 0.72, det);
+  if (hq) {
+    blob(p, new THREE.Vector3(1.1, h + 0.7, 0.6), 1.7, N0, 0.68, det);
+    blob(p, new THREE.Vector3(-0.9, h + 0.5, -0.7), 1.5, N0, 0.68, det);
+  }
+  return done(p);
+}
+const SP = [pine, oak, birch, palm, fir, dead, acacia, cypress, willow, mangrove]; // species index: pine 0 · oak 1 · birch 2 · palm 3 · fir 4 · snag 5 · acacia 6 · cypress 7 · willow 8 · mangrove 9
 export const treeGeos = (seed: number, q = 1) =>
   SP.map((f, i) => f(rng(seed + 55 + i * 31), q));
 // base foliage colour per species (HSL in the working space); Forest multiplies in seasonal / blossom / drought variation per tree
 export const LEAF = [
-  [0.36, 0.45, 0.2],
-  [0.27, 0.5, 0.28],
-  [0.2, 0.55, 0.39],
-  [0.27, 0.55, 0.27],
-  [0.43, 0.38, 0.16],
-  [0, 0, 0.5],
-  [0.2, 0.5, 0.3],
-  [0.4, 0.4, 0.13],
+  [0.36, 0.45, 0.2],  // pine
+  [0.27, 0.5, 0.28],  // oak
+  [0.2, 0.55, 0.39],  // birch
+  [0.27, 0.55, 0.27], // palm
+  [0.43, 0.38, 0.16], // fir
+  [0, 0, 0.5],        // snag
+  [0.2, 0.5, 0.3],    // acacia
+  [0.4, 0.4, 0.13],   // cypress
+  [0.22, 0.55, 0.38], // willow — fresh yellow-green
+  [0.35, 0.5, 0.2],   // mangrove — deep tropical green
 ].map(([h, s, l]) => new THREE.Color().setHSL(h, s, l));
 
 // ---- low-poly distance tier (a few dozen triangles)
@@ -442,6 +495,25 @@ const lowCypress = (r: () => number) => {
   );
   return done(p);
 };
+const lowWillow = (r: () => number) => {
+  const p: THREE.BufferGeometry[] = [],
+    h = 7 + r() * 3;
+  cyl(p, new THREE.Vector3(0, 0, 0), new THREE.Vector3(0.3, h * 0.85, 0), 0.5, 0.18, C(0x7a7060), 3);
+  blob(p, new THREE.Vector3(0.3, h * 0.88, 0), 3.2, N0, 0.88, 0); // wide, slightly drooping crown silhouette
+  return done(p);
+};
+const lowMangrove = (r: () => number) => {
+  const p: THREE.BufferGeometry[] = [],
+    h = 4.5 + r() * 2,
+    bark = C(0x4a3828);
+  for (let k = 0; k < 3; k++) {
+    const a = (k / 3) * 6.283;
+    cyl(p, new THREE.Vector3(Math.cos(a) * 1.4, 0, Math.sin(a) * 1.4), new THREE.Vector3(0, h * 0.6, 0), 0.1, 0.15, bark, 3);
+  }
+  cyl(p, new THREE.Vector3(0, h * 0.6, 0), new THREE.Vector3(0, h, 0), 0.18, 0.1, bark, 3);
+  blob(p, new THREE.Vector3(0, h + 1.2, 0), 3.0, N0, 0.7, 0);
+  return done(p);
+};
 export const lowGeos = (seed: number) => {
   const r = rng(seed + 56);
   return [
@@ -453,5 +525,7 @@ export const lowGeos = (seed: number) => {
     lowDead(r),
     lowAcacia(r),
     lowCypress(r),
+    lowWillow(r),
+    lowMangrove(r),
   ];
 };

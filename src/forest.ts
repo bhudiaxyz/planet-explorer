@@ -19,8 +19,10 @@ const SP = {
   snag: 5,
   acacia: 6,
   cypress: 7,
+  willow: 8,
+  mangrove: 9,
 } as const;
-const TRUNK = [0.5, 0.7, 0.28, 0.5, 0.45, 0.45, 0.35, 0.35]; // base trunk radius per species, for collision
+const TRUNK = [0.5, 0.7, 0.28, 0.5, 0.45, 0.45, 0.35, 0.35, 0.5, 0.3]; // base trunk radius per species, for collision
 
 type Lists = {
   count: number;
@@ -80,12 +82,16 @@ function pickSpecies(
   moisture: number,
   standNoise: number,
 ): number {
-  if (elevation < 0.1 && temperature > 0.62 && moisture > -0.1) return SP.palm; // warm coast
+  if (elevation < 0.09 && temperature > 0.58 && moisture > 0.05) return SP.mangrove; // warm wet shore
+  if (elevation < 0.1 && temperature > 0.62 && moisture > -0.1) return SP.palm; // warm dry coast
   if (elevation > 0.44) return SP.snag; // treeline
   if (elevation > 0.3 || temperature < 0.42) return SP.fir; // high / cold
   if (temperature > 0.62 && moisture < -0.05) return SP.acacia; // dry warm lowland
   if (temperature < 0.55) return SP.pine;
-  if (moisture > 0.15) return standNoise > 0.1 ? SP.oak : SP.birch; // wet: oak and birch stands
+  if (moisture > 0.15) {
+    if (elevation < 0.22 && standNoise < 0.0) return SP.willow; // low wet meadow / damp grassland
+    return standNoise > 0.1 ? SP.oak : SP.birch; // wet: oak and birch stands
+  }
   return standNoise < -0.05 ? SP.cypress : SP.birch; // drier: cypress stands among birch
 }
 
@@ -192,7 +198,8 @@ export class Forest {
       decid =
         speciesIndex === SP.oak ||
         speciesIndex === SP.birch ||
-        speciesIndex === SP.acacia;
+        speciesIndex === SP.acacia ||
+        speciesIndex === SP.willow;
     if (decid && temperature < 0.6 && a < 0.35)
       c.setHSL(0.03 + 0.12 * rand(), 0.75, 0.28 + 0.1 * rand());
     else if (decid && a > 0.94) c.setHSL(0.93 + 0.04 * rand(), 0.5, 0.55);
@@ -208,11 +215,11 @@ export class Forest {
         (0.85 + 0.35 * rand()) *
         (speciesIndex === SP.cypress
           ? 0.8
-          : speciesIndex === SP.acacia
+          : speciesIndex === SP.acacia || speciesIndex === SP.willow || speciesIndex === SP.mangrove
             ? 1.2
             : 1),
       heightScale:
-        (0.85 + 0.45 * rand()) * (speciesIndex === SP.cypress ? 1.15 : 1),
+        (0.85 + 0.45 * rand()) * (speciesIndex === SP.cypress ? 1.15 : speciesIndex === SP.mangrove ? 0.9 : 1),
       tiltX: (rand() - 0.5) * lean,
       tiltZ: (rand() - 0.5) * lean,
       color: [c.r, c.g, c.b],
@@ -284,7 +291,7 @@ export class Forest {
         e > 0.55 ||
         tp < S.snowline + 0.02 ||
         sampleData[k * 4 + 3] > 0.6 ||
-        rand() > dens + 0.004
+        rand() > (dens + 0.008) * (1 - smoothstep(0.08, 0.42, e))
       )
         continue;
       const x = dirs[k * 3] * planetRadius,
