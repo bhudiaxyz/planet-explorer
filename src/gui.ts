@@ -45,7 +45,7 @@ export function setupGui({ planet, player, post, rebuild }: Ctx) {
       .onFinishChange(() => rebuild());
   biomes
     .addColor(S.colors, "water")
-    .onChange((v: string) => planet.waterMat.color.set(v));
+    .onChange((v: string) => planet.water.color.set(v));
   const sky = gui.addFolder("Sky & weather");
   sky.add(S, "timeOfDay", 0, 1, 0.001).listen();
   sky.add(S, "dayLength", 20, 1200, 1).name("day length (s)");

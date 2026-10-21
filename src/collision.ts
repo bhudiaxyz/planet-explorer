@@ -46,7 +46,7 @@ export class Collider {
     this.seen = this.scatter.version;
     this.forestSpeciesLists = this.planet.forest.speciesLists;
     this.planet.forest.collect(dir, 18, this.obs);
-    for (const o of this.planet.lm.obs)
+    for (const o of this.planet.landmarks.obs)
       if (o.d.distanceTo(dir) * planetRadius < 22) this.obs.push(o);
     for (const layer of this.scatter.layers)
       if (layer.collide && layer.pix && layer.psnap)

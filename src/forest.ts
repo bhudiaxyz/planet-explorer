@@ -36,7 +36,7 @@ type Lists = {
   exM: Float32Array;
   has: Uint8Array;
 };
-type SpeciesList = Lists & { m: THREE.InstancedMesh[] }; // m = [detailed, medium, low-poly] instanced meshes of one species
+type SpeciesList = Lists & { meshes: THREE.InstancedMesh[] }; // [detailed, medium, low-poly] instanced meshes of one species
 type Tree = {
   candidateIndex: number;
   speciesIndex: number;
@@ -100,6 +100,7 @@ export class Forest {
   group = new THREE.Group();
   speciesLists: SpeciesList[] = [];
   last = new THREE.Vector3(1e9, 0, 0);
+  private nearMode = false; // hysteresis: enter near-detail at 380 m, leave at 420 m
   private scratchObject3D = new THREE.Object3D();
   private scratchDir = new THREE.Vector3();
   private scratchColor = new THREE.Color();
@@ -369,7 +370,7 @@ export class Forest {
       lowDetailMesh.visible = cnt > 0;
       lowDetailMesh.instanceMatrix.needsUpdate = true;
       lowDetailMesh.instanceColor!.needsUpdate = true;
-      this.speciesLists.push({ ...lists, m: speciesMeshes });
+      this.speciesLists.push({ ...lists, meshes: speciesMeshes });
     });
   }
 
@@ -399,7 +400,7 @@ export class Forest {
     });
   }
 
-  /** Rebuilds the detailed and medium instance sets after the camera moved ≥ 12 m. */
+  /** Rebuilds the detailed and medium instance sets after the camera moved ≥ 6 m. */
   update(cam: THREE.Vector3) {
     if (cam.distanceTo(this.last) < 6) return;
     this.last.copy(cam);
@@ -409,17 +410,19 @@ export class Forest {
       camDirY = cam.y / camLength,
       camDirZ = cam.z / camLength,
       horizonThreshold = planetRadius / camLength - 0.06,
-      near = camLength - planetRadius < 400,
+      altitude = camLength - planetRadius;
+    if (this.nearMode ? altitude > 420 : altitude < 380) this.nearMode = altitude < 400;
+    const near = this.nearMode,
       distanceToCosAngle = (m: number) => Math.cos(Math.min(1.5, m / planetRadius));
     const highDetailThreshold = distanceToCosAngle(H1 + 15),
       midNearThreshold = distanceToCosAngle(H0 - 15),
       midFarThreshold = distanceToCosAngle(M1 + 15);
     for (const lists of this.speciesLists) {
       const tierCounts = [0, 0],
-        matrixArrays = lists.m.map(
+        matrixArrays = lists.meshes.map(
           (mesh) => mesh.instanceMatrix.array as Float32Array,
         ),
-        colorArrays = lists.m.map(
+        colorArrays = lists.meshes.map(
           (mesh) => mesh.instanceColor!.array as Float32Array,
         ),
         exactMatrices = lists.exM;
@@ -457,7 +460,7 @@ export class Forest {
       }
       for (let t = 0; t < 2; t++) {
         // upload only the used range; empty meshes are not drawn at all
-        const mesh = lists.m[t];
+        const mesh = lists.meshes[t];
         mesh.visible = tierCounts[t] > 0;
         mesh.count = tierCounts[t];
         mesh.instanceMatrix.clearUpdateRanges();

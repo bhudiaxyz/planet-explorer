@@ -4,7 +4,7 @@ const FIREFLY_COUNT = 320,
   scratchForwardAxis = new THREE.Vector3(),
   AXIS_X = new THREE.Vector3(1, 0, 0),
   AXIS_Z = new THREE.Vector3(0, 0, 1);
-const NZ =
+const NOISE_GLSL =
   "float h(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}float n(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(h(i),h(i+vec2(1,0)),f.x),mix(h(i+vec2(0,1)),h(i+vec2(1,1)),f.x),f.y);}";
 // Aurora: additive curtain shell around the camera, strongest at night near the poles.
 export class Aurora {
@@ -22,7 +22,7 @@ export class Aurora {
     },
     vertexShader:
       "varying vec3 vD;void main(){vD=normalize(position);gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}",
-    fragmentShader: `uniform float uT,uAmt;uniform vec3 uUp,uR,uF;varying vec3 vD;${NZ}
+    fragmentShader: `uniform float uT,uAmt;uniform vec3 uUp,uR,uF;varying vec3 vD;${NOISE_GLSL}
 void main(){float e=dot(vD,uUp);if(e<.05||uAmt<.01)discard;float az=atan(dot(vD,uR),dot(vD,uF)+1e-5);
 float w=n(vec2(az*3.+uT*.05,uT*.1))*2.+n(vec2(az*9.,uT*.3)),c=pow(abs(sin(az*2.+w+uT*.15)),3.),b=smoothstep(.08,.22,e)*(1.-smoothstep(.4,.75,e)),ray=n(vec2(az*40.,e*3.-uT*.5));
 float I=c*b*(.5+.7*ray)*uAmt*1.6;vec3 col=mix(vec3(.15,1.,.5),vec3(.6,.25,.9),smoothstep(.2,.6,e));gl_FragColor=vec4(col*I,I);}`,

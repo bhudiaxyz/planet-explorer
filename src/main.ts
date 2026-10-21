@@ -89,7 +89,7 @@ const tempAt = () => {
 };
 const hudText = () => {
   const hourOfDay = ((S.timeOfDay + 0.25) % 1) * 24,
-    nearestLandmark = planet.lm.list.reduce(
+    nearestLandmark = planet.landmarks.list.reduce(
       (a, l) => {
         const d = l.pos.distanceTo(camera.position);
         return d < a.d ? { d, n: l.name } : a;
@@ -144,7 +144,7 @@ renderer.setAnimationLoop(() => {
   U.uCT.value += dt * (0.6 + S.wind * 0.5);
   planet.clouds.update(camera.position, sky);
   skyDome.update(camera.position, player.up, sky);
-  planet.atmo.visible = planet.atmo.uniforms.fade.value > 0.01;
+  planet.atmosphere.visible = planet.atmosphere.uniforms.fade.value > 0.01;
 
   planet.update(player.up, player.alt);
   planet.tick(dt);

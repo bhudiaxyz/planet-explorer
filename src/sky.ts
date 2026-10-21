@@ -23,8 +23,8 @@ export class Sky {
   stars: THREE.Points;
   precip: THREE.Points;
   precipitation: Precip;
-  lp = new Float32Array(PRECIP_COUNT * 3);
-  pp = new Float32Array(PRECIP_COUNT * 3);
+  lastPrecipPos = new Float32Array(PRECIP_COUNT * 3);
+  prevPrecipPos = new Float32Array(PRECIP_COUNT * 3);
   constructor(
     private scene: THREE.Scene,
     private planet: Planet,
@@ -175,8 +175,8 @@ export class Sky {
       );
       this.moonDisc.visible = moonVisibility > 0.01;
     }
-    this.planet.atmo.uniforms.sun.value.copy(this.sun);
-    this.planet.atmo.uniforms.fade.value = smoothstep(
+    this.planet.atmosphere.uniforms.sun.value.copy(this.sun);
+    this.planet.atmosphere.uniforms.fade.value = smoothstep(
       planetRadius * 0.03,
       planetRadius * 0.25,
       alt,

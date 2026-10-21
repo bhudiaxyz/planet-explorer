@@ -24,5 +24,5 @@ export const CFG = {
   },
   plantRadius: { near: 29, mid: 68, far: 200, flower: 34, mush: 23.8 },
   forest: { count: 14000, minSpacing: 3.2, tries: 12 },
-  shadow: { size: 2048, half: 70, hz: 10 },
+  shadow: { size: 2048, half: 70, hz: 30 },
 } as const;

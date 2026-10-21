@@ -164,6 +164,7 @@ void main(){vec2 L=floor(gl_FragCoord.xy)-vec2(uK);gl_FragColor=decide(uSC.x+L.x
     this.mesh = new THREE.Mesh(g, m);
     this.mesh.frustumCulled = false;
     this.mesh.matrixAutoUpdate = false;
+    this.mesh.receiveShadow = true;
   }
   /** Rebakes placement when the lattice centre moved. Returns true if a bake happened (so the caller can budget bakes per frame). */
   update(playerDirection: THREE.Vector3, planetRadius: number, allowBake = true): boolean {

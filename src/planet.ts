@@ -22,10 +22,10 @@ export class Planet {
   clouds = new CloudShell();
   cloudRadius = S.radius + 120;
   forest = new Forest(this);
-  lm: ReturnType<typeof buildLandmarks> = { list: [], obs: [], tick: () => {} };
+  landmarks: ReturnType<typeof buildLandmarks> = { list: [], obs: [], tick: () => {} };
   chunks = new ChunkManager(this.group, () => this.radius);
   private elapsedTime = 0;
-  atmo = new THREE.ShaderMaterial({
+  atmosphere = new THREE.ShaderMaterial({
     transparent: true,
     side: THREE.BackSide,
     depthWrite: false,
@@ -40,7 +40,7 @@ export class Planet {
     fragmentShader:
       "uniform vec3 sun,col;uniform float fade;varying vec3 vN,vW;void main(){float a=pow(clamp(-dot(vN,vec3(0.,0.,1.)),0.,1.),1.5)*3.4;float l=clamp(dot(vW,sun)+.35,0.,1.);gl_FragColor=vec4(col,a*l*fade);}",
   });
-  waterMat = new THREE.MeshStandardMaterial({
+  water = new THREE.MeshStandardMaterial({
     color: S.colors.water,
     transparent: true,
     opacity: 0.74,
@@ -54,7 +54,7 @@ export class Planet {
   };
   constructor(scene: THREE.Scene) {
     scene.add(this.group);
-    waterFx(this.waterMat);
+    waterFx(this.water);
   }
 
   // Elevation: domain-warped continents + hills + masked ridged mountains; `fine` adds metre-scale detail the coarse mesh can't resolve.
@@ -289,31 +289,31 @@ export class Planet {
     );
     terrain.receiveShadow = false;
     this.group.add(terrain);
-    this.waterMat.color.set(S.colors.water);
+    this.water.color.set(S.colors.water);
     this.cloudRadius = this.radius + Math.max(110, S.amplitude * 1.3 + 50);
     U.uCloudR.value = this.cloudRadius; // clouds float above the highest peaks
-    const water = new THREE.Mesh(
+    const waterMesh = new THREE.Mesh(
         new THREE.SphereGeometry(this.radius, 160, 120),
-        this.waterMat,
+        this.water,
       ),
       cloudMesh = this.clouds.make(this.cloudRadius),
       atmosphereMesh = new THREE.Mesh(
         new THREE.SphereGeometry(this.cloudRadius * 1.05, 96, 64),
-        this.atmo,
+        this.atmosphere,
       );
     cloudMesh.renderOrder = 10;
     atmosphereMesh.renderOrder = 12;
-    this.group.add(water, cloudMesh, atmosphereMesh);
+    this.group.add(waterMesh, cloudMesh, atmosphereMesh);
     this.forest.build();
     this.group.add(this.forest.group);
     const landmarkGroup = new THREE.Group();
-    this.lm = buildLandmarks(this, landmarkGroup);
+    this.landmarks = buildLandmarks(this, landmarkGroup);
     this.group.add(landmarkGroup);
   }
   /** Per-frame animation: landmarks, planet cube-map bake/fade-in, chunk fades. */
   tick(dt: number) {
     this.elapsedTime += dt;
-    this.lm.tick(this.elapsedTime);
+    this.landmarks.tick(this.elapsedTime);
     if (this.atlas) {
       if (!this.atlas.done) this.atlas.step();
       else if (U.uAtOn.value < 1)

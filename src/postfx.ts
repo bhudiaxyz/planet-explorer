@@ -27,7 +27,7 @@ export class PostFX {
       renderer,
       new THREE.WebGLRenderTarget(innerWidth, innerHeight, {
         type: THREE.HalfFloatType,
-        samples: 0,
+        samples: 4,
       }),
     );
     this.bloom = new UnrealBloomPass(
@@ -61,7 +61,7 @@ export class PostFX {
     if (this.pendingPixelRatio !== this.pixelRatio) {
       this.pixelRatio = this.pendingPixelRatio;
       this.timeSinceLastScaleChange = 0;
-      this.bloom.enabled = this.pixelRatio > 0.8;
+      this.bloom.enabled = true;
       this.renderer.setPixelRatio(this.pixelRatio);
       this.composer.setPixelRatio(this.pixelRatio);
       this.composer.setSize(innerWidth, innerHeight);
