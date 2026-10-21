@@ -5,21 +5,29 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Procedural Planet Explorer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=EB+Garamond:ital,wght@0,400;1,400&display=swap" rel="stylesheet">
   <style>
-    html,
-    body {
+    :root {
+      --gold: #c9ad73;
+      --gold-bright: #e6cf95;
+      --ink: #e8dcc1;
+      --ink-soft: rgba(232,220,193,.62);
+      --ink-faint: rgba(232,220,193,.4);
+      --line: rgba(201,173,115,.3);
+      --fd: 'Cinzel','Trajan Pro',Georgia,serif;
+      --fb: 'EB Garamond','Iowan Old Style',Georgia,serif;
+    }
+    html, body {
       margin: 0;
       height: 100%;
       overflow: hidden;
-      background: #000;
+      background: #07070a;
       font: 13px system-ui, sans-serif;
       color: #fff
     }
-
-    canvas {
-      display: block
-    }
-
+    canvas { display: block }
     #ov {
       position: fixed;
       inset: 0;
@@ -27,14 +35,9 @@
       place-items: center;
       pointer-events: none;
       text-align: center;
-      background: rgba(0, 0, 0, .4)
+      background: rgba(0,0,0,.4)
     }
-
-    #ov div {
-      max-width: 440px;
-      line-height: 1.7
-    }
-
+    #ov div { max-width: 440px; line-height: 1.7 }
     #hud {
       position: fixed;
       left: 12px;
@@ -42,18 +45,142 @@
       opacity: .9;
       text-shadow: 0 1px 3px #000
     }
+    /* --- splash / loading screen --- */
+    #ls {
+      position: fixed;
+      inset: 0;
+      z-index: 50;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      pointer-events: auto;
+      transition: opacity .9s ease;
+    }
+    #ls.dismissed { opacity: 0; pointer-events: none }
+    #ls-bg {
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(ellipse at 50% 38%, rgba(60,46,24,.4), rgba(4,4,6,0) 60%),
+        radial-gradient(ellipse at center, #0b0a0c 0%, #050506 70%, #020203 100%);
+      transition: opacity .9s ease;
+    }
+    #ls.ready #ls-bg { opacity: .34 }
+    #ls.ready { cursor: pointer }
+    #ls-frame { position: relative; text-align: center; padding: 0 40px }
+    #ls-emblem {
+      width: 72px; height: 72px;
+      margin: 0 auto 26px;
+      border-radius: 50%;
+      border: 1px solid rgba(201,173,115,.22);
+      position: relative;
+    }
+    #ls-emblem::before, #ls-emblem::after {
+      content: '';
+      position: absolute;
+      border-radius: 50%;
+    }
+    #ls-emblem::before {
+      inset: -1px;
+      border: 2px solid transparent;
+      border-top-color: var(--gold-bright);
+      border-right-color: rgba(201,173,115,.4);
+      animation: ls-spin 3.4s linear infinite;
+    }
+    #ls-emblem::after {
+      inset: 14px;
+      border: 1px solid rgba(201,173,115,.5);
+      animation: ls-spin 6s linear infinite reverse;
+    }
+    #ls.ready #ls-emblem { opacity: 0; transition: opacity .5s ease }
+    #ls-title {
+      font-family: var(--fd);
+      font-size: clamp(40px,8vw,78px);
+      font-weight: 700;
+      letter-spacing: .22em;
+      text-transform: uppercase;
+      color: var(--gold-bright);
+      text-shadow: 0 2px 30px rgba(180,140,70,.35), 0 1px 3px rgba(0,0,0,.9);
+    }
+    #ls-rule {
+      width: min(420px,60vw); height: 1px;
+      margin: 18px auto 16px;
+      background: linear-gradient(90deg,transparent,var(--gold) 50%,transparent);
+      opacity: .7;
+    }
+    #ls-sub {
+      font-family: var(--fb);
+      font-size: 17px;
+      font-style: italic;
+      letter-spacing: .1em;
+      color: var(--ink-soft);
+    }
+    #ls-bar {
+      width: 240px; height: 2px;
+      margin: 40px auto 16px;
+      background: rgba(201,173,115,.14);
+      overflow: hidden;
+    }
+    #ls-bar span {
+      display: block; width: 40%; height: 100%;
+      background: linear-gradient(90deg,transparent,var(--gold-bright),transparent);
+      animation: ls-sweep 1.5s ease-in-out infinite;
+    }
+    #ls-tip {
+      font-size: 12px;
+      letter-spacing: .22em;
+      text-transform: uppercase;
+      color: var(--ink-faint);
+      animation: ls-pulse 2.2s ease-in-out infinite;
+    }
+    #ls-enter {
+      display: none;
+      margin-top: 38px;
+      font-family: var(--fd);
+      font-size: 16px;
+      letter-spacing: .26em;
+      text-transform: uppercase;
+      color: var(--gold);
+      animation: ls-pulse 2.2s ease-in-out infinite;
+    }
+    #ls-controls {
+      margin-top: 28px;
+      font-size: 11px;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      color: var(--ink-faint);
+      display: none;
+    }
+    #ls.ready #ls-bar, #ls.ready #ls-tip { display: none }
+    #ls.ready #ls-enter { display: block }
+    #ls.ready #ls-controls { display: block }
+    @keyframes ls-spin { to { transform: rotate(360deg) } }
+    @keyframes ls-sweep {
+      0%   { transform: translateX(-120%) }
+      100% { transform: translateX(360%) }
+    }
+    @keyframes ls-pulse {
+      0%,100% { opacity: .5 }
+      50%      { opacity: 1 }
+    }
   </style>
 </head>
 
 <body>
-  <div id="ov">
-    <div>
-      <h2>Procedural Planet Explorer</h2>Click to play · Esc releases the mouse (use the settings panel)<br>
-      <b>WASD</b> move · <b>Shift</b> sprint · <b>Space</b> jump / ascend · <b>C</b> descend (fly)<br><b>F</b> toggle
-      walk ⇄ fly · <b>Q/E</b> roll (fly) · <b>G</b> hide panel
+  <div id="hud"></div>
+  <div id="ls">
+    <div id="ls-bg"></div>
+    <div id="ls-frame">
+      <div id="ls-emblem" aria-hidden="true"></div>
+      <h1 id="ls-title">Planet Explorer</h1>
+      <div id="ls-rule"></div>
+      <div id="ls-sub">A procedural world, forged on the GPU</div>
+      <div id="ls-bar"><span></span></div>
+      <div id="ls-tip">Compiling shaders&hellip;</div>
+      <div id="ls-controls">WASD move &middot; Shift sprint &middot; Space jump/ascend &middot; C descend &middot; F walk&harr;fly &middot; Q/E roll &middot; G panel &middot; Esc release mouse</div>
+      <div id="ls-enter">Click to enter</div>
     </div>
   </div>
-  <div id="hud"></div>
   <script type="module" src="/src/main.ts"></script>
 </body>
 

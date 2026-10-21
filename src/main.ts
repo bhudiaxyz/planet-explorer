@@ -70,12 +70,7 @@ addEventListener("resize", () => {
   camera.aspect = innerWidth / innerHeight;
   camera.updateProjectionMatrix();
 });
-const overlay = document.getElementById("ov")!,
-  hud = document.getElementById("hud")!;
-document.addEventListener(
-  "pointerlockchange",
-  () => (overlay.style.display = document.pointerLockElement ? "none" : "grid"),
-);
+const hud = document.getElementById("hud")!
 
 // temperature under the player, recomputed only when they moved ≥ ~0.15 m
 const lastTempDir = new THREE.Vector3(1e9, 0, 0);
@@ -107,6 +102,29 @@ const hudText = () => {
 
 planet.update(player.up, player.alt);
 renderer.compile(scene, camera); // precompile every shader (incl. shadow variants and the first chunk) so nothing compiles mid-game
+
+const splash = document.getElementById("ls")!;
+const splashEnter = document.getElementById("ls-enter")!;
+const showSplash = (label: string) => {
+  splashEnter.textContent = label;
+  splash.classList.add("ready");
+  splash.classList.remove("dismissed");
+};
+const hideSplash = () => {
+  splash.classList.add("dismissed");
+};
+splash.classList.add("ready");
+splash.addEventListener("click", () => {
+  hideSplash();
+  renderer.domElement.requestPointerLock();
+});
+document.addEventListener("pointerlockchange", () => {
+  if (document.pointerLockElement) {
+    hideSplash();
+  } else {
+    showSplash("Click to resume");
+  }
+});
 
 // ---- frame loop ----------------------------------------------------------------------------------------------------------------------------------
 let lastFrameTime = performance.now(),
