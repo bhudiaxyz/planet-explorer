@@ -34,7 +34,7 @@ export class PostFX {
       new THREE.Vector2(innerWidth / 2, innerHeight / 2),
       0.45,
       0.5,
-      1.0,
+      0.75,
     );
     const clean = new ShaderPass({
       uniforms: { tDiffuse: { value: null } },
@@ -69,12 +69,12 @@ export class PostFX {
     this.composer.render();
     this.smoothedFrameTime += (dt - this.smoothedFrameTime) * 0.05;
     this.timeSinceLastScaleChange += dt;
-    if (this.timeSinceLastScaleChange > 3) {
-      const cap = Math.min(devicePixelRatio, S.renderScale);
-      if (this.smoothedFrameTime > 0.03 && this.pixelRatio > 0.5)
-        this.pendingPixelRatio = Math.max(0.5, this.pixelRatio - 0.15);
-      else if (this.smoothedFrameTime < 0.0185 && this.pixelRatio < cap)
-        this.pendingPixelRatio = Math.min(cap, this.pixelRatio + 0.1);
-    }
+    const cap = Math.min(devicePixelRatio, S.renderScale);
+    // downscale reacts quickly (0.5 s) to catch sudden load spikes (e.g. descent into terrain)
+    if (this.timeSinceLastScaleChange > 0.5 && this.smoothedFrameTime > 0.03 && this.pixelRatio > 0.5)
+      this.pendingPixelRatio = Math.max(0.5, this.pixelRatio - 0.15);
+    // upscale is cautious (3 s) to avoid oscillation on borderline hardware
+    else if (this.timeSinceLastScaleChange > 3 && this.smoothedFrameTime < 0.0185 && this.pixelRatio < cap)
+      this.pendingPixelRatio = Math.min(cap, this.pixelRatio + 0.1);
   }
 }

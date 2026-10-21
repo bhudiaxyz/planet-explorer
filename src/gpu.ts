@@ -86,7 +86,7 @@ c=mix(c,c*vec3(1.35,.95,1.1)+vec3(.04,0.,.05),sm_(.62,.8,v3)*.35*(1.-sm_(.2,.4,e
 float beach=(1.-sm_(.02,.075+.025*nz,e))*(1.-sm_(.18,.4,slope));vec3 sand=uCs*mix(vec3(1.),vec3(1.12,.9,.82),sm_(.35,.7,v2)*.55);
 c=mix(c,sand,beach);c=mix(c,c*1.1+vec3(.02),beach*sm_(.03,.075,e));c*=1.-.3*beach*(1.-sm_(0.,.035,e));c*=1.-.07*beach*(.5+.5*sin(e*uAmp*14.+pn(d*80.,1)*3.));
 float tt=1.-1.1*d.y*d.y-1.2*max(e,0.)+.08*pn(d*9.+vec3(3.,0.,0.),1);
-float rock=max(sm_(.2,.4,slope),sm_(.55,.8,e));vec3 rk=mix(uCr,mix(vec3(.46,.33,.25),vec3(.3,.36,.46),sm_(.3,.7,v1)),.55);c=mix(c,rk,rock);c=mix(c,vec3(.235,.22,.2),rock*.4*(sin(e*uAmp*.9+nz*5.)*.5+.5));
+float rock=max(sm_(.2,.4,slope),sm_(.55,.8,e));vec3 rk=mix(uCr,mix(vec3(.46,.33,.25),vec3(.3,.36,.46),sm_(.3,.7,v1)),.55);c=mix(c,rk,rock);c=mix(c,vec3(.235,.22,.2),rock*.4*(sin(e*uAmp*.9+nz*3.+pn(d*12.,1)*2.5)*.5+.5));
 c=mix(c,c*.8+vec3(.07,.07,.05),sm_(uSnow+.4,uSnow+.2,tt)*(1.-rock));
 c=mix(c,vec3(.78,.88,.94),sm_(uSnow+.24,uSnow+.1,tt)*.45);
 float snow=sm_(uSnow+.16,uSnow-.02,tt)*(1.-sm_(.3,.6,slope)*.45);c=mix(c,uCw,snow);

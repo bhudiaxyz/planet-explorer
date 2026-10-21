@@ -151,7 +151,8 @@ ${cut ? "if(uOn>.5){float dn=dot(vWp,uN);if(dn>0.){float a=dot(vWp,uU)/dn*uR/1.5
 float snowF=smoothstep(.72,.88,min(diffuseColor.r,min(diffuseColor.g,diffuseColor.b)));
 float dd=length(vViewPosition),gn;
 {float w1=1.-smoothstep(150.,500.,dd),w2=1.-smoothstep(60.,220.,dd),w3=1.-smoothstep(25.,90.,dd);
-gn=.5*mix(.5,w1>0.?vn(vWp*.7):.5,w1)+.3*mix(.5,w2>0.?vn(vWp*2.9):.5,w2)+.2*mix(.5,w3>0.?vn(vWp*11.):.5,w3);}diffuseColor.rgb*=.78+.45*gn;
+gn=.5*mix(.5,w1>0.?vn(vWp*.7):.5,w1)+.3*mix(.5,w2>0.?vn(vWp*2.9):.5,w2)+.2*mix(.5,w3>0.?vn(vWp*11.):.5,w3);
+gn=mix(gn,.5,max(snowF*.85,smoothstep(.12,.25,vC.b-vC.r)*.7));}diffuseColor.rgb*=.78+.45*gn;
 vec3 nn=normalize(vWp);float sd0=dot(nn,uSun);
 if(uCov>.05&&dd<500.&&uDayF>.02&&sd0>0.){vec3 sp=normalize(vWp+uSun*((uCloudR-length(vWp))/max(sd0,.15)));diffuseColor.rgb*=1.-.4*cdens(sp,2)*uDayF*smoothstep(0.,.3,sd0);}
 if(snowF>.5&&dd<40.&&uDayF>.1)diffuseColor.rgb+=step(.992,h3(floor(vWp*45.)))*.9*uDayF*smoothstep(0.,.2,sd0);
@@ -214,14 +215,16 @@ export function waterFx(m: THREE.MeshStandardMaterial) {
 vec3 k1=normalize(vec3(.8,.2,.6)),k2=normalize(vec3(-.5,.7,.5)),k3=normalize(vec3(.3,-.6,.74)),k4=normalize(vec3(-.9,.1,-.4)),k5=normalize(vec3(.1,.9,-.5));
 float p1=dot(w,k1)*.22+t*.9,p2=dot(w,k2)*.37+t*1.1,p3=dot(w,k3)*.61-t*1.5;
 vec3 g=k1*cos(p1)*.12+k2*cos(p2)*.148+k3*cos(p3)*.17*(.4+.6*fa);
-if(fa>.01){float p4=dot(w,k4)*.97+t*1.9,p5=dot(w,k5)*1.7-t*2.6;g+=k4*cos(p4)*.175*fa+k5*cos(p5)*.17*fa;}
+float cr=(sin(p1)*.55+sin(p2)*.4+sin(p3)*.25)*A;
+if(fa>.01){float p4=dot(w,k4)*.97+t*1.9,p5=dot(w,k5)*1.7-t*2.6;g+=k4*cos(p4)*.175*fa+k5*cos(p5)*.17*fa;cr+=(sin(p4)*.22+sin(p5)*.19)*A*fa;
+vec3 k6=normalize(vec3(.58,-.28,-.76)),k7=normalize(vec3(-.18,.52,.84));float p6=dot(w,k6)*.53+t*2.1,p7=dot(w,k7)*1.23-t*1.7;g+=k6*cos(p6)*.09*fa+k7*cos(p7)*.08*fa;cr+=(sin(p6)*.15+sin(p7)*.13)*A*fa;}
 g*=.35*A;g-=nW*dot(g,nW);normal=normalize((viewMatrix*vec4(normalize(nW-g),0.)).xyz);
-float cr=(sin(p1)*.55+sin(p2)*.4+sin(p3)*.25)*A,crest=smoothstep(.55,1.1,cr+vn(w*.8+t*.2)*.4-.1)*smoothstep(.2,1.,uWind);
+float crest=smoothstep(.55,1.1,cr+(vn(w*.8+t*.2)*.25+vn(w*1.37+t*.15+vec3(5.7,0.,2.3))*.17)-.1)*smoothstep(.2,1.,uWind);
 diffuseColor.rgb=mix(diffuseColor.rgb,vec3(.92,.96,1.),crest*.8);diffuseColor.a=mix(diffuseColor.a,1.,crest);
 if(uAtOn>.5){float dep=max(-texture(uCubeC,normalize(vWp)).a*uAmp,0.),sh=1.-smoothstep(0.,7.,dep),dp=smoothstep(2.,45.,dep);
 vec3 wc=mix(vec3(.07,.5,.52),vec3(.02,.1,.28),dp);wc*=mix(vec3(1.),vec3(.88,1.12,1.),vn(vWp*.018));
 diffuseColor.rgb=mix(diffuseColor.rgb,wc,.55);diffuseColor.a=mix(diffuseColor.a,.28,sh*(1.-crest));
-float shore=clamp((1.-smoothstep(0.,1.1,dep))*(.55+.45*sin(dep*7.-uTime*1.6+vn(vWp*.6)*5.)),0.,1.);diffuseColor.rgb=mix(diffuseColor.rgb,vec3(.95,.98,1.),shore*.6);diffuseColor.a=mix(diffuseColor.a,.9,shore*.6);}
+float shore=clamp((1.-smoothstep(0.,1.1,dep))*(.55+.45*sin(dep*7.-uTime*1.6+(vn(vWp*.6)*.62+vn(vWp*1.09+vec3(7.3,0.,2.1))*.38)*5.)),0.,1.);diffuseColor.rgb=mix(diffuseColor.rgb,vec3(.95,.98,1.),shore*.6);diffuseColor.a=mix(diffuseColor.a,.9,shore*.6);}
 float fr=pow(1.-clamp(dot(normal,normalize(vViewPosition)),0.,1.),4.);diffuseColor.rgb=mix(diffuseColor.rgb,uSky*(.55+.5*uDayF),fr*.6);}`,
       );
   };

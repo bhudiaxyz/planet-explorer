@@ -101,6 +101,8 @@ export class Forest {
   speciesLists: SpeciesList[] = [];
   last = new THREE.Vector3(1e9, 0, 0);
   private nearMode = false; // hysteresis: enter near-detail at 380 m, leave at 420 m
+  private nearStrength = 0; // 0–1, animates toward nearMode to crossfade hi/mid tiers
+  private lastUpdateTime = 0;
   private scratchObject3D = new THREE.Object3D();
   private scratchDir = new THREE.Vector3();
   private scratchColor = new THREE.Color();
@@ -402,17 +404,23 @@ export class Forest {
 
   /** Rebuilds the detailed and medium instance sets after the camera moved ≥ 6 m. */
   update(cam: THREE.Vector3) {
-    if (cam.distanceTo(this.last) < 6) return;
-    this.last.copy(cam);
+    const now = performance.now() * 0.001;
+    const dt = this.lastUpdateTime ? Math.min(now - this.lastUpdateTime, 0.1) : 0;
+    this.lastUpdateTime = now;
     const planetRadius = this.pl.radius,
       camLength = cam.length(),
-      camDirX = cam.x / camLength,
-      camDirY = cam.y / camLength,
-      camDirZ = cam.z / camLength,
-      horizonThreshold = planetRadius / camLength - 0.06,
       altitude = camLength - planetRadius;
     if (this.nearMode ? altitude > 420 : altitude < 380) this.nearMode = altitude < 400;
-    const near = this.nearMode,
+    // animate nearStrength toward nearMode so hi/mid tiers fade in/out over ~0.4 s
+    const target = this.nearMode ? 1 : 0;
+    this.nearStrength += (target - this.nearStrength) * Math.min(1, dt * 2.5);
+    if (cam.distanceTo(this.last) < 6 && Math.abs(this.nearStrength - target) < 0.005) return;
+    this.last.copy(cam);
+    const camDirX = cam.x / camLength,
+      camDirY = cam.y / camLength,
+      camDirZ = cam.z / camLength,
+      horizonThreshold = planetRadius / camLength - 0.06;
+    const near = this.nearStrength > 0.001,
       distanceToCosAngle = (m: number) => Math.cos(Math.min(1.5, m / planetRadius));
     const highDetailThreshold = distanceToCosAngle(H1 + 15),
       midNearThreshold = distanceToCosAngle(H0 - 15),
@@ -459,10 +467,11 @@ export class Forest {
           }
       }
       for (let t = 0; t < 2; t++) {
-        // upload only the used range; empty meshes are not drawn at all
+        // upload only the used range; scale count by nearStrength to crossfade tiers
         const mesh = lists.meshes[t];
-        mesh.visible = tierCounts[t] > 0;
-        mesh.count = tierCounts[t];
+        const count = Math.round(tierCounts[t] * this.nearStrength);
+        mesh.visible = count > 0;
+        mesh.count = count;
         mesh.instanceMatrix.clearUpdateRanges();
         mesh.instanceMatrix.addUpdateRange(0, tierCounts[t] * 16);
         mesh.instanceMatrix.needsUpdate = true;

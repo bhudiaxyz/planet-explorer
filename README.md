@@ -30,7 +30,7 @@ Controls: click to capture the mouse · WASD move · Shift sprint · Space jump 
 
 - **One terrain function, two implementations.** Walking height, tree placement and all GPU placement use the same noise (`noise.ts` ↔ `gpu.ts`), so what you see is what you stand on.
 - **Bake once, sample cheaply.** Chunk heights/normals/colours, plant placement, planet colours/normals (cube maps) and tree candidates are computed on the GPU only when needed, never per frame.
-- **No popping.** Ground cover tiers _grow_ in/out by distance; trees cross-fade with complementary screen-door dither; chunks fade and geomorph; shadows and weather fade instead of switching.
+- **No popping.** Ground cover tiers fade in/out at both their outer and inner edges via IGN screen-door dithering; hi/mid tree detail tiers cross-fade smoothly over ~0.4 s as altitude changes; terrain chunks fade and geomorph between LOD levels; shadows, weather, vegetation density and atmosphere all animate instead of switching.
 - **Clustering.** `gpu.ts` defines smooth density fields (`forestMask`, `groveMask`, `treeDensity`, `clusterField`). Trees, ferns and mushrooms share `treeDensity` so the understory sits under the forests; shrubs, rocks, flowers, scrub and reeds use their own `clusterField(kind)` patches; grass carpets open, moist, gentle ground.
 
 ## Adding a plant
@@ -40,4 +40,4 @@ Controls: click to capture the mouse · WASD move · Shift sprint · Space jump 
 
 ## Performance notes
 
-Frame time is dominated by fill rate; the default render scale is 1.0 and adapts down automatically (panel: _render scale_). Other levers: forest density, the grass tiers in `plants.ts`, and `CFG` in `config.ts`.
+Frame time is dominated by fill rate; the default render scale is 1.0 and adapts down automatically within 0.5 s of a frame-time spike (panel: _render scale_). Other levers: forest density, the grass tiers in `plants.ts`, and `CFG` in `config.ts` (key knobs: `chunk.budget`, `shadow.half`, `treeLod`).
