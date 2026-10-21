@@ -105,15 +105,19 @@ renderer.compile(scene, camera); // precompile every shader (incl. shadow varian
 
 const splash = document.getElementById("ls")!;
 const splashEnter = document.getElementById("ls-enter")!;
-const showSplash = (label: string) => {
+const splashTip = document.getElementById("ls-tip")!;
+const splashControls = document.getElementById("ls-controls")!;
+const showSplash = (label: string, compiled = true) => {
   splashEnter.textContent = label;
+  splashTip.style.display = compiled ? "none" : "";
+  splashControls.style.display = compiled ? "" : "none";
   splash.classList.add("ready");
   splash.classList.remove("dismissed");
 };
 const hideSplash = () => {
   splash.classList.add("dismissed");
 };
-splash.classList.add("ready");
+showSplash("Click to enter", false);
 splash.addEventListener("click", () => {
   hideSplash();
   renderer.domElement.requestPointerLock();
