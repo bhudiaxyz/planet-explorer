@@ -20,7 +20,7 @@ export function grassGeo(blades: number, segs: number, wScale = 1) {
     const put = (x: number, y: number, z: number, c: number) => {
       pos.push(ox + x * ca - z * sa, y, oz + x * sa + z * ca);
       col.push(c, c, c);
-      nrm.push(0, 1, 0);
+      nrm.push(-sa, 0, ca); // face-aligned: perpendicular to blade orientation
     };
     for (let s = 0; s < segs; s++) {
       const t = s / segs,
@@ -56,7 +56,7 @@ export function shrubGeo() {
       0.5 + r() * 0.2,
       N0,
       0.8,
-      1,
+      2,
     );
   return done(p);
 }
@@ -91,8 +91,8 @@ export function rockLow() {
 }
 export function flowerGeo() {
   const p: THREE.BufferGeometry[] = [];
-  cyl(p, new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0.35, 0), 0.015, 0.012, C(0x3f7a30), 4);
-  blob(p, new THREE.Vector3(0, 0.38, 0), 0.09, new THREE.Color(1, 1, 1), 0.6, 0);
+  cyl(p, new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0.35, 0), 0.015, 0.012, C(0x3f7a30), 6);
+  blob(p, new THREE.Vector3(0, 0.38, 0), 0.09, new THREE.Color(1, 1, 1), 0.6, 1);
   return done(p);
 }
 export function alpineGeo() {
@@ -105,7 +105,7 @@ export function alpineGeo() {
       0.28 + r() * 0.14,
       N0,
       0.7,
-      1,
+      2,
     );
   return done(p);
 }
@@ -136,7 +136,7 @@ export function fernGeo(n = 6) {
     );
     add(
       p,
-      new THREE.ConeGeometry(0.14 * Math.sqrt(6 / n), len, 4),
+      new THREE.ConeGeometry(0.14 * Math.sqrt(6 / n), len, 6),
       m,
       N0,
       len / 2,
@@ -147,15 +147,25 @@ export function fernGeo(n = 6) {
   return done(p);
 }
 export function mushroomGeo() {
-  // two toadstools; the cap is neutral (white) so the shader picks red / brown / orange / pale / violet per instance
+  // two toadstools; cap is neutral (white) so the shader picks red / brown / orange / pale / violet per instance
   const p: THREE.BufferGeometry[] = [];
+  // dome profile: center tip → outward curve → rolled rim underside
+  const capProfile = [
+    new THREE.Vector2(0.0,  0.18),
+    new THREE.Vector2(0.06, 0.17),
+    new THREE.Vector2(0.12, 0.12),
+    new THREE.Vector2(0.17, 0.04),
+    new THREE.Vector2(0.18, -0.01),
+    new THREE.Vector2(0.14, -0.03),
+  ];
   for (let i = 0; i < 2; i++) {
     const x = i ? 0.28 : 0,
       z = i ? -0.12 : 0,
-      h = 0.14 + i * 0.05,
+      h = 0.30 + i * 0.10,
       s = 1 - i * 0.3;
-    cyl(p, new THREE.Vector3(x, 0, z), new THREE.Vector3(x, h, z), 0.035 * s, 0.03 * s, C(0x9a8f7a), 4);
-    blob(p, new THREE.Vector3(x, h + 0.02, z), 0.11 * s, new THREE.Color(1, 1, 1), 0.55, 0);
+    cyl(p, new THREE.Vector3(x, 0, z), new THREE.Vector3(x, h, z), 0.038 * s, 0.028 * s, C(0x9a8f7a), 6);
+    const scaled = capProfile.map(v => new THREE.Vector2(v.x * s, v.y * s));
+    add(p, new THREE.LatheGeometry(scaled, 8), T(x, h + 0.02 * s, z), new THREE.Color(1, 1, 1), 0.18 * s, false, true);
   }
   return done(p);
 }
@@ -175,7 +185,7 @@ export function reedGeo(blades = 8) {
       );
     add(
       p,
-      new THREE.ConeGeometry(0.035 * (8 / blades) ** 0.5, h, 3, 1, true),
+      new THREE.ConeGeometry(0.035 * (8 / blades) ** 0.5, h, 5, 1, true),
       m,
       new THREE.Color().setHSL(0.2 + r() * 0.05, 0.5, 0.3 + r() * 0.08),
       h / 2,
@@ -189,7 +199,7 @@ export function reedGeo(blades = 8) {
       0.05,
       0.05,
       C(0x5a3b1e),
-      4,
+      6,
     );
   return done(p);
 }
