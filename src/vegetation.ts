@@ -251,6 +251,8 @@ export class Scatter {
   rebuild() {
     for (const l of this.layers) {
       l.mesh.geometry.dispose();
+      (l.mesh.material as THREE.Material).dispose();
+      l.bake.dispose();
       this.group.remove(l.mesh);
     }
     this.layers = [];

@@ -73,7 +73,6 @@ renderer.domElement.addEventListener("webglcontextrestored", () =>
 );
 const gui = setupGui({ planet, player, post: postFX, rebuild, rebuildVeg: () => scatter.rebuild() });
 addEventListener("resize", () => {
-  renderer.setSize(innerWidth, innerHeight);
   postFX.resize();
   camera.aspect = innerWidth / innerHeight;
   camera.updateProjectionMatrix();
