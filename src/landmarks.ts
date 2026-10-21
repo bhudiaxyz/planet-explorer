@@ -203,30 +203,84 @@ export function buildLandmarks(pl: Planet, group: THREE.Group) {
         );
       }
       const foliage = CurrentPalette.islandFoliage[v % 5];
+      // scattered surface boulders
+      for (let k = 0, n2 = 2 + ((r() * 4) | 0); k < n2; k++) {
+        const a2 = r() * 6.283, d2 = r() * rad * 0.75, s2b = 0.3 + r() * 0.7;
+        part(parts, new THREE.IcosahedronGeometry(1, 0),
+          new THREE.Vector3(Math.cos(a2) * d2, 0.75 + s2b * 0.4, Math.sin(a2) * d2),
+          E(r() * 3, r() * 3, r() * 3),
+          rock.clone().offsetHSL(0, 0, (r() - 0.5) * 0.1),
+          new THREE.Vector3(s2b, s2b * 0.7, s2b));
+      }
+      // rock spire cluster (45% chance)
+      if (r() < 0.45) {
+        for (let k = 0, n2 = 2 + ((r() * 3) | 0); k < n2; k++) {
+          const a2 = r() * 6.283, d2 = r() * rad * 0.45, sh = (2.5 + r() * 5) * sz, sw = 0.2 + r() * 0.35;
+          part(parts, new THREE.OctahedronGeometry(1, 0),
+            new THREE.Vector3(Math.cos(a2) * d2, 0.75 + sh * 0.5, Math.sin(a2) * d2),
+            E((r() - 0.5) * 0.2, r() * 3, (r() - 0.5) * 0.2),
+            rock.clone().offsetHSL(0, 0, (r() - 0.5) * 0.1),
+            new THREE.Vector3(sw, sh, sw));
+        }
+      }
+      // ground cover — flat mossy/lichen patches
+      for (let k = 0, n2 = 2 + ((r() * 4) | 0); k < n2; k++) {
+        const a2 = r() * 6.283, d2 = r() * rad * 0.65, ps = 0.7 + r() * 1.1;
+        part(parts, new THREE.IcosahedronGeometry(1, 1),
+          new THREE.Vector3(Math.cos(a2) * d2, 0.82, Math.sin(a2) * d2),
+          E(0, r() * 3, 0),
+          turf.clone().offsetHSL((r() - 0.5) * 0.06, 0, (r() - 0.5) * 0.12),
+          new THREE.Vector3(ps, 0.22, ps));
+      }
+      // hanging root tendrils below the island (55% chance)
+      if (r() < 0.55) {
+        for (let k = 0, n2 = 4 + ((r() * 6) | 0); k < n2; k++) {
+          const a2 = r() * 6.283, d2 = rad * (0.45 + r() * 0.45), rh = (2.5 + r() * 5) * sz;
+          part(parts, new THREE.CylinderGeometry(0.07, 0.03, rh, 3),
+            new THREE.Vector3(Math.cos(a2) * d2, -rh / 2 + 0.2, Math.sin(a2) * d2),
+            E((r() - 0.5) * 0.2, 0, 0),
+            turf.clone().offsetHSL(0, -0.15, -0.12));
+        }
+      }
+      // plants — per-island archetype cycles: 0=conifer · 1=dome/mushroom · 2=shrub cluster
+      const plantType = v % 3;
       for (let k = 0, n2 = 3 + ((r() * 5) | 0); k < n2; k++) {
         const a2 = r() * 6.283,
           d2 = r() * rad * 0.7,
           x = Math.cos(a2) * d2,
           z = Math.sin(a2) * d2,
           h = 1.6 + r() * 1.4;
-        part(
-          parts,
-          new THREE.CylinderGeometry(0.18, 0.26, h, 4),
-          new THREE.Vector3(x, 0.75 + h / 2, z),
-          E(0, 0, 0),
-          STONE_BARK,
-        );
-        part(
-          parts,
-          new THREE.ConeGeometry(0.9 + r() * 0.5, 2.6 + r() * 1.5, 6),
-          new THREE.Vector3(x, 0.75 + h + 1.3, z),
-          E(0, 0, 0),
-          new THREE.Color(foliage).offsetHSL(
-            (r() - 0.5) * 0.04,
-            0,
-            (r() - 0.5) * 0.08,
-          ),
-        );
+        const fc = new THREE.Color(foliage).offsetHSL((r() - 0.5) * 0.04, 0, (r() - 0.5) * 0.08);
+        part(parts, new THREE.CylinderGeometry(0.18, 0.26, h, 4),
+          new THREE.Vector3(x, 0.75 + h / 2, z), E(0, 0, 0), STONE_BARK);
+        if (plantType === 0) {
+          part(parts, new THREE.ConeGeometry(0.9 + r() * 0.5, 2.6 + r() * 1.5, 6),
+            new THREE.Vector3(x, 0.75 + h + 1.3, z), E(0, 0, 0), fc);
+        } else if (plantType === 1) {
+          // dome / mushroom cap
+          const cr = 1.1 + r() * 0.8;
+          part(parts, new THREE.IcosahedronGeometry(1, 1),
+            new THREE.Vector3(x, 0.75 + h + 0.5, z), E(0, 0, 0), fc,
+            new THREE.Vector3(cr, cr * 0.5, cr));
+        } else {
+          // shrub — 3 small cones fanning outward
+          for (let s = 0; s < 3; s++) {
+            const as = (s / 3) * 6.283 + r() * 0.5, ds = 0.35 + r() * 0.25, ch = 1.0 + r() * 0.8;
+            part(parts, new THREE.ConeGeometry(0.45 + r() * 0.25, ch, 5),
+              new THREE.Vector3(x + Math.cos(as) * ds, 0.75 + ch / 2, z + Math.sin(as) * ds),
+              E(0, as, 0), fc);
+          }
+        }
+      }
+      // edge overhang rock slabs (30% chance)
+      if (r() < 0.3) {
+        for (let k = 0, n2 = 1 + ((r() * 3) | 0); k < n2; k++) {
+          const a2 = r() * 6.283, sw = (1.5 + r() * 2.5) * sz;
+          part(parts, new THREE.BoxGeometry(sw, 0.35 + r() * 0.35, sw * 0.35),
+            new THREE.Vector3(Math.cos(a2) * (rad * 0.9 + sw * 0.2), -0.15 + (r() - 0.5) * 0.4, Math.sin(a2) * (rad * 0.9 + sw * 0.2)),
+            E(0, -a2, (r() - 0.5) * 0.25),
+            rock.clone().offsetHSL(0, 0, 0.06));
+        }
       }
       if (r() < 0.45)
         part(
