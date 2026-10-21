@@ -39,7 +39,7 @@ const scene = new THREE.Scene(),
 
 // ---- world & systems ---------------------------------------------------------------------------------------------------------------------------
 const planet = new Planet(scene);
-planet.build();
+await planet.build();
 const player = new Player(camera, planet, renderer.domElement);
 player.spawn();
 const sky = new Sky(scene, planet),
@@ -58,8 +58,8 @@ player.col = collider;
 let rebuildTimer = 0;
 const rebuild = (respawn = false) => {
   clearTimeout(rebuildTimer);
-  rebuildTimer = window.setTimeout(() => {
-    planet.build();
+  rebuildTimer = window.setTimeout(async () => {
+    await planet.build();
     scatter.dirty = true;
     collider.dirty = true;
     respawn ? player.spawn() : player.refresh();

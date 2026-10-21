@@ -153,11 +153,11 @@ void main() {
   gl_Position  = vec4(x / uW * 2. - 1., y / uH * 2. - 1., 0., 1.);
 }`;
 // Bulk point sampling with read-back. 0: base (elev, moisture) · 1: tree candidates (elev, moisture, tree density, slope) · 2: coarse-mesh radius · 3: base analytic normals · 4: base biome colours · 5: forest stand noise
-export function bakePoints(
+export async function bakePoints(
   dirs: Float32Array,
   mode: number,
   extra?: { nrm: Float32Array; em: Float32Array },
-) {
+): Promise<Float32Array> {
   const pointCount = dirs.length / 3,
     texWidth = 2048,
     texHeight = Math.max(1, Math.ceil(pointCount / texWidth)),
@@ -190,7 +190,11 @@ export function bakePoints(
   bakeScene.add(pointsMesh);
   renderToTarget(rt, bakeScene);
   const results = new Float32Array(texWidth * texHeight * 4);
-  renderer!.readRenderTargetPixels(rt, 0, 0, texWidth, texHeight, results);
+  const r: any = renderer!;
+  if (typeof r.readRenderTargetPixelsAsync === "function")
+    await r.readRenderTargetPixelsAsync(rt, 0, 0, texWidth, texHeight, results);
+  else
+    renderer!.readRenderTargetPixels(rt, 0, 0, texWidth, texHeight, results);
   rt.dispose();
   bakeMat.dispose();
   pointsGeo.dispose();

@@ -116,7 +116,7 @@ export class Forest {
   constructor(private pl: Planet) {}
 
   /** Per-candidate terrain samples. mode 1: (elev, moisture, tree density, slope) · 2: coarse-mesh radius · 5: stand noise. */
-  private sample(dirs: Float32Array, mode: number) {
+  private async sample(dirs: Float32Array, mode: number) {
     if (canBake()) return bakePoints(dirs, mode);
     const n = dirs.length / 3,
       results = new Float32Array(n * 4),
@@ -227,7 +227,7 @@ export class Forest {
     };
   }
 
-  build() {
+  async build() {
     this.leafColors = getLeafColors();
     this.group.clear();
     this.speciesLists = [];
@@ -252,8 +252,10 @@ export class Forest {
       d.normalize().toArray(candidateDirs, n++ * 3);
     }
     const dirs = candidateDirs.subarray(0, n * 3),
-      sampleData = this.sample(dirs, 1),
-      stand = this.sample(dirs, 5);
+      [sampleData, stand] = await Promise.all([
+        this.sample(dirs, 1),
+        this.sample(dirs, 5),
+      ]);
     // minimum spacing via a 3-D hash grid (cell = spacing), so dense stands never stack trunks
     const minSpacing = CFG.forest.minSpacing,
       grid = new Map<number, number[]>(),
@@ -320,7 +322,7 @@ export class Forest {
         i * 3,
       ),
     );
-    const coarseRadii = this.sample(acceptedDirs, 2),
+    const coarseRadii = await this.sample(acceptedDirs, 2),
       idsBySpecies = highDetailGeos.map(() => [] as number[]);
     acceptedTrees.forEach((t, i) => idsBySpecies[t.speciesIndex].push(i));
     idsBySpecies.forEach((ids, si) => {

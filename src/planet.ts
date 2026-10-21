@@ -224,7 +224,7 @@ void main() {
     }); // unmerged: GPU normals are position-based, so no seams and no slow vertex merge
   }
 
-  build() {
+  async build() {
     this.radius = S.radius;
     this.noise = new Noise3(S.seed);
     this.noise2 = new Noise3(S.seed + 101);
@@ -248,7 +248,7 @@ void main() {
       elevations = new Float32Array(vertexCount),
       moistures = new Float32Array(vertexCount);
     if (canBake()) {
-      const baked = bakePoints(baseMesh.dirs, 0);
+      const baked = await bakePoints(baseMesh.dirs, 0);
       for (let i = 0; i < vertexCount; i++) {
         elevations[i] = baked[i * 4];
         moistures[i] = baked[i * 4 + 1];
@@ -270,21 +270,24 @@ void main() {
     let hasBakedColors = false;
     if (canBake()) {
       // analytic normals + biome colours baked on the GPU once; the per-frame vertex shader only reads attributes
-      const normalReadback = bakePoints(baseMesh.dirs, 3),
-        normalArray = new Float32Array(vertexCount * 3),
-        elevMoistArray = new Float32Array(vertexCount * 2),
-        colorArray = new Float32Array(vertexCount * 3);
+      const elevMoistArray = new Float32Array(vertexCount * 2);
+      for (let i = 0; i < vertexCount; i++) {
+        elevMoistArray[i * 2] = elevations[i];
+        elevMoistArray[i * 2 + 1] = moistures[i];
+      }
+      // normals bake must finish before color bake (color MODE 4 reads nrm attribute)
+      const normalReadback = await bakePoints(baseMesh.dirs, 3),
+        normalArray = new Float32Array(vertexCount * 3);
       for (let i = 0; i < vertexCount; i++) {
         normalArray[i * 3] = normalReadback[i * 4];
         normalArray[i * 3 + 1] = normalReadback[i * 4 + 1];
         normalArray[i * 3 + 2] = normalReadback[i * 4 + 2];
-        elevMoistArray[i * 2] = elevations[i];
-        elevMoistArray[i * 2 + 1] = moistures[i];
       }
-      const colorReadback = bakePoints(baseMesh.dirs, 4, {
+      const colorReadback = await bakePoints(baseMesh.dirs, 4, {
         nrm: normalArray,
         em: elevMoistArray,
-      });
+      }),
+        colorArray = new Float32Array(vertexCount * 3);
       for (let i = 0; i < vertexCount; i++) {
         colorArray[i * 3] = colorReadback[i * 4];
         colorArray[i * 3 + 1] = colorReadback[i * 4 + 1];
@@ -318,7 +321,7 @@ void main() {
     cloudMesh.renderOrder = 10;
     atmosphereMesh.renderOrder = 12;
     this.group.add(waterMesh, cloudMesh, atmosphereMesh);
-    this.forest.build();
+    await this.forest.build();
     this.group.add(this.forest.group);
     const landmarkGroup = new THREE.Group();
     this.landmarks = buildLandmarks(this, landmarkGroup);
