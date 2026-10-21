@@ -38,6 +38,7 @@ const scene = new THREE.Scene(),
   );
 
 // ---- world & systems ---------------------------------------------------------------------------------------------------------------------------
+(async () => {
 const planet = new Planet(scene);
 await planet.build();
 const player = new Player(camera, planet, renderer.domElement);
@@ -205,3 +206,4 @@ renderer.setAnimationLoop(() => {
   }
   postFX.render(dt);
 });
+})();
