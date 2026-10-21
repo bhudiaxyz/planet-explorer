@@ -247,27 +247,8 @@ export class Scatter {
         this.group.add(l.mesh);
       }
   }
-  /** Tear down and recreate all layers — call when palette changes to rebake vertex colours. */
-  rebuild() {
-    for (const l of this.layers) {
-      l.mesh.geometry.dispose();
-      (l.mesh.material as THREE.Material).dispose();
-      l.bake.dispose();
-      this.group.remove(l.mesh);
-    }
-    this.layers = [];
-    for (const spec of PLANTS)
-      for (const tier of spec.tiers) {
-        const l = new Layer(spec, tier);
-        if (spec.collide && tier.near) {
-          l.collide = true;
-          l.onData = () => this.version++;
-        }
-        this.layers.push(l);
-        this.group.add(l.mesh);
-      }
-    this.dirty = true;
-  }
+  /** Invalidate all layer placement caches — call when palette changes to rebake vertex colours. */
+  rebuild() { this.dirty = true; }
   update(playerDirection: THREE.Vector3, alt: number) {
     U.uVeg.value = 1 - smoothstep(150, 250, alt);
     this.group.visible = alt < 255;

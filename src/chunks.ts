@@ -40,7 +40,7 @@ export class ChunkManager {
   constructor(
     private group: THREE.Group,
     private radius: () => number,
-  ) {}
+  ) { this.buffers(); }
 
   /** Drops every chunk. instant = false lets them fade out first. */
   clear(instant = true) {
