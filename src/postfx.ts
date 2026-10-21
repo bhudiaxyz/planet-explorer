@@ -16,6 +16,7 @@ export class PostFX {
   readonly bloom: UnrealBloomPass;
   private pixelRatio: number;
   private pendingPixelRatio: number;
+  private devicePixelRatio: number;
   private smoothedFrameTime = 0.016;
   private timeSinceLastScaleChange = -2; // negative = start-up grace
   constructor(
@@ -58,12 +59,14 @@ void main() {
     this.composer.addPass(this.bloom);
     this.composer.addPass(new OutputPass());
     this.pixelRatio = this.pendingPixelRatio = renderer.getPixelRatio();
+    this.devicePixelRatio = devicePixelRatio;
   }
   /** Ask for a new pixel ratio (applied at the start of the next render). */
   requestScale(scale: number) {
     this.pendingPixelRatio = scale;
   }
   resize() {
+    this.devicePixelRatio = devicePixelRatio;
     this.renderer.setSize(innerWidth, innerHeight);
     this.composer.setSize(innerWidth, innerHeight);
   }
@@ -79,7 +82,7 @@ void main() {
     this.composer.render();
     this.smoothedFrameTime += (dt - this.smoothedFrameTime) * 0.05;
     this.timeSinceLastScaleChange += dt;
-    const cap = Math.min(devicePixelRatio, S.renderScale);
+    const cap = Math.min(this.devicePixelRatio, S.renderScale);
     // downscale reacts quickly (0.5 s) to catch sudden load spikes (e.g. descent into terrain)
     if (this.timeSinceLastScaleChange > 0.5 && this.smoothedFrameTime > 0.03 && this.pixelRatio > 0.5)
       this.pendingPixelRatio = Math.max(0.5, this.pixelRatio - 0.15);

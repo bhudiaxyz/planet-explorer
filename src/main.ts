@@ -93,14 +93,13 @@ const tempAt = () => {
   return lastTempValue;
 };
 const hudText = () => {
-  const hourOfDay = ((S.timeOfDay + 0.25) % 1) * 24,
-    nearestLandmark = planet.landmarks.list.reduce(
-      (a, l) => {
-        const d = l.pos.distanceTo(camera.position);
-        return d < a.d ? { d, n: l.name } : a;
-      },
-      { d: 1e9, n: "" },
-    );
+  const hourOfDay = ((S.timeOfDay + 0.25) % 1) * 24;
+  let nearestD = 1e9, nearestN = "";
+  for (const l of planet.landmarks.list) {
+    const d = l.pos.distanceTo(camera.position);
+    if (d < nearestD) { nearestD = d; nearestN = l.name; }
+  }
+  const nearestLandmark = { d: nearestD, n: nearestN };
   const weather =
     sky.snow && sky.precipitationAmount > 0.3
       ? "snow"

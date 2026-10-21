@@ -37,6 +37,8 @@ export class ChunkManager {
   private lastFace = -1;
   private lastChunkI = 0;
   private lastChunkJ = 0; // last completed (face, chunk i, chunk j)
+  private wantSet = new Set<string>();
+  private todoArr: [number, number][] = [];
   constructor(
     private group: THREE.Group,
     private radius: () => number,
@@ -82,8 +84,10 @@ export class ChunkManager {
       cj === this.lastChunkJ
     )
       return; // still inside the same centre chunk
-    const want = new Set<string>(),
-      todo: [number, number][] = [];
+    const want = this.wantSet,
+      todo = this.todoArr;
+    want.clear();
+    todo.length = 0;
     for (let a = -CR; a <= CR; a++)
       for (let b = -CR; b <= CR; b++) {
         const k = `${currentFrame.face},${ci + a},${cj + b}`;
@@ -111,7 +115,7 @@ export class ChunkManager {
           Math.abs(m.userData.ci - ci),
           Math.abs(m.userData.cj - cj),
         ) >= 2; // target LOD; tick() geomorphs to it
-    if (![...want].every((k) => this.map.has(k))) return; // finish loading before retiring anything
+    for (const k of want) if (!this.map.has(k)) return; // finish loading before retiring anything
     for (const [k, m] of this.map)
       if (!want.has(k)) {
         this.retire(m, false);

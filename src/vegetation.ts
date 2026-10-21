@@ -259,9 +259,9 @@ export class Scatter {
       budget = this.layers.length; // flush all stale layers in one frame on scene reset
     }
     if (alt >= 255) return;
-    const n = this.layers.length,
-      s = this.roundRobinIndex;
-    this.roundRobinIndex = (this.roundRobinIndex + 1) % n; // at most 4 placement bakes per frame, round-robin
+    const n = this.layers.length;
+    const s = this.roundRobinIndex;
+    this.roundRobinIndex = (s + 1) % n; // at most 4 placement bakes per frame, round-robin
     for (let i = 0; i < n; i++)
       if (
         this.layers[(s + i) % n].update(

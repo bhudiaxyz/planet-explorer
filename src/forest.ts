@@ -38,7 +38,11 @@ type Lists = {
   exM: Float32Array;
   has: Uint8Array;
 };
-type SpeciesList = Lists & { meshes: THREE.InstancedMesh[] }; // [detailed, medium, low-poly] instanced meshes of one species
+type SpeciesList = Lists & {
+  meshes: THREE.InstancedMesh[];
+  matrixArrays: Float32Array[];
+  colorArrays: Float32Array[];
+};
 type Tree = {
   candidateIndex: number;
   speciesIndex: number;
@@ -112,6 +116,9 @@ export class Forest {
   private scratchObject3D = new THREE.Object3D();
   private scratchDir = new THREE.Vector3();
   private scratchColor = new THREE.Color();
+  private scratchD = new THREE.Vector3();
+  private scratchAx = new THREE.Vector3();
+  private scratchUp = new THREE.Vector3(1, 0, 0);
   private leafColors: THREE.Color[] = [];
   constructor(private pl: Planet) {}
 
@@ -383,7 +390,12 @@ export class Forest {
       lowDetailMesh.visible = cnt > 0;
       lowDetailMesh.instanceMatrix.needsUpdate = true;
       lowDetailMesh.instanceColor!.needsUpdate = true;
-      this.speciesLists.push({ ...lists, meshes: speciesMeshes });
+      this.speciesLists.push({
+        ...lists,
+        meshes: speciesMeshes,
+        matrixArrays: speciesMeshes.map((m) => m.instanceMatrix.array as Float32Array),
+        colorArrays: speciesMeshes.map((m) => m.instanceColor!.array as Float32Array),
+      });
     });
   }
 
@@ -397,13 +409,14 @@ export class Forest {
           dy = lists.dir[k * 3 + 1],
           dz = lists.dir[k * 3 + 2];
         if (dx * dir.x + dy * dir.y + dz * dir.z < thr) continue;
-        const d = new THREE.Vector3(dx, dy, dz),
+        const d = new THREE.Vector3().set(dx, dy, dz),
           r = (base + 0.05) * lists.scale[k] * lists.scaleWidth[k];
+        this.scratchAx
+          .crossVectors(d, Math.abs(dy) < 0.99 ? UP : this.scratchUp)
+          .normalize();
         out.push({
           d,
-          ax: new THREE.Vector3()
-            .crossVectors(d, Math.abs(dy) < 0.99 ? UP : new THREE.Vector3(1, 0, 0))
-            .normalize(),
+          ax: this.scratchAx.clone(),
           rx: r,
           rz: r,
           H: Infinity,
@@ -438,12 +451,8 @@ export class Forest {
       midFarThreshold = distanceToCosAngle(M1 + 15);
     for (const lists of this.speciesLists) {
       const tierCounts = [0, 0],
-        matrixArrays = lists.meshes.map(
-          (mesh) => mesh.instanceMatrix.array as Float32Array,
-        ),
-        colorArrays = lists.meshes.map(
-          (mesh) => mesh.instanceColor!.array as Float32Array,
-        ),
+        matrixArrays = lists.matrixArrays,
+        colorArrays = lists.colorArrays,
         exactMatrices = lists.exM;
       for (let k = 0; k < lists.count; k++) {
         const dx = lists.dir[k * 3],
