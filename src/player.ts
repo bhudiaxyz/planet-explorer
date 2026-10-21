@@ -90,6 +90,7 @@ export class Player {
       this.planet.radiusAt(this.dir) + 25,
     );
     this.mode = "walk";
+    this.planet.forest.last.set(1e9, 0, 0); // force tree LOD rebuild at landing position
   }
   private look(dx: number, dy: number) {
     const mouseSensitivity = 0.0022;

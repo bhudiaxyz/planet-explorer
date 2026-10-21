@@ -401,7 +401,7 @@ export class Forest {
 
   /** Rebuilds the detailed and medium instance sets after the camera moved ≥ 12 m. */
   update(cam: THREE.Vector3) {
-    if (cam.distanceTo(this.last) < 12) return;
+    if (cam.distanceTo(this.last) < 6) return;
     this.last.copy(cam);
     const planetRadius = this.pl.radius,
       camLength = cam.length(),

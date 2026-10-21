@@ -3,7 +3,7 @@ import type { Planet } from "./planet";
 import { frame, smoothstep } from "./util";
 import { T, TERRAIN_GLSL } from "./gpu";
 import { makeRT, draw, QUAD_VS, readRT } from "./bake";
-import { U, TINT_GLSL } from "./fx";
+import { U, TINT_GLSL, IGN } from "./fx";
 import {
   PLANTS,
   type PlantSpec,
@@ -14,18 +14,19 @@ import {
 
 // GPU ground cover. Layer = one plant type at one distance tier. Placement is decided in a bake pass (one texel per instance cell) that reruns only when the
 // lattice centre moves; the per-frame vertex shader reads that texel, rebuilds orientation/scale/tint from hashes (catalog `look`), applies wind, lean, player
-// push, and collapses rejected cells. Tier lifecycle (no dithering): scale = outer·inner·uVeg, both smoothsteps of the plant's true distance:
-//   outer = 1 - smoothstep(TO_FULL, TO_GONE, dist)   a tier GROWS from nothing as you approach its outer limit
-//   inner = smoothstep(TI_GONE, TI_FULL, dist)       a tier shrinks away only after the next, more detailed tier is (nearly) full-size
-// so every plant is always covered by at least one mesh at its true size, and detail only ever appears by growing.
+// push, and collapses rejected cells. Tier lifecycle: scale = inner·uVeg (inner smoothstep only, for tier-handoff fade-out).
+//   inner = smoothstep(TI_GONE, TI_FULL, dist)  a tier shrinks away only after the next, more detailed tier is (nearly) full-size
+// Outer transition uses IGN screen-space dithering in the fragment shader so plants appear at full size rather than growing from nothing.
+//   outerF = 1 - smoothstep(TO_FULL, TO_GONE, dist)  passed as varying vOuterF; fragment discards if ign(gl_FragCoord.xy) > vOuterF
 const DECIDE = decideGLSL();
-const BEGIN = `bool kill=dot(aCell,aCell)>uK*uK;vec3 gP=vec3(0.),gN=vec3(0.,1.,0.),tint=vec3(1.);
+const BEGIN = `bool kill=dot(aCell,aCell)>uK*uK;vec3 gP=vec3(0.),gN=vec3(0.,1.,0.),tint=vec3(1.);vOuterF=1.;
 {vec4 Dv=texelFetch(uP,ivec2(aCell+uK+.5),0);float D=Dv.x;kill=kill||D<-5000.;
 if(!kill){float I=uSC.x+aCell.x,J=uSC.y+aCell.y,F=uSC.z,h1=hs(I,J,F),h2=hs(I,J,F+9.),h3=hs(I,J,F+17.),h7=hs(I,J,F+23.);
 vec3 nA,uu,vv;basis(F,nA,uu,vv);vec3 d=normalize(nA*uR+uu*(I+h1-.5)*CELLSZ+vv*(J+h2-.5)*CELLSZ),sc=vec3(1.);
 ${lookGLSL()}
 float dist=length(d*(uR+D)-cameraPosition);
-sc*=vec3(SCW,SCH,SCW)*((1.-smoothstep(TO_FULL,TO_GONE,dist))*smoothstep(TI_GONE,TI_FULL,dist)*uVeg);
+vOuterF=1.-smoothstep(TO_FULL,TO_GONE,dist);if(vOuterF<=0.)kill=true;
+sc*=vec3(SCW,SCH,SCW)*(smoothstep(TI_GONE,TI_FULL,dist)*uVeg);
 vec3 t1=normalize(cross(d,abs(d.y)<.99?vec3(0.,1.,0.):vec3(1.,0.,0.))),t2=cross(d,t1);float ca=cos(h3*6.283),sa=sin(h3*6.283);
 vec3 ax=t1*ca+t2*sa,az=cross(ax,d);
 #if DISP
@@ -137,7 +138,7 @@ void main(){vec2 L=floor(gl_FragCoord.xy)-vec2(uK);gl_FragColor=decide(uSC.x+L.x
       shaderParams.vertexShader = shaderParams.vertexShader
         .replace(
           "#include <common>",
-          `#include <common>\nattribute vec2 aCell;uniform vec3 uSC,uPl;uniform float uK,uTime,uWind,uVeg;uniform sampler2D uP;\n${TERRAIN_GLSL}`,
+          `#include <common>\nattribute vec2 aCell;uniform vec3 uSC,uPl;uniform float uK,uTime,uWind,uVeg;uniform sampler2D uP;varying float vOuterF;\n${TERRAIN_GLSL}`,
         )
         .replace("#include <beginnormal_vertex>", BEGIN)
         .replace("#include <begin_vertex>", "vec3 transformed=gP;")
@@ -148,7 +149,11 @@ void main(){vec2 L=floor(gl_FragCoord.xy)-vec2(uK);gl_FragColor=decide(uSC.x+L.x
       shaderParams.fragmentShader = shaderParams.fragmentShader
         .replace(
           "#include <common>",
-          "#include <common>\nuniform vec3 uSun;uniform float uDayF;",
+          `#include <common>\nuniform vec3 uSun;uniform float uDayF;varying float vOuterF;\n${IGN}`,
+        )
+        .replace(
+          "#include <alphatest_fragment>",
+          "#include <alphatest_fragment>\nif(vOuterF<1.&&ign(gl_FragCoord.xy)>vOuterF)discard;",
         )
         .replace(
           "#include <emissivemap_fragment>",
@@ -218,12 +223,13 @@ export class Scatter {
   update(playerDirection: THREE.Vector3, alt: number) {
     U.uVeg.value = 1 - smoothstep(150, 250, alt);
     this.group.visible = alt < 255;
+    let budget = 4;
     if (this.dirty) {
       this.layers.forEach((l) => (l.lastFace = -1));
       this.dirty = false;
+      budget = this.layers.length; // flush all stale layers in one frame on scene reset
     }
     if (alt >= 255) return;
-    let budget = 4;
     const n = this.layers.length,
       s = this.roundRobinIndex;
     this.roundRobinIndex = (this.roundRobinIndex + 1) % n; // at most 4 placement bakes per frame, round-robin

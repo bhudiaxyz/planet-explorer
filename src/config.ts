@@ -17,12 +17,12 @@ export const CFG = {
   // ground-cover tiers: [full-size until, gone beyond, inner gone below, inner full above]  (see vegetation.ts for the lifecycle rules)
   plantLod: {
     near: [12, 28, -2, -1],
-    mid: [49, 68, 5, 11],
-    far: [170, 238, 40, 52],
+    mid: [49, 58, 5, 11],
+    far: [170, 200, 40, 52],
     flower: [24, 34, -2, -1],
     mush: [10, 22, -2, -1],
   },
-  plantRadius: { near: 29, mid: 68, far: 238, flower: 34, mush: 23.8 },
+  plantRadius: { near: 29, mid: 68, far: 200, flower: 34, mush: 23.8 },
   forest: { count: 14000, minSpacing: 3.2, tries: 12 },
   shadow: { size: 2048, half: 70, hz: 10 },
 } as const;
