@@ -1,15 +1,18 @@
 # Procedural Planet Explorer
 
-A first-person explorer for a procedurally generated spherical world (Three.js + TypeScript + Vite). Walk or fly; terrain, plants, sky, weather and water are all generated at runtime,
-and most per-pixel / per-vertex work runs on the GPU.
+A first-person explorer for a procedurally generated spherical world (Three.js + TypeScript + Vite). Walk or fly across 13 Solar System planet palettes; terrain, plants, sky, weather and water are all generated at runtime, and most per-pixel / per-vertex work runs on the GPU.
 
-```
+Works on desktop, laptop, mobile and tablet.
+
+```sh
 npm install
 npm run dev        # development server
 npm run build      # type-check + production bundle
 ```
 
-Controls: click to capture the mouse · WASD move · Shift sprint · Space jump / ascend · C descend (fly) · F walk⇄fly · Q/E roll (fly) · G hide the panel · Esc frees the mouse.
+**Desktop / laptop:** click to capture the mouse · WASD move · Shift sprint · Space jump / ascend · C descend (fly) · F walk⇄fly · Q/E roll (fly) · G toggle panel · Esc release mouse
+
+**Mobile / tablet:** left thumb joystick to move · right-side drag to look · ↑ jump · ⚡ sprint · ✈ walk⇄fly · ☰ toggle panel
 
 ## Module map
 
@@ -22,8 +25,10 @@ Controls: click to capture the mouse · WASD move · Shift sprint · Space jump 
 | Planet           | `planet.ts`, `chunks.ts`, `landmarks.ts`, `skyfx.ts` | Coarse planet mesh + cube maps; streamed 1.5 m terrain chunks (pooled, faded, geomorphed); landmarks and floating islands; clouds and sky dome.         |
 | Trees            | `forest.ts`, `trees.ts`, `geoutil.ts`                | Clustered tree placement, three-tier LOD, per-tree hue/shape; procedural tree geometry and materials.                                                   |
 | Ground cover     | `plants.ts`, `vegetation.ts`, `plantgeo.ts`          | **Plant catalog** (one entry per plant type: geometry tiers + GLSL placement/look snippets) and the GPU scatter that renders it.                        |
+| Colour palettes  | `palette.ts`                                         | 13 Solar System planet palettes (biome colours, rock/plant/foliage tints, atmosphere, precipitation). `setPalette()` mutates the live `biomeColors` object so every system picks up the change on next rebuild. |
 | Player           | `player.ts`, `collision.ts`, `footprints.ts`         | Walk/fly controller, collision with trees/rocks/shrubs/landmarks, snow footprints.                                                                      |
-| Atmosphere       | `sky.ts`, `night.ts`, `precip.ts`                    | Sun/moon/weather state, aurora, fireflies, GPU rain/snow.                                                                                               |
+| Touch input      | `touch.ts`                                           | Virtual nipplejs joystick (left half) + swipe-to-look (right half) + action buttons for mobile/tablet. No-ops on desktop.                              |
+| Atmosphere       | `sky.ts`, `night.ts`, `precip.ts`                    | Sun/moon/weather state, aurora, fireflies, GPU rain/snow — all colours driven by `CurrentPalette`.                                                      |
 | Rendering        | `fx.ts`, `postfx.ts`, `shadows.ts`                   | Shared shader materials and uniforms; HDR post chain with adaptive resolution; shadow rig.                                                              |
 
 ## Key ideas
