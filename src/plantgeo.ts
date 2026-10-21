@@ -65,30 +65,6 @@ export function shrubLow() {
   blob(p, new THREE.Vector3(0, 0.4, 0), 0.75, N0, 0.7, 0);
   return done(p);
 }
-export function rockGeo() {
-  const p: THREE.BufferGeometry[] = [];
-  add(
-    p,
-    new THREE.IcosahedronGeometry(1, 2),
-    T(0, 0.3, 0),
-    C(0x8a857c),
-    1,
-    true,
-  );
-  return done(p);
-}
-export function rockLow() {
-  const p: THREE.BufferGeometry[] = [];
-  add(
-    p,
-    new THREE.IcosahedronGeometry(1, 0),
-    T(0, 0.3, 0),
-    C(0x8a857c),
-    1,
-    true,
-  );
-  return done(p);
-}
 export function flowerGeo() {
   const p: THREE.BufferGeometry[] = [];
   cyl(p, new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0.35, 0), 0.015, 0.012, C(0x3f7a30), 6);
@@ -227,6 +203,5 @@ const tiny = (
   );
   return done(p);
 };
-export const rockTiny = () => tiny(C(0x8a857c), 0.3, 1, 0.8, false);
 export const shrubTiny = () => tiny(N0, 0.4, 0.75, 0.55, true);
 export const alpineTiny = () => tiny(N0, 0.25, 0.5, 0.3, true);

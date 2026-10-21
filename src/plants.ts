@@ -5,9 +5,6 @@ import {
   shrubGeo,
   shrubLow,
   shrubTiny,
-  rockGeo,
-  rockLow,
-  rockTiny,
   flowerGeo,
   alpineGeo,
   alpineLow,
@@ -16,6 +13,7 @@ import {
   fernGeo,
   mushroomGeo,
 } from "./plantgeo";
+import { rockGeo, rockLow, rockTiny, rockSlabGeo, rockSlabLow, rockSlabTiny, frostRockGeo, frostRockLow, frostRockTiny } from "./rockgeo";
 
 // ============================================================================================================================================
 // Plant catalog. Every ground-cover type is ONE entry: its geometry per distance tier, and two GLSL snippets that run on the GPU:
@@ -199,6 +197,42 @@ tint=(h7<.25?vec3(.3,.29,.28):(h7<.5?vec3(.42,.32,.2):(h7<.7?vec3(.16,.16,.19):(
     gate: "if(m<=0.||e>=.32||sl>=.7)REJECT;",
     look: `sc=vec3(.9+h2*.9,.8+h1*.6,.9+h2*.9);
 tint=(h7<.3?vec3(.04,.17,.05):(h7<.6?vec3(.08,.22,.05):(h7<.85?vec3(.03,.14,.1):vec3(.14,.2,.04))))*(.8+h2*.4);`,
+  }),
+  plant({
+    name: "rock slabs",
+    kind: 8,
+    wind: 0,
+    hardy: true,
+    collide: true,
+    lean: 0.35,
+    disp: true,
+    tiers: [
+      tier(rockSlabGeo, 4.25, RAD.near, LOD.near),
+      tier(rockSlabLow, 8.5, RAD.mid, LOD.mid),
+      tier(rockSlabTiny, 17, RAD.far, LOD.far),
+    ],
+    pre: "cf=clusterField(d,8.);",
+    gate: "if(h6<=1.-(.004+sl*.025+sm_(.25,.5,e)*.018)*PMUL*(.15+cf*2.4))REJECT;",
+    look: `float s=.2+h1*1.2;sc=vec3(s*(1.+h2*.4),s*(.12+h7*.2),s*(.9+h1*.3));
+tint=(h7<.3?vec3(.45,.32,.18):(h7<.55?vec3(.38,.28,.16):(h7<.78?vec3(.28,.22,.15):(h7<.92?vec3(.52,.38,.22):vec3(.35,.28,.24)))))*4.*(.7+h2*.5);`,
+  }),
+  plant({
+    name: "frost rocks",
+    kind: 9,
+    wind: 0,
+    hardy: true,
+    collide: true,
+    lean: 0.2,
+    disp: true,
+    tiers: [
+      tier(frostRockGeo, 4.25, RAD.near, LOD.near),
+      tier(frostRockLow, 8.5, RAD.mid, LOD.mid),
+      tier(frostRockTiny, 17, RAD.far, LOD.far),
+    ],
+    pre: "cf=clusterField(d,9.);",
+    gate: "if(e<.38||h6<=1.-(.006+sl*.018+sm_(.38,.58,e)*.02)*PMUL*(.3+cf*2.2))REJECT;",
+    look: `float s=.3+h1*1.3;sc=vec3(s*(.8+h2*.5),s*(.55+h7*.6),s*(.75+h1*.4));
+tint=(h7<.3?vec3(.55,.58,.62):(h7<.55?vec3(.62,.65,.7):(h7<.78?vec3(.45,.48,.55):(h7<.92?vec3(.7,.72,.75):vec3(.5,.52,.6)))))*3.5*(.8+h2*.35);`,
   }),
   plant({
     name: "mushrooms",
