@@ -303,6 +303,7 @@ void main() {
     terrain.receiveShadow = false;
     this.group.add(terrain);
     this.water.color.set(biomeColors.water);
+    this.atmosphere.uniforms.col.value.set(CurrentPalette.atmosphereLimb);
     this.cloudRadius = this.radius + Math.max(110, S.amplitude * 1.3 + 50);
     U.uCloudR.value = this.cloudRadius; // clouds float above the highest peaks
     const waterMesh = new THREE.Mesh(

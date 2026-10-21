@@ -395,7 +395,7 @@ const SP = [pine, oak, birch, palm, fir, dead, acacia, cypress, willow, mangrove
 export const treeGeos = (seed: number, q = 1) =>
   SP.map((f, i) => f(rng(seed + 55 + i * 31), q));
 // base foliage colour per species (HSL in the working space); Forest multiplies in seasonal / blossom / drought variation per tree
-export const LEAF = CurrentPalette.treeLeavesHSL.map(([h, s, l]) => new THREE.Color().setHSL(h, s, l));
+export const getLeafColors = () => CurrentPalette.treeLeavesHSL.map(([h, s, l]) => new THREE.Color().setHSL(h, s, l));
 
 // ---- low-poly distance tier (a few dozen triangles)
 const lowPine = (r: () => number) => {

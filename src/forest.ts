@@ -4,12 +4,12 @@ import { smoothstep } from "./util";
 import { rng } from "./noise";
 import { S } from "./settings";
 import { CFG } from "./config";
-import { treeGeos, lowGeos, treeMats, LEAF } from "./trees";
+import { treeGeos, lowGeos, treeMats, getLeafColors } from "./trees";
 import { canBake, bakePoints } from "./bake";
 import type { Obs } from "./collision";
 const UP = new THREE.Vector3(0, 1, 0),
   [H0, H1, M0, M1] = CFG.treeLod;
-/** Species indices (order matches treeGeos / lowGeos / LEAF in trees.ts). */
+/** Species indices (order matches treeGeos / lowGeos / getLeafColors() in trees.ts). */
 const SP = {
   pine: 0,
   oak: 1,
@@ -112,6 +112,7 @@ export class Forest {
   private scratchObject3D = new THREE.Object3D();
   private scratchDir = new THREE.Vector3();
   private scratchColor = new THREE.Color();
+  private leafColors: THREE.Color[] = [];
   constructor(private pl: Planet) {}
 
   /** Per-candidate terrain samples. mode 1: (elev, moisture, tree density, slope) · 2: coarse-mesh radius · 5: stand noise. */
@@ -188,7 +189,7 @@ export class Forest {
     elevation: number,
     rand: () => number,
   ): Omit<Tree, "candidateIndex" | "speciesIndex"> {
-    const c = this.scratchColor.copy(LEAF[speciesIndex]);
+    const c = this.scratchColor.copy(this.leafColors[speciesIndex]);
     c.offsetHSL(
       (rand() - 0.5) * 0.05,
       (rand() - 0.5) * 0.12,
@@ -227,6 +228,7 @@ export class Forest {
   }
 
   build() {
+    this.leafColors = getLeafColors();
     this.group.clear();
     this.speciesLists = [];
     this.last.set(1e9, 0, 0);

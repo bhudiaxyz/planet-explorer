@@ -32,7 +32,10 @@ export function setupGui({ planet, player, post, rebuild }: Ctx) {
   gui.add(paletteState, "palette", Object.keys(PALETTES))
     .name("🪐 Planet palette")
     .onChange((name: string) => {
-      setPalette(PALETTES[name]);
+      const p = PALETTES[name];
+      setPalette(p);
+      S.snowline = p.snowline;
+      S.forest = p.forestDensity;
       planet.water.color.set(biomeColors.water);
       gui.controllersRecursive().forEach((c) => c.updateDisplay());
       rebuild();
@@ -48,7 +51,7 @@ export function setupGui({ planet, player, post, rebuild }: Ctx) {
     .name("forest density")
     .onFinishChange(() => rebuild());
   biomes.add(S, "snowline", -0.2, 0.8, 0.01).onFinishChange(() => rebuild());
-  for (const k of ["sand", "grass", "forest", "rock", "snow"])
+  for (const k of ["sand", "grass", "forest", "rock", "snow"] as const)
     biomes
       .addColor(biomeColors, k)
       .name(k + " colour")
