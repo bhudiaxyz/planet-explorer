@@ -181,7 +181,7 @@ tint=(h7<.25?vec3(.3,.29,.28):(h7<.5?vec3(.42,.32,.2):(h7<.7?vec3(.16,.16,.19):(
       tier(() => reedGeo(3), 6.8, RAD.mid, LOD.mid, 1.8, 1.1),
     ],
     pre: "cf=clusterField(d,5.);if(h6>=.12*PMUL*cf*3.)REJECT;",
-    gate: "if(e>=.065||sl>=.35||m<-.25)REJECT;",
+    gate: "if(e>=.05||sl>=.35||m<-.25)REJECT;",
     look: "sc=vec3(.8+h1*.7,.8+h2*.9,.8+h1*.7);tint=vec3(.85+h2*.3);",
   }),
   plant({
