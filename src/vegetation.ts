@@ -14,19 +14,20 @@ import {
 
 // GPU ground cover. Layer = one plant type at one distance tier. Placement is decided in a bake pass (one texel per instance cell) that reruns only when the
 // lattice centre moves; the per-frame vertex shader reads that texel, rebuilds orientation/scale/tint from hashes (catalog `look`), applies wind, lean, player
-// push, and collapses rejected cells. Tier lifecycle: scale = inner·uVeg (inner smoothstep only, for tier-handoff fade-out).
-//   inner = smoothstep(TI_GONE, TI_FULL, dist)  a tier shrinks away only after the next, more detailed tier is (nearly) full-size
-// Outer transition uses IGN screen-space dithering in the fragment shader so plants appear at full size rather than growing from nothing.
-//   outerF = 1 - smoothstep(TO_FULL, TO_GONE, dist)  passed as varying vOuterF; fragment discards if ign(gl_FragCoord.xy) > vOuterF
+// push, and collapses rejected cells. Tier lifecycle: both outer and inner transitions use IGN screen-space dithering (no scale change, no growing/shrinking):
+//   outer: vOuterF = 1 - smoothstep(TO_FULL, TO_GONE, dist)  — fragment discards if ign(coord)     > vOuterF  (plants fade in at full size from outer edge)
+//   inner: vInnerF =     smoothstep(TI_GONE, TI_FULL, dist)  — fragment discards if ign(coord+off) > vInnerF  (plants fade out at full size when finer tier takes over)
+// The two noise offsets are uncorrelated so inner and outer stipples don't align.
 const DECIDE = decideGLSL();
-const BEGIN = `bool kill=dot(aCell,aCell)>uK*uK;vec3 gP=vec3(0.),gN=vec3(0.,1.,0.),tint=vec3(1.);vOuterF=1.;
+const BEGIN = `bool kill=dot(aCell,aCell)>uK*uK;vec3 gP=vec3(0.),gN=vec3(0.,1.,0.),tint=vec3(1.);vOuterF=1.;vInnerF=1.;
 {vec4 Dv=texelFetch(uP,ivec2(aCell+uK+.5),0);float D=Dv.x;kill=kill||D<-5000.;
 if(!kill){float I=uSC.x+aCell.x,J=uSC.y+aCell.y,F=uSC.z,h1=hs(I,J,F),h2=hs(I,J,F+9.),h3=hs(I,J,F+17.),h7=hs(I,J,F+23.);
 vec3 nA,uu,vv;basis(F,nA,uu,vv);vec3 d=normalize(nA*uR+uu*(I+h1-.5)*CELLSZ+vv*(J+h2-.5)*CELLSZ),sc=vec3(1.);
 ${lookGLSL()}
 float dist=length(d*(uR+D)-cameraPosition);
 vOuterF=1.-smoothstep(TO_FULL,TO_GONE,dist);if(vOuterF<=0.)kill=true;
-sc*=vec3(SCW,SCH,SCW)*(smoothstep(TI_GONE,TI_FULL,dist)*uVeg);
+vInnerF=smoothstep(TI_GONE,TI_FULL,dist);if(vInnerF<=0.)kill=true;
+sc*=vec3(SCW,SCH,SCW)*uVeg;
 vec3 t1=normalize(cross(d,abs(d.y)<.99?vec3(0.,1.,0.):vec3(1.,0.,0.))),t2=cross(d,t1);float ca=cos(h3*6.283),sa=sin(h3*6.283);
 vec3 ax=t1*ca+t2*sa,az=cross(ax,d);
 #if DISP
@@ -138,7 +139,7 @@ void main(){vec2 L=floor(gl_FragCoord.xy)-vec2(uK);gl_FragColor=decide(uSC.x+L.x
       shaderParams.vertexShader = shaderParams.vertexShader
         .replace(
           "#include <common>",
-          `#include <common>\nattribute vec2 aCell;uniform vec3 uSC,uPl;uniform float uK,uTime,uWind,uVeg;uniform sampler2D uP;varying float vOuterF;\n${TERRAIN_GLSL}`,
+          `#include <common>\nattribute vec2 aCell;uniform vec3 uSC,uPl;uniform float uK,uTime,uWind,uVeg;uniform sampler2D uP;varying float vOuterF,vInnerF;\n${TERRAIN_GLSL}`,
         )
         .replace("#include <beginnormal_vertex>", BEGIN)
         .replace("#include <begin_vertex>", "vec3 transformed=gP;")
@@ -149,11 +150,11 @@ void main(){vec2 L=floor(gl_FragCoord.xy)-vec2(uK);gl_FragColor=decide(uSC.x+L.x
       shaderParams.fragmentShader = shaderParams.fragmentShader
         .replace(
           "#include <common>",
-          `#include <common>\nuniform vec3 uSun;uniform float uDayF;varying float vOuterF;\n${IGN}`,
+          `#include <common>\nuniform vec3 uSun;uniform float uDayF;varying float vOuterF,vInnerF;\n${IGN}`,
         )
         .replace(
           "#include <alphatest_fragment>",
-          "#include <alphatest_fragment>\nif(vOuterF<1.&&ign(gl_FragCoord.xy)>vOuterF)discard;",
+          "#include <alphatest_fragment>\nif(vOuterF<1.&&ign(gl_FragCoord.xy)>vOuterF)discard;\nif(vInnerF<1.&&ign(gl_FragCoord.xy+vec2(17.,31.))>vInnerF)discard;",
         )
         .replace(
           "#include <emissivemap_fragment>",
