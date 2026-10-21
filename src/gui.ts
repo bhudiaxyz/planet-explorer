@@ -1,5 +1,6 @@
 import GUI from "lil-gui";
 import { S, WEATHER_TYPE, type Settings } from "./settings";
+import { isTouchDevice } from "./touch";
 import { PALETTES, biomeColors, setPalette } from "./palette";
 import type { Planet } from "./planet";
 import type { Player } from "./player";
@@ -70,6 +71,8 @@ export function setupGui({ planet, player, post, rebuild, rebuildVeg }: Ctx) {
     .add(S, "renderScale", 0.5, 2, 0.05)
     .name("render scale")
     .onFinishChange((v: number) => post.requestScale(v));
+  if (isTouchDevice)
+    sky.add(S, "touchLookSensitivity", 0.5, 6, 0.1).name("look sensitivity");
   sky.add(S, "weather", Object.values(WEATHER_TYPE));
   gui
     .add(

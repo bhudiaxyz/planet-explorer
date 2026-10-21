@@ -1,11 +1,12 @@
 import nipplejs from "nipplejs";
 import type { Player } from "./player";
+import { S } from "./settings";
 
 export const isTouchDevice = "ontouchstart" in window;
 
 const STYLE = `
 #touch-btns {
-  position: fixed; right: 20px; bottom: 110px;
+  position: fixed; right: max(20px, env(safe-area-inset-right)); bottom: max(110px, calc(80px + env(safe-area-inset-bottom)));
   display: flex; flex-direction: column; gap: 14px;
   pointer-events: auto; z-index: 10;
 }
@@ -18,6 +19,20 @@ const STYLE = `
   user-select: none; touch-action: none;
 }
 #touch-btns button:active { background: rgba(255,255,255,0.28); }
+#touch-roll {
+  position: fixed; right: max(90px, calc(70px + env(safe-area-inset-right))); bottom: max(110px, calc(80px + env(safe-area-inset-bottom)));
+  display: flex; flex-direction: column; gap: 14px;
+  pointer-events: auto; z-index: 10;
+}
+#touch-roll button {
+  width: 50px; height: 50px; border-radius: 50%;
+  border: 2px solid rgba(255,255,255,0.22);
+  background: rgba(0,0,0,0.38); color: #fff;
+  font-size: 18px; line-height: 1; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none; touch-action: none;
+}
+#touch-roll button:active { background: rgba(255,255,255,0.22); }
 #btn-gui {
   position: fixed; left: 20px; top: 20px;
   width: 48px; height: 48px; border-radius: 12px;
@@ -52,11 +67,21 @@ export function setupTouch(player: Player, dom: HTMLElement): void {
   const btns = document.createElement("div");
   btns.id = "touch-btns";
   btns.innerHTML = `
-    <button id="btn-jump"   aria-label="Jump">↑</button>
-    <button id="btn-sprint" aria-label="Sprint">⚡</button>
-    <button id="btn-fly"    aria-label="Toggle fly">✈</button>
+    <button id="btn-jump"    aria-label="Ascend">↑</button>
+    <button id="btn-descend" aria-label="Descend">↓</button>
+    <button id="btn-sprint"  aria-label="Sprint">⚡</button>
+    <button id="btn-fly"     aria-label="Toggle fly">✈</button>
   `;
   document.body.appendChild(btns);
+
+  // Roll buttons (fly mode only, shown left of action buttons)
+  const rollBtns = document.createElement("div");
+  rollBtns.id = "touch-roll";
+  rollBtns.innerHTML = `
+    <button id="btn-roll-left"  aria-label="Roll left">⟲</button>
+    <button id="btn-roll-right" aria-label="Roll right">⟳</button>
+  `;
+  document.body.appendChild(rollBtns);
 
   // GUI toggle button
   const btnGui = document.createElement("button");
@@ -91,6 +116,11 @@ export function setupTouch(player: Player, dom: HTMLElement): void {
 
   dom.addEventListener("touchstart", e => {
     e.preventDefault();
+    // Validate that any previously tracked touch is still active before accepting a new one
+    if (lookId !== null) {
+      const stillActive = Array.from(e.touches).some(t => t.identifier === lookId);
+      if (!stillActive) lookId = null;
+    }
     for (const t of Array.from(e.changedTouches)) {
       if (t.clientX >= innerWidth / 2 && lookId === null) {
         lookId = t.identifier;
@@ -103,7 +133,7 @@ export function setupTouch(player: Player, dom: HTMLElement): void {
     e.preventDefault();
     for (const t of Array.from(e.changedTouches)) {
       if (t.identifier === lookId) {
-        player.look((t.clientX - prevLook.x) * 2.5, (t.clientY - prevLook.y) * 2.5);
+        player.look((t.clientX - prevLook.x) * S.touchLookSensitivity, (t.clientY - prevLook.y) * S.touchLookSensitivity);
         prevLook = { x: t.clientX, y: t.clientY };
       }
     }
@@ -119,15 +149,18 @@ export function setupTouch(player: Player, dom: HTMLElement): void {
     el.addEventListener("touchend",    e => { e.stopPropagation(); up(); },   { passive: true });
     el.addEventListener("touchcancel", e => { e.stopPropagation(); up(); },   { passive: true });
   };
-  btn("btn-jump",   () => { player.touchJump   = true;  }, () => { player.touchJump   = false; });
-  btn("btn-sprint", () => { player.touchSprint = true;  }, () => { player.touchSprint = false; });
+  btn("btn-jump",       () => { player.touchJump      = true;  }, () => { player.touchJump      = false; });
+  btn("btn-descend",    () => { player.touchDescend   = true;  }, () => { player.touchDescend   = false; });
+  btn("btn-sprint",     () => { player.touchSprint    = true;  }, () => { player.touchSprint    = false; });
+  btn("btn-roll-left",  () => { player.touchRollLeft  = true;  }, () => { player.touchRollLeft  = false; });
+  btn("btn-roll-right", () => { player.touchRollRight = true;  }, () => { player.touchRollRight = false; });
   document.getElementById("btn-fly")!.addEventListener("touchend", e => {
     e.stopPropagation(); player.toggle();
   });
 
   // Update controls hint
   const hint = document.getElementById("ls-controls");
-  if (hint) hint.textContent = "Left thumb · move  ·  Right drag · look  ·  ↑ jump  ·  ⚡ sprint  ·  ✈ fly  ·  ☰ settings";
+  if (hint) hint.textContent = "Left thumb · move  ·  Right drag · look  ·  ↑ ascend  ·  ↓ descend  ·  ⟲⟳ roll  ·  ⚡ sprint  ·  ✈ fly  ·  ☰ settings";
 }
 
 /** Wire the GUI toggle button to show/hide lil-gui. Called from main after setupGui. */

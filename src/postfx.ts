@@ -5,6 +5,7 @@ import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js"
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import { ShaderPass } from "three/addons/postprocessing/ShaderPass.js";
 import { S } from "./settings";
+import { isTouchDevice } from "./touch";
 
 /**
  * Post-processing chain (HDR render → NaN/Inf sanitiser → half-res bloom → tone-map/output) plus adaptive resolution.
@@ -28,7 +29,7 @@ export class PostFX {
       renderer,
       new THREE.WebGLRenderTarget(innerWidth, innerHeight, {
         type: THREE.HalfFloatType,
-        samples: 4,
+        samples: isTouchDevice ? 0 : 4,
       }),
     );
     this.bloom = new UnrealBloomPass(

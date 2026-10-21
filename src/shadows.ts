@@ -17,8 +17,10 @@ export class Shadows {
   constructor(
     private renderer: THREE.WebGLRenderer,
     private light: THREE.DirectionalLight,
+    private mobileScale = false,
   ) {
-    const { size, half } = CFG.shadow;
+    const { size: rawSize, half } = CFG.shadow;
+    const size = this.mobileScale ? rawSize >> 1 : rawSize;
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFShadowMap;
     renderer.shadowMap.autoUpdate = false;

@@ -174,7 +174,12 @@ export async function bakePoints(
       uStep: { value: 1.57 / S.resolution },
     },
     vertexShader: PV,
-    fragmentShader: "varying vec4 vO;void main(){gl_FragColor=vO;}",
+    fragmentShader: `
+varying vec4 vO;
+
+void main() {
+  gl_FragColor = vO;
+}`,
   });
   const pointsGeo = new THREE.BufferGeometry().setAttribute(
     "position",

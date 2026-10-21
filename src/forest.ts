@@ -6,6 +6,7 @@ import { S } from "./settings";
 import { CFG } from "./config";
 import { treeGeos, lowGeos, treeMats, getLeafColors } from "./trees";
 import { canBake, bakePoints } from "./bake";
+import { isTouchDevice } from "./touch";
 import type { Obs } from "./collision";
 const UP = new THREE.Vector3(0, 1, 0),
   [H0, H1, M0, M1] = CFG.treeLod;
@@ -242,7 +243,7 @@ export class Forest {
     const planet = this.pl,
       planetRadius = planet.radius,
       max = Math.floor(
-        CFG.forest.count * S.forest * (planetRadius / 700) ** 2,
+        CFG.forest.count * (isTouchDevice ? 0.45 : 1) * S.forest * (planetRadius / 700) ** 2,
       ),
       rand = rng(S.seed + 7),
       highDetailGeos = treeGeos(S.seed, 1),

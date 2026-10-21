@@ -27,6 +27,7 @@ export interface Settings {
 
   // Rendering
   renderScale: number;
+  touchLookSensitivity: number;
 
   // Time & weather
   timeOfDay: number;
@@ -52,6 +53,7 @@ export const S: Settings = {
   snowline: 0.3,
 
   renderScale: 1,
+  touchLookSensitivity: 2.5,
 
   timeOfDay: 0.3,
   dayLength: 240,

@@ -139,9 +139,16 @@ class Layer {
       defines,
       uniforms: { ...T, uSC: this.uSC, uK },
       vertexShader: QUAD_VS,
-      fragmentShader: `uniform vec3 uSC;uniform float uK;${TERRAIN_GLSL}
+      fragmentShader: `
+uniform vec3 uSC;
+uniform float uK;
+${TERRAIN_GLSL}
 ${DECIDE}
-void main(){vec2 L=floor(gl_FragCoord.xy)-vec2(uK);gl_FragColor=decide(uSC.x+L.x,uSC.y+L.y,uSC.z);}`,
+
+void main() {
+  vec2 L = floor(gl_FragCoord.xy) - vec2(uK);
+  gl_FragColor = decide(uSC.x + L.x, uSC.y + L.y, uSC.z);
+}`,
     });
     const m = new THREE.MeshStandardMaterial({
       vertexColors: true,

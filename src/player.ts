@@ -31,6 +31,9 @@ export class Player {
   touchStrafe = 0;
   touchJump = false;
   touchSprint = false;
+  touchDescend = false;
+  touchRollLeft = false;
+  touchRollRight = false;
   constructor(
     private cam: THREE.PerspectiveCamera,
     private planet: Planet,
@@ -199,12 +202,12 @@ export class Player {
         .addScaledVector(flyRight, strafeAxis)
         .addScaledVector(
           flyUp,
-          (this.touchJump ? 1 : 0) + this.isKeyDown("Space") - this.isKeyDown("KeyC"),
+          (this.touchJump ? 1 : 0) - (this.touchDescend ? 1 : 0) + this.isKeyDown("Space") - this.isKeyDown("KeyC"),
         );
       if (scratchMove.lengthSq())
         flyPos.addScaledVector(scratchMove.normalize(), flySpeed * dt);
       camera.rotateZ(
-        (this.isKeyDown("KeyE") - this.isKeyDown("KeyQ")) * dt * 1.2,
+        (this.isKeyDown("KeyE") + (this.touchRollRight ? 1 : 0) - this.isKeyDown("KeyQ") - (this.touchRollLeft ? 1 : 0)) * dt * 1.2,
       );
       flyUp.copy(flyPos).normalize();
       const minRadius = this.planet.radiusAt(flyUp) + 3;

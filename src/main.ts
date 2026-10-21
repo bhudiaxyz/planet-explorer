@@ -16,8 +16,8 @@ import { smoothstep } from "./util";
 import { S } from "./settings";
 import { isTouchDevice, setupTouch, setGuiToggle } from "./touch";
 
-// lower default resolution on mobile/tablet to stay within GPU budget
-if (isTouchDevice) S.resolution = 128;
+// lower default resolution and render scale on mobile/tablet to stay within GPU budget
+if (isTouchDevice) { S.resolution = 128; S.renderScale = 0.75; }
 
 // ---- renderer & scene ------------------------------------------------------------------------------------------------------------------------
 const renderer = new THREE.WebGLRenderer({
@@ -47,7 +47,7 @@ const sky = new Sky(scene, planet),
   skyDome = new SkyDome(scene),
   scatter = new Scatter(planet),
   collider = new Collider(planet, scatter),
-  shadows = new Shadows(renderer, sky.light);
+  shadows = new Shadows(renderer, sky.light, isTouchDevice);
 const aurora = new Aurora(scene),
   fireflies = new Fireflies(scene),
   footprints = new Footprints(player, planet),
