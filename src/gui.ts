@@ -1,5 +1,5 @@
 import GUI from "lil-gui";
-import { S } from "./settings";
+import { S, WEATHER_TYPE, type Settings } from "./settings";
 import { PALETTES, biomeColors, setPalette } from "./palette";
 import type { Planet } from "./planet";
 import type { Player } from "./player";
@@ -13,7 +13,7 @@ interface Ctx {
   rebuildVeg: () => void;
 }
 // [setting, min, max, step]; terrain settings rebuild the planet when released (seed/radius also respawn the player)
-const TERRAIN: [string, number, number, number][] = [
+const TERRAIN: [keyof Settings, number, number, number][] = [
   ["seed", 0, 99999, 1],
   ["radius", 200, 1500, 10],
   ["resolution", 64, 256, 8],
@@ -70,7 +70,7 @@ export function setupGui({ planet, player, post, rebuild, rebuildVeg }: Ctx) {
     .add(S, "renderScale", 0.5, 2, 0.05)
     .name("render scale")
     .onFinishChange((v: number) => post.requestScale(v));
-  sky.add(S, "weather", ["auto", "clear", "rain", "snow", "fog"]);
+  sky.add(S, "weather", Object.values(WEATHER_TYPE));
   gui
     .add(
       {
