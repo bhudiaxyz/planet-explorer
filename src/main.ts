@@ -110,7 +110,6 @@ const hudText = () => {
 };
 
 planet.update(player.up, player.alt);
-renderer.compile(scene, camera); // precompile every shader (incl. shadow variants and the first chunk) so nothing compiles mid-game
 
 const splash = document.getElementById("ls")!;
 const splashEnter = document.getElementById("ls-enter")!;
@@ -126,7 +125,9 @@ const showSplash = (label: string, compiled = true) => {
 const hideSplash = () => {
   splash.classList.add("dismissed");
 };
-showSplash(isTouchDevice ? "Tap to enter" : "Click to enter", false);
+const enterLabel = isTouchDevice ? "Tap to enter" : "Click to enter";
+showSplash(enterLabel, false);
+renderer.compileAsync(scene, camera).then(() => showSplash(enterLabel));
 splash.addEventListener("click", () => {
   hideSplash();
   if (!isTouchDevice) renderer.domElement.requestPointerLock();
