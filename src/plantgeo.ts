@@ -146,6 +146,124 @@ export function mushroomGeo() {
   }
   return done(p);
 }
+
+export function cactusGeo() {
+  const p: THREE.BufferGeometry[] = [];
+  const skin = new THREE.Color(CurrentPalette.cactusSkin);
+  const base = new THREE.Color(CurrentPalette.cactusBase);
+  // main trunk: base 0 → top 0.9, tapered
+  cyl(p, new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0.9, 0), 0.10, 0.07, skin, 6);
+  // left arm: from trunk mid, angled outward then upward
+  cyl(p, new THREE.Vector3(0, 0.45, 0), new THREE.Vector3(-0.28, 0.45, 0), 0.055, 0.055, skin, 5);
+  cyl(p, new THREE.Vector3(-0.28, 0.45, 0), new THREE.Vector3(-0.28, 0.75, 0), 0.055, 0.04, skin, 5);
+  // right arm: opposite side, slightly higher
+  cyl(p, new THREE.Vector3(0, 0.55, 0), new THREE.Vector3(0.26, 0.55, 0), 0.05, 0.05, skin, 5);
+  cyl(p, new THREE.Vector3(0.26, 0.55, 0), new THREE.Vector3(0.26, 0.82, 0), 0.05, 0.035, skin, 5);
+  // base collar
+  cyl(p, new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0.06, 0), 0.13, 0.11, base, 6);
+  return done(p);
+}
+
+export function cactusLow() {
+  const p: THREE.BufferGeometry[] = [];
+  blob(p, new THREE.Vector3(0, 0.45, 0), 0.28, N0, 1.6, 0);
+  return done(p);
+}
+
+export function deadScrubGeo() {
+  const p: THREE.BufferGeometry[] = [];
+  const wood = new THREE.Color(0.18, 0.14, 0.10);
+  const r = rng(37);
+  // central trunk
+  cyl(p, new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0.55, 0), 0.035, 0.022, wood, 5);
+  // 5 bare branches at random upward angles
+  const angles = [0, 1.26, 2.51, 3.77, 5.03];
+  for (let i = 0; i < 5; i++) {
+    const a = angles[i] + r() * 0.5;
+    const tilt = 0.35 + r() * 0.3; // outward lean
+    const len = 0.35 + r() * 0.25;
+    const bx = Math.cos(a) * tilt * len;
+    const bz = Math.sin(a) * tilt * len;
+    const by = Math.sqrt(len * len - bx * bx - bz * bz);
+    const base = new THREE.Vector3(0, 0.38 + r() * 0.15, 0);
+    const tip = base.clone().add(new THREE.Vector3(bx, by, bz));
+    cyl(p, base, tip, 0.018, 0.008, wood, 4);
+  }
+  return done(p);
+}
+
+export function deadScrubLow() {
+  const p: THREE.BufferGeometry[] = [];
+  add(
+    p,
+    new THREE.OctahedronGeometry(1, 0),
+    new THREE.Matrix4().compose(
+      new THREE.Vector3(0, 0.35, 0),
+      new THREE.Quaternion(),
+      new THREE.Vector3(0.45, 0.38, 0.45),
+    ),
+    new THREE.Color(0.18, 0.14, 0.10),
+    0.38,
+    false,
+    false,
+  );
+  return done(p);
+}
+
+export function sedgeGeo() {
+  const p: THREE.BufferGeometry[] = [];
+  const r = rng(43);
+  const straw = new THREE.Color(0.55, 0.52, 0.22);
+  const green = new THREE.Color(0.22, 0.38, 0.12);
+  const stemCount = 7;
+  for (let i = 0; i < stemCount; i++) {
+    const a = (i / stemCount) * 6.283 + r() * 0.3;
+    const rad = 0.04 + r() * 0.07;
+    const h = 1.2 + r() * 0.6;
+    const ox = Math.cos(a) * rad;
+    const oz = Math.sin(a) * rad;
+    const tx = Math.cos(a) * (rad + 0.12 + r() * 0.08);
+    const tz = Math.sin(a) * (rad + 0.12 + r() * 0.08);
+    const col = r() > 0.5 ? straw : green;
+    cyl(
+      p,
+      new THREE.Vector3(ox, 0, oz),
+      new THREE.Vector3(tx, h, tz),
+      0.012,
+      0.006,
+      col,
+      4,
+    );
+  }
+  return done(p);
+}
+
+export function sedgeLow() {
+  const p: THREE.BufferGeometry[] = [];
+  // two crossed flat quads suggest a tuft silhouette cheaply
+  for (let i = 0; i < 2; i++) {
+    const a = i * 1.5708; // 0 and 90 degrees
+    add(
+      p,
+      new THREE.PlaneGeometry(0.38, 1.4),
+      new THREE.Matrix4().compose(
+        new THREE.Vector3(0, 0.7, 0),
+        new THREE.Quaternion().setFromEuler(new THREE.Euler(0, a, 0)),
+        new THREE.Vector3(1, 1, 1),
+      ),
+      new THREE.Color(0.45, 0.42, 0.18),
+      0.7,
+      false,
+      true,
+    );
+  }
+  return done(p);
+}
+
+export const cactusTiny = () => tiny(N0, 0.45, 0.22, 0.7, false);
+export const deadScrubTiny = () => tiny(new THREE.Color(0.18, 0.14, 0.10), 0.35, 0.4, 0.35, false);
+export const sedgeTiny = () => tiny(N0, 0.7, 0.18, 1.0, true);
+
 export function reedGeo(blades = 8) {
   const p: THREE.BufferGeometry[] = [],
     r = rng(11);
