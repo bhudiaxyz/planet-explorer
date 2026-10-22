@@ -185,9 +185,9 @@ export function deadScrubGeo() {
     const bx = Math.cos(a) * tilt * len;
     const bz = Math.sin(a) * tilt * len;
     const by = Math.sqrt(len * len - bx * bx - bz * bz);
-    const base = new THREE.Vector3(0, 0.38 + r() * 0.15, 0);
-    const tip = base.clone().add(new THREE.Vector3(bx, by, bz));
-    cyl(p, base, tip, 0.018, 0.008, wood, 4);
+    const branchBase = new THREE.Vector3(0, 0.38 + r() * 0.15, 0);
+    const tip = branchBase.clone().add(new THREE.Vector3(bx, by, bz));
+    cyl(p, branchBase, tip, 0.018, 0.008, wood, 4);
   }
   return done(p);
 }
@@ -242,7 +242,7 @@ export function sedgeLow() {
   const p: THREE.BufferGeometry[] = [];
   // two crossed flat quads suggest a tuft silhouette cheaply
   for (let i = 0; i < 2; i++) {
-    const a = i * 1.5708; // 0 and 90 degrees
+    const a = i * (Math.PI / 2);
     add(
       p,
       new THREE.PlaneGeometry(0.38, 1.4),
@@ -260,8 +260,8 @@ export function sedgeLow() {
   return done(p);
 }
 
-export const cactusTiny = () => tiny(N0, 0.45, 0.22, 0.7, false);
-export const deadScrubTiny = () => tiny(new THREE.Color(0.18, 0.14, 0.10), 0.35, 0.4, 0.35, false);
+export const cactusTiny = () => tiny(N0, 0.45, 0.22, 0.7, true);
+export const deadScrubTiny = () => tiny(new THREE.Color(0.18, 0.14, 0.10), 0.35, 0.4, 0.35, false); // literal wood color, not AO-shaded
 export const sedgeTiny = () => tiny(N0, 0.7, 0.18, 1.0, true);
 export const reedTiny = () => tiny(N0, 0.7, 0.15, 1.1, true);
 export const fernTiny = () => tiny(N0, 0.35, 0.55, 0.4, true);
