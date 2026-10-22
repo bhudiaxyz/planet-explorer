@@ -195,7 +195,7 @@ renderer.setAnimationLoop(() => {
   aurora.update(
     camera.position,
     player.up,
-    night * smoothstep(0.35, 0.75, Math.abs(player.up.y)),
+    night * smoothstep(0.1, 0.45, Math.abs(player.up.y)),
     U.uTime.value,
   );
   fireflies.update(
