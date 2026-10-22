@@ -299,7 +299,38 @@ export function waterFx(m: THREE.MeshStandardMaterial) {
       "uN3",
     ]);
     s.uniforms.uAmp = T.uAmp;
+    s.uniforms.uPl = U.uPl;
     VW(s);
+    s.vertexShader = "uniform vec3 uPl;\n" + s.vertexShader;
+    s.vertexShader = s.vertexShader.replace(
+      "#include <begin_vertex>",
+      `
+vec3 transformed  = position;
+vec3 objectNormal = normal;
+
+// world position for wave sampling
+vec3 wp = (modelMatrix * vec4(position, 1.0)).xyz;
+
+// three Gerstner components: amplitude, frequency, speed, direction angle
+float wAmp  = uWind * 0.7;
+float t     = uTime;
+vec2  d0    = normalize(uSun.xz + vec2(0.001));
+vec2  d1    = vec2(-d0.y,  d0.x);
+vec2  d2    = normalize(d0 + d1 * 0.5);
+float phi0  = dot(d0, wp.xz) * 0.012 + t * 1.2;
+float phi1  = dot(d1, wp.xz) * 0.018 + t * 0.9;
+float phi2  = dot(d2, wp.xz) * 0.025 + t * 1.5;
+float disp  = wAmp * (cos(phi0) * 0.8 + cos(phi1) * 0.5 + cos(phi2) * 0.3);
+transformed += normalize(position) * disp;
+
+// player ripple ring
+float pdist = length(wp - uPl);
+float ripple = sin(pdist * 2.5 - t * 5.0)
+             * exp(-pdist * 0.12)
+             * 0.35 * uWind;
+transformed += normalize(position) * ripple;
+`,
+    );
     s.fragmentShader = s.fragmentShader
       .replace(
         "#include <common>",
