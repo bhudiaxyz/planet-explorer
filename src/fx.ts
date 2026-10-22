@@ -34,6 +34,7 @@ export const U = {
   uSky: { value: new THREE.Color(CurrentPalette.atmosphereScatter) },
   uLod: { value: new THREE.Vector4(...CFG.treeLod) },
 uOn: { value: 0 },
+  uNight: { value: 0 },
   uN3: { value: tex3 },
   uAtOn: { value: 0 },
   uCubeN: { value: null as THREE.Texture | null },

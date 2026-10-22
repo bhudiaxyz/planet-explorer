@@ -3,6 +3,7 @@ import { Planet, smoothstep } from "./planet";
 import { S } from "./settings";
 import { CurrentPalette } from "./palette";
 import { Precip } from "./precip";
+import { U } from "./fx";
 const PRECIP_COUNT = 3500;
 export class Sky {
   sun = new THREE.Vector3(1, 0, 0);
@@ -119,9 +120,41 @@ void main() {
 }`,
       }),
     );
+    const dawnMat = new THREE.ShaderMaterial({
+      transparent: true,
+      depthWrite:  false,
+      side:        THREE.BackSide,
+      blending:    THREE.AdditiveBlending,
+      uniforms: {
+        uDayF: U.uDayF,
+        uSun:  U.uSun,
+      },
+      vertexShader: `
+varying float vY;
+void main() {
+  vY          = normalize(position).y;
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+}`,
+      fragmentShader: `
+uniform float uDayF;
+uniform vec3  uSun;
+varying float vY;
+void main() {
+  float band = smoothstep(0.18, 0.0, abs(vY));
+  float dusk = smoothstep(0.3,  0.0, abs(uDayF - 0.5));
+  vec3  col  = mix(vec3(1.0, 0.28, 0.04), vec3(0.55, 0.25, 0.75), step(0.5, uDayF));
+  gl_FragColor = vec4(col, band * dusk * 0.5);
+}`,
+    });
+    const dawnMesh = new THREE.Mesh(
+      new THREE.SphereGeometry(980, 32, 12),
+      dawnMat,
+    );
+    dawnMesh.renderOrder = 2;
+    dawnMesh.frustumCulled = false;
     for (const o of [this.stars, this.nebulae, this.precip, this.disc, this.moonDisc])
       o.frustumCulled = false;
-    scene.add(this.disc, this.moonDisc, this.stars, this.nebulae, this.precip);
+    scene.add(this.disc, this.moonDisc, this.stars, this.nebulae, this.precip, dawnMesh);
   }
   update(
     dt: number,

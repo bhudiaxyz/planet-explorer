@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { T, TERRAIN_GLSL } from "./gpu";
+import { U } from "./fx";
 const FIREFLY_COUNT = 320,
   scratchForwardAxis = new THREE.Vector3(),
   AXIS_X = new THREE.Vector3(1, 0, 0),
@@ -138,5 +139,57 @@ void main() {
     this.mat.uniforms.uAmt.value = intensity;
     this.mat.uniforms.uCam.value.copy(cameraPosition);
     this.pts.visible = intensity > 0.02;
+  }
+}
+const BAND_COUNT = 600;
+export class GalacticBand {
+  mesh: THREE.Points;
+  constructor(scene: THREE.Scene) {
+    const pos = new Float32Array(BAND_COUNT * 3);
+    const gal = new Float32Array(BAND_COUNT); // 0 = galactic core, 1 = anti-core
+    for (let i = 0; i < BAND_COUNT; i++) {
+      const lon = (i / BAND_COUNT) * Math.PI * 2;
+      const lat = (Math.random() - 0.5) * 0.22;
+      const r   = 999;
+      pos[i * 3]     = r * Math.cos(lat) * Math.cos(lon);
+      pos[i * 3 + 1] = r * Math.sin(lat);
+      pos[i * 3 + 2] = r * Math.cos(lat) * Math.sin(lon);
+      gal[i] = Math.abs(lon - Math.PI) / Math.PI;
+    }
+    const geo = new THREE.BufferGeometry()
+      .setAttribute("position", new THREE.BufferAttribute(pos, 3))
+      .setAttribute("aGal",     new THREE.BufferAttribute(gal, 1));
+    const mat = new THREE.ShaderMaterial({
+      transparent: true,
+      depthWrite:  false,
+      blending:    THREE.AdditiveBlending,
+      uniforms:    { uOpacity: U.uNight },
+      vertexShader: `
+attribute float aGal;
+varying  float vGal, vLat;
+void main() {
+  vGal      = aGal;
+  vLat      = abs(position.y / length(position));
+  float core = 1.0 - vGal;
+  gl_PointSize = mix(1.5, 3.5, core * core);
+  gl_Position  = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+}`,
+      fragmentShader: `
+uniform float uOpacity;
+varying float vGal, vLat;
+void main() {
+  float r = length(gl_PointCoord - 0.5) * 2.0;
+  if (r > 1.0) discard;
+  float core = 1.0 - vGal;
+  // Great Rift: dark absorption lane near galactic equator in the inner half
+  float rift = smoothstep(0.06, 0.02, vLat) * smoothstep(0.6, 0.3, vGal);
+  vec3  col  = mix(vec3(0.55, 0.65, 1.0), vec3(1.0, 0.88, 0.65), core * core);
+  float a    = (1.0 - r * r) * mix(0.22, 0.8, core) * (1.0 - rift * 0.8);
+  gl_FragColor = vec4(col, a * uOpacity);
+}`,
+    });
+    this.mesh = new THREE.Points(geo, mat);
+    this.mesh.renderOrder = 1;
+    scene.add(this.mesh);
   }
 }
