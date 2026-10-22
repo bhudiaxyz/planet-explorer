@@ -34,6 +34,7 @@ export interface Settings {
   dayLength: number;
   weather: Weather;
   wind: number;
+  windSway: number;
   cloudiness: number;
 }
 
@@ -59,5 +60,6 @@ export const S: Settings = {
   dayLength: 240,
   weather: "auto",
   wind: 1,
+  windSway: 1,
   cloudiness: 0.45,
 };
