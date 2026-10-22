@@ -178,7 +178,7 @@ void main() {
   vMoist      = moist * ok;
   vec4 mv     = modelViewMatrix * vec4(wpos, 1.0);
   gl_Position  = projectionMatrix * mv;
-  gl_PointSize = mix(2.5, 5.0, sd.x) * (1.0 / -mv.z) * 350.0 * uNight * ok;
+  gl_PointSize = min(mix(2.5, 5.0, sd.x) * (1.0 / -mv.z) * 350.0 * uNight * ok, 64.0);
 }`,
       fragmentShader: `
 uniform float uNight;

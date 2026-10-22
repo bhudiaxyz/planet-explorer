@@ -27,14 +27,14 @@ uniform float     uNear, uFar, uDayF;
 uniform vec3      uSun;
 varying vec2      vUv;
 void main() {
-  float d      = texture2D(tDepth, vUv).r;
-  float z      = (2.0 * uNear * uFar) / (uFar + uNear - d * (uFar - uNear));
-  float fog    = 1.0 - exp(-z * 0.000012);
-  vec3  day    = mix(vec3(0.72, 0.78, 0.88), vec3(0.85, 0.70, 0.52), uDayF);
-  vec3  night  = vec3(0.05, 0.06, 0.12);
-  vec3  haze   = mix(night, day, uDayF);
-  vec4  col    = texture2D(tDiffuse, vUv);
-  gl_FragColor = vec4(mix(col.rgb, haze, fog * 0.65), col.a);
+  vec4 col = texture2D(tDiffuse, vUv);
+  float d  = texture2D(tDepth, vUv).r;
+  if (!(d >= 0.0 && d < 0.9999)) { gl_FragColor = col; return; }
+  float z   = uNear * uFar / (uFar - d * (uFar - uNear));
+  float fog = 1.0 - exp(-z * 0.000008);
+  vec3  day   = mix(vec3(0.72, 0.78, 0.88), vec3(0.85, 0.70, 0.52), uDayF);
+  vec3  haze  = mix(vec3(0.05, 0.06, 0.12), day, uDayF);
+  gl_FragColor = vec4(mix(col.rgb, haze, fog * 0.55), col.a);
 }`,
     });
   }

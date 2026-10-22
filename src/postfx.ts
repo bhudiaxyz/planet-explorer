@@ -33,7 +33,7 @@ export class PostFX {
     });
     rt.depthTexture = new THREE.DepthTexture(innerWidth, innerHeight);
     rt.depthTexture.format = THREE.DepthFormat;
-    rt.depthTexture.type   = THREE.UnsignedIntType;
+    rt.depthTexture.type   = THREE.FloatType;
     this.composer = new EffectComposer(renderer, rt);
     this.bloom = new UnrealBloomPass(
       new THREE.Vector2(innerWidth / 2, innerHeight / 2),
