@@ -10,9 +10,9 @@ npm run dev        # development server
 npm run build      # type-check + production bundle
 ```
 
-**Desktop / laptop:** click to capture the mouse · WASD move · Shift sprint · Space jump / ascend · C descend · F cycle walk → drone → fly · L land · Q/E roll (fly) · G toggle panels · Esc release mouse
+**Desktop / laptop:** click to capture the mouse · WASD move · Shift sprint · Space jump / ascend · C descend · F cycle walk → drone → fly · L land · Q/E roll (fly) · M map · G toggle panels · Esc release mouse / close map
 
-**Mobile / tablet:** left thumb joystick · right-side drag to look · ↑ ascend · ↓ descend · ⟲⟳ roll (fly only) · ⚡ sprint · ✈ cycle walk → drone → fly · 🛬 land · ☰ toggle panels
+**Mobile / tablet:** left thumb joystick · right-side drag to look · ↑ ascend · ↓ descend · ⟲⟳ roll (fly only) · ⚡ sprint · ✈ cycle walk → drone → fly · 🛬 land · 🗺️ map · ☰ toggle panels
 
 ## Module map
 
@@ -28,7 +28,8 @@ npm run build      # type-check + production bundle
 | Colour palettes  | `palette.ts`                                         | 13 Solar System planet palettes (biome colours, rock/plant/foliage tints, atmosphere, precipitation). `setPalette()` mutates the live `biomeColors` object so every system picks up the change on next rebuild. |
 | Player           | `player.ts`, `collision.ts`, `footprints.ts`         | Walk / drone / fly controller, collision with trees/rocks/shrubs/landmarks, snow footprints.                                                            |
 | Locations        | `spots.ts`                                           | Scans the planet surface at startup to find up to 10 terrain archetypes (beach, canyon, island, cliffs, plains, snow field, desert, lagoon, rainforest, mountain peak) plus fixed poles and equatorial waypoints. Results feed the Locations panel. |
-| Touch input      | `touch.ts`                                           | Virtual nipplejs joystick (left half) + swipe-to-look (right half) + mode-aware action buttons for mobile/tablet. No-ops on desktop.                    |
+| Map              | `map.ts`                                             | Fullscreen equirectangular planet map (M key / 🗺️ button). Baked from the cube-map atlas on first open; ACES tone-mapped and saturation-boosted to match the scene. Player position shown as an orange dot updated every frame. |
+| Touch input      | `touch.ts`                                           | Virtual nipplejs joystick (left half) + swipe-to-look (right half) + mode-aware action buttons (including 🗺️ map) for mobile/tablet. No-ops on desktop. |
 | Atmosphere       | `sky.ts`, `night.ts`, `precip.ts`                    | Sun/moon/weather state, parallax stars and nebulae, aurora, fireflies, GPU rain/snow, galactic band with Great Rift, dawn/dusk horizon band, moisture-gated bioluminescent motes — all colours driven by `CurrentPalette`. |
 | Rendering        | `fx.ts`, `postfx.ts`, `aerialfx.ts`, `shadows.ts`   | Shared shader materials and uniforms (`U`); HDR post chain (aerial perspective → bloom) with adaptive resolution; sun and moon shadow rigs with throttled depth-pass updates. |
 
