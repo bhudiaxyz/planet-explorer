@@ -59,7 +59,7 @@ export const S: Settings = {
   timeOfDay: 0.3,
   dayLength: 240,
   weather: "auto",
-  wind: 1,
+  wind: 0.35,
   windSway: 1,
   cloudiness: 0.45,
 };
