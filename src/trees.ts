@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { rng } from "./noise";
 import { wind, U, IGN, TINT_GLSL } from "./fx";
+import { S } from "./settings";
 import { T as TU } from "./gpu";
 import { CurrentPalette } from "./palette";
 import { N0, add, T, cyl, blob, done, frond } from "./geoutil";
@@ -14,7 +15,7 @@ function treeMat(tier: number) {
       vertexColors: true,
       roughness: 0.85,
     }),
-    m = tier === 2 ? mat : wind(mat, 0.002),
+    m = tier === 2 ? mat : wind(mat, 0.002 * S.windSway),
     base = tier === 2 ? null : (m.onBeforeCompile as any);
   const keep =
     tier === 0

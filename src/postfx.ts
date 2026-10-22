@@ -6,6 +6,7 @@ import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import { ShaderPass } from "three/addons/postprocessing/ShaderPass.js";
 import { S } from "./settings";
 import { isTouchDevice } from "./touch";
+import { AerialPass } from "./aerialfx";
 
 /**
  * Post-processing chain (HDR render → NaN/Inf sanitiser → half-res bloom → tone-map/output) plus adaptive resolution.
@@ -15,6 +16,7 @@ import { isTouchDevice } from "./touch";
 export class PostFX {
   readonly composer: EffectComposer;
   readonly bloom: UnrealBloomPass;
+  readonly aerial: AerialPass;
   private pixelRatio: number;
   private pendingPixelRatio: number;
   private devicePixelRatio: number;
@@ -25,13 +27,14 @@ export class PostFX {
     scene: THREE.Scene,
     camera: THREE.Camera,
   ) {
-    this.composer = new EffectComposer(
-      renderer,
-      new THREE.WebGLRenderTarget(innerWidth, innerHeight, {
-        type: THREE.HalfFloatType,
-        samples: isTouchDevice ? 0 : 4,
-      }),
-    );
+    const rt = new THREE.WebGLRenderTarget(innerWidth, innerHeight, {
+      type: THREE.HalfFloatType,
+      samples: isTouchDevice ? 0 : 4,
+    });
+    rt.depthTexture = new THREE.DepthTexture(innerWidth, innerHeight);
+    rt.depthTexture.format = THREE.DepthFormat;
+    rt.depthTexture.type   = THREE.UnsignedIntType;
+    this.composer = new EffectComposer(renderer, rt);
     this.bloom = new UnrealBloomPass(
       new THREE.Vector2(innerWidth / 2, innerHeight / 2),
       0.45,
@@ -55,8 +58,10 @@ void main() {
   gl_FragColor = vec4(clamp(c.rgb, 0., 32.), 1.);
 }`,
     });
+    this.aerial = new AerialPass(rt.depthTexture!);
     this.composer.addPass(new RenderPass(scene, camera));
     this.composer.addPass(clean);
+    this.composer.addPass(this.aerial.pass);
     this.composer.addPass(this.bloom);
     this.composer.addPass(new OutputPass());
     this.pixelRatio = this.pendingPixelRatio = renderer.getPixelRatio();

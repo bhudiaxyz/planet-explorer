@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { T, TERRAIN_GLSL } from "./gpu";
+import { U } from "./fx";
 const FIREFLY_COUNT = 320,
   scratchForwardAxis = new THREE.Vector3(),
   AXIS_X = new THREE.Vector3(1, 0, 0),
@@ -138,5 +139,116 @@ void main() {
     this.mat.uniforms.uAmt.value = intensity;
     this.mat.uniforms.uCam.value.copy(cameraPosition);
     this.pts.visible = intensity > 0.02;
+  }
+}
+const BIO_COUNT = 180;
+export class Bioluminescence {
+  pts: THREE.Points;
+  mat: THREE.ShaderMaterial;
+  constructor(scene: THREE.Scene) {
+    const sd = new Float32Array(BIO_COUNT * 4);
+    for (let i = 0; i < sd.length; i++) sd[i] = Math.random();
+    const geo = new THREE.BufferGeometry()
+      .setAttribute("position", new THREE.BufferAttribute(new Float32Array(BIO_COUNT * 3), 3))
+      .setAttribute("sd",       new THREE.BufferAttribute(sd, 4));
+    this.mat = new THREE.ShaderMaterial({
+      transparent: true,
+      depthWrite:  false,
+      blending:    THREE.AdditiveBlending,
+      uniforms: { ...T, uT: { value: 0 }, uCam: { value: new THREE.Vector3() }, uNight: U.uNight },
+      vertexShader: `
+${TERRAIN_GLSL}
+attribute vec4   sd;
+uniform   vec3   uCam;
+uniform   float  uT, uNight;
+varying   float  vPulse, vMoist;
+void main() {
+  vec3  cell  = fract(uCam / 60.0 + sd.xyz - 0.5) * 60.0 - 30.0 + uCam;
+  vec3  d     = normalize(cell);
+  float elev  = e3(d, true);
+  float moist = 0.5 + 0.5 * pn(d * uFreq * 2.2 + vec3(30., 0., 0.), 1);
+  float land  = step(0.0, elev);
+  float ok    = land * smoothstep(0.2, 0.45, moist) * (1.0 - smoothstep(0.72, 0.85, moist));
+  float r     = length(uCam) + elev * uAmp + 0.25;
+  vec3  wpos  = d * r;
+  wpos.x     += sin(uT * 0.4 + sd.x * 6.28) * 0.4;
+  wpos.y     += sin(uT * 0.3 + sd.y * 6.28) * 0.3;
+  wpos.z     += cos(uT * 0.35 + sd.z * 6.28) * 0.4;
+  vPulse      = fract(sd.w + uT * 0.06);
+  vMoist      = moist * ok;
+  vec4 mv     = modelViewMatrix * vec4(wpos, 1.0);
+  gl_Position  = projectionMatrix * mv;
+  gl_PointSize = mix(2.5, 5.0, sd.x) * (1.0 / -mv.z) * 350.0 * uNight * ok;
+}`,
+      fragmentShader: `
+uniform float uNight;
+varying float vPulse, vMoist;
+void main() {
+  float r     = length(gl_PointCoord - 0.5) * 2.0;
+  if (r > 1.0) discard;
+  float pulse = 0.5 + 0.5 * sin(vPulse * 6.28);
+  vec3  col   = mix(vec3(0.08, 0.88, 0.42), vec3(0.15, 0.45, 1.0), vMoist);
+  gl_FragColor = vec4(col, (1.0 - r * r) * pulse * uNight * vMoist);
+}`,
+    });
+    this.pts = new THREE.Points(geo, this.mat);
+    this.pts.frustumCulled = false;
+    scene.add(this.pts);
+  }
+  update(dt: number, cameraPosition: THREE.Vector3) {
+    this.mat.uniforms.uT.value += dt;
+    this.mat.uniforms.uCam.value.copy(cameraPosition);
+  }
+}
+const BAND_COUNT = 600;
+export class GalacticBand {
+  mesh: THREE.Points;
+  constructor(scene: THREE.Scene) {
+    const pos = new Float32Array(BAND_COUNT * 3);
+    const gal = new Float32Array(BAND_COUNT); // 0 = galactic core, 1 = anti-core
+    for (let i = 0; i < BAND_COUNT; i++) {
+      const lon = (i / BAND_COUNT) * Math.PI * 2;
+      const lat = (Math.random() - 0.5) * 0.22;
+      const r   = 999;
+      pos[i * 3]     = r * Math.cos(lat) * Math.cos(lon);
+      pos[i * 3 + 1] = r * Math.sin(lat);
+      pos[i * 3 + 2] = r * Math.cos(lat) * Math.sin(lon);
+      gal[i] = Math.abs(lon - Math.PI) / Math.PI;
+    }
+    const geo = new THREE.BufferGeometry()
+      .setAttribute("position", new THREE.BufferAttribute(pos, 3))
+      .setAttribute("aGal",     new THREE.BufferAttribute(gal, 1));
+    const mat = new THREE.ShaderMaterial({
+      transparent: true,
+      depthWrite:  false,
+      blending:    THREE.AdditiveBlending,
+      uniforms:    { uOpacity: U.uNight },
+      vertexShader: `
+attribute float aGal;
+varying  float vGal, vLat;
+void main() {
+  vGal      = aGal;
+  vLat      = abs(position.y / length(position));
+  float core = 1.0 - vGal;
+  gl_PointSize = mix(1.5, 3.5, core * core);
+  gl_Position  = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+}`,
+      fragmentShader: `
+uniform float uOpacity;
+varying float vGal, vLat;
+void main() {
+  float r = length(gl_PointCoord - 0.5) * 2.0;
+  if (r > 1.0) discard;
+  float core = 1.0 - vGal;
+  // Great Rift: dark absorption lane near galactic equator in the inner half
+  float rift = smoothstep(0.06, 0.02, vLat) * smoothstep(0.6, 0.3, vGal);
+  vec3  col  = mix(vec3(0.55, 0.65, 1.0), vec3(1.0, 0.88, 0.65), core * core);
+  float a    = (1.0 - r * r) * mix(0.22, 0.8, core) * (1.0 - rift * 0.8);
+  gl_FragColor = vec4(col, a * uOpacity);
+}`,
+    });
+    this.mesh = new THREE.Points(geo, mat);
+    this.mesh.renderOrder = 1;
+    scene.add(this.mesh);
   }
 }

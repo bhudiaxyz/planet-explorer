@@ -66,6 +66,7 @@ export function setupGui({ planet, player, post, rebuild, rebuildVeg }: Ctx) {
   sky.add(S, "timeOfDay", 0, 1, 0.001).listen();
   sky.add(S, "dayLength", 20, 1200, 1).name("day length (s)");
   sky.add(S, "wind", 0, 3, 0.05);
+  sky.add(S, "windSway", 0, 2, 0.05).name("wind sway");
   sky.add(S, "cloudiness", 0, 1, 0.01);
   sky
     .add(S, "renderScale", 0.5, 2, 0.05)

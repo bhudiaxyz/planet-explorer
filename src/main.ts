@@ -2,7 +2,7 @@ import * as THREE from "three";
 import { Planet } from "./planet";
 import { Sky } from "./sky";
 import { SkyDome } from "./skyfx";
-import { Aurora, Fireflies } from "./night";
+import { Aurora, Fireflies, GalacticBand, Bioluminescence } from "./night";
 import { Player } from "./player";
 import { Scatter } from "./vegetation";
 import { Collider } from "./collision";
@@ -50,8 +50,11 @@ const sky = new Sky(scene, planet),
   shadows = new Shadows(renderer, sky.light, isTouchDevice, sky.moon);
 const aurora = new Aurora(scene),
   fireflies = new Fireflies(scene),
+  galacticBand = new GalacticBand(scene),
+  biolumi = new Bioluminescence(scene),
   footprints = new Footprints(player, planet),
   postFX = new PostFX(renderer, scene, camera);
+postFX.aerial.setCamera(camera.near, camera.far);
 scene.add(scatter.group, sky.light.target);
 player.col = collider;
 
@@ -171,6 +174,7 @@ renderer.setAnimationLoop(() => {
   sky.update(dt, camera, player.up, player.alt, tempAt());
   U.uTime.value += dt;
   U.uWind.value = S.wind * (0.6 + sky.cloud * 1.2);
+  U.uSway.value = S.windSway;
   U.uSun.value.copy(sky.sun);
   U.uDayF.value = sky.dayF;
   U.uSky.value.copy(sky.bg);
@@ -186,6 +190,8 @@ renderer.setAnimationLoop(() => {
   scatter.update(player.up, player.alt, dt);
   footprints.update(dt);
   const night = (1 - sky.dayF) * (1 - sky.space) * (1 - sky.cloud);
+  U.uNight.value = night;
+  galacticBand.mesh.rotation.y = S.timeOfDay * Math.PI * 2;
   aurora.update(
     camera.position,
     player.up,
@@ -198,6 +204,7 @@ renderer.setAnimationLoop(() => {
     camera.position,
     night * (1 - smoothstep(20, 40, player.alt)) * (1 - sky.precipitationAmount),
   );
+  biolumi.update(dt, camera.position);
   shadows.update(dt, player.alt, sky.dayF, sky.sun, camera.position);
   if ((hudTimer += dt) > 0.25) {
     hudTimer = 0;

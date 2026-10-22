@@ -23,6 +23,7 @@ tex3.needsUpdate = true;
 export const U = {
   uTime: { value: 0 },
   uWind: { value: 1 },
+  uSway: { value: 1 },
   uFade: { value: 1 },
   uVeg: { value: 1 },
   uSun: { value: new THREE.Vector3(1, 0, 0) },
@@ -33,6 +34,7 @@ export const U = {
   uSky: { value: new THREE.Color(CurrentPalette.atmosphereScatter) },
   uLod: { value: new THREE.Vector4(...CFG.treeLod) },
 uOn: { value: 0 },
+  uNight: { value: 0 },
   uN3: { value: tex3 },
   uAtOn: { value: 0 },
   uCubeN: { value: null as THREE.Texture | null },
@@ -264,14 +266,22 @@ export function wind<T extends THREE.Material>(m: T, k: number): T {
       )
       .replace(
         "#include <begin_vertex>",
-        `#include <begin_vertex>
-{
-  float ph = instanceMatrix[3].x * .11 + instanceMatrix[3].z * .13;
-  float y  = max(transformed.y, 0.);
-  float a  = uWind * ${k} * y * y;
-  transformed.x += sin(uTime * 1.6 + ph + y * .3) * a;
-  transformed.z += cos(uTime * 1.3 + ph * 1.3 + y * .2) * a;
-}`,
+        `
+vec3 iPos = vec3(
+  instanceMatrix[3][0],
+  instanceMatrix[3][1],
+  instanceMatrix[3][2]
+);
+float _ph  = fract(dot(fract(iPos.xz * 0.1031), iPos.xz + 0.1030)) * 6.2832;
+float _amt = uWind * ${k.toFixed(4)} * sin(uTime * 1.1 + _ph);
+float _bx  = cos(_ph + 1.2),
+      _bz  = sin(_ph + 1.2);
+vec3 lp    = position;
+float _h   = max(lp.y, 0.0);
+lp.x      += _bx * _amt * _h;
+lp.z      += _bz * _amt * _h;
+vec3 transformed = lp;
+`,
       );
   };
   return m;
@@ -290,7 +300,37 @@ export function waterFx(m: THREE.MeshStandardMaterial) {
       "uN3",
     ]);
     s.uniforms.uAmp = T.uAmp;
+    s.uniforms.uPl = U.uPl;
     VW(s);
+    s.vertexShader = "uniform vec3 uPl;\n" + s.vertexShader;
+    s.vertexShader = s.vertexShader.replace(
+      "#include <begin_vertex>",
+      `
+vec3 transformed  = position;
+
+// world position for wave sampling
+vec3 wp = (modelMatrix * vec4(position, 1.0)).xyz;
+
+// three Gerstner components: amplitude, frequency, speed, direction angle
+float wAmp  = uWind * 0.7;
+float t     = uTime;
+vec2  d0    = normalize(uSun.xz + vec2(0.001));
+vec2  d1    = vec2(-d0.y,  d0.x);
+vec2  d2    = normalize(d0 + d1 * 0.5);
+float phi0  = dot(d0, wp.xz) * 0.012 + t * 1.2;
+float phi1  = dot(d1, wp.xz) * 0.018 + t * 0.9;
+float phi2  = dot(d2, wp.xz) * 0.025 + t * 1.5;
+float disp  = wAmp * (cos(phi0) * 0.8 + cos(phi1) * 0.5 + cos(phi2) * 0.3);
+transformed += normalize(position) * disp;
+
+// player ripple ring
+float pdist = length(wp - uPl);
+float ripple = sin(pdist * 2.5 - t * 5.0)
+             * exp(-pdist * 0.12)
+             * 0.35 * uWind;
+transformed += normalize(position) * ripple;
+`,
+    );
     s.fragmentShader = s.fragmentShader
       .replace(
         "#include <common>",
