@@ -141,7 +141,7 @@ void main() {
     this.pts.visible = intensity > 0.02;
   }
 }
-const BIO_COUNT = 180;
+const BIO_COUNT = 60;
 export class Bioluminescence {
   pts: THREE.Points;
   mat: THREE.ShaderMaterial;
