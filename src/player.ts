@@ -78,6 +78,8 @@ export class Player {
     this.verticalVelocity = 0;
     this.pitch = 0;
     this.forward.crossVectors(candidateDir, AXIS_Y);
+    if (this.forward.lengthSq() < 1e-6) this.forward.crossVectors(candidateDir, AXIS_X);
+    this.forward.normalize();
   }
   refresh() {
     if (this.mode === "walk")
@@ -124,6 +126,7 @@ export class Player {
       moveAxis   = this.touchMove   + this.isKeyDown("KeyW") - this.isKeyDown("KeyS"),
       strafeAxis = this.touchStrafe + this.isKeyDown("KeyD") - this.isKeyDown("KeyA");
     if (this.mode === "walk") {
+      if (this.groundRadius < 1) return;
       const up = this.up.copy(this.dir),
         planetRadius = this.planet.radius;
       this.forward.addScaledVector(up, -this.forward.dot(up));

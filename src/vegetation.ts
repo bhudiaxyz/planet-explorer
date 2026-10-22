@@ -256,10 +256,10 @@ export class Scatter {
   }
   /** Invalidate all layer placement caches — call when palette changes to rebake vertex colours. */
   rebuild() { this.dirty = true; }
-  update(playerDirection: THREE.Vector3, alt: number) {
+  update(playerDirection: THREE.Vector3, alt: number, dt = 0.016) {
     U.uVeg.value = 1 - smoothstep(150, 250, alt);
     this.group.visible = alt < 255;
-    let budget = 4;
+    let budget = Math.max(2, Math.round(4 * dt * 60));
     if (this.dirty) {
       this.layers.forEach((l) => (l.lastFace = -1));
       this.dirty = false;

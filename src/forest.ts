@@ -246,7 +246,7 @@ export class Forest {
         CFG.forest.count * (isTouchDevice ? 0.45 : 1) * S.forest * (planetRadius / 700) ** 2,
       ),
       rand = rng(S.seed + 7),
-      highDetailGeos = treeGeos(S.seed, 1),
+      highDetailGeos = await new Promise<ReturnType<typeof treeGeos>>(r => setTimeout(() => r(treeGeos(S.seed, 1)), 0)),
       midDetailGeos = treeGeos(S.seed, 0.5),
       lowDetailGeos = lowGeos(S.seed);
     const tries = Math.min(max * CFG.forest.tries, 200000),
@@ -410,7 +410,7 @@ export class Forest {
           dy = lists.dir[k * 3 + 1],
           dz = lists.dir[k * 3 + 2];
         if (dx * dir.x + dy * dir.y + dz * dir.z < thr) continue;
-        const d = new THREE.Vector3().set(dx, dy, dz),
+        const d = this.scratchD.set(dx, dy, dz),
           r = (base + 0.05) * lists.scale[k] * lists.scaleWidth[k];
         this.scratchAx
           .crossVectors(d, Math.abs(dy) < 0.99 ? UP : this.scratchUp)
@@ -439,7 +439,8 @@ export class Forest {
     // animate nearStrength toward nearMode so hi/mid tiers fade in/out over ~0.4 s
     const target = this.nearMode ? 1 : 0;
     this.nearStrength += (target - this.nearStrength) * Math.min(1, dt * 2.5);
-    if (cam.distanceTo(this.last) < 6 && Math.abs(this.nearStrength - target) < 0.005) return;
+    const onlyCrossfading = cam.distanceTo(this.last) < 6;
+    if (onlyCrossfading && Math.abs(this.nearStrength - target) < 0.005) return;
     this.last.copy(cam);
     const camDirX = cam.x / camLength,
       camDirY = cam.y / camLength,
@@ -488,17 +489,19 @@ export class Forest {
           }
       }
       for (let t = 0; t < 2; t++) {
-        // upload only the used range; scale count by nearStrength to crossfade tiers
+        // scale count by nearStrength to crossfade tiers; only upload buffers when positions changed
         const mesh = lists.meshes[t];
         const count = Math.round(tierCounts[t] * this.nearStrength);
         mesh.visible = count > 0;
         mesh.count = count;
-        mesh.instanceMatrix.clearUpdateRanges();
-        mesh.instanceMatrix.addUpdateRange(0, tierCounts[t] * 16);
-        mesh.instanceMatrix.needsUpdate = true;
-        mesh.instanceColor!.clearUpdateRanges();
-        mesh.instanceColor!.addUpdateRange(0, tierCounts[t] * 3);
-        mesh.instanceColor!.needsUpdate = true;
+        if (!onlyCrossfading) {
+          mesh.instanceMatrix.clearUpdateRanges();
+          mesh.instanceMatrix.addUpdateRange(0, tierCounts[t] * 16);
+          mesh.instanceMatrix.needsUpdate = true;
+          mesh.instanceColor!.clearUpdateRanges();
+          mesh.instanceColor!.addUpdateRange(0, tierCounts[t] * 3);
+          mesh.instanceColor!.needsUpdate = true;
+        }
       }
     }
   }

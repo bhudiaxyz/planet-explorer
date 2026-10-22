@@ -248,38 +248,32 @@ void main() {
       elevations = new Float32Array(vertexCount),
       moistures = new Float32Array(vertexCount);
     if (canBake()) {
-      const baked = await bakePoints(baseMesh.dirs, 0);
+      // modes 0 (elevation/moisture) and 3 (normals) are independent — bake in parallel
+      const [baked, normalReadback] = await Promise.all([
+        bakePoints(baseMesh.dirs, 0),
+        bakePoints(baseMesh.dirs, 3),
+      ]);
       for (let i = 0; i < vertexCount; i++) {
         elevations[i] = baked[i * 4];
         moistures[i] = baked[i * 4 + 1];
       }
-    } else
-      for (let i = 0; i < vertexCount; i++) {
-        dir.fromArray(baseMesh.dirs, i * 3);
-        elevations[i] = this.elevationAt(dir.x, dir.y, dir.z, false);
-        moistures[i] = this.moistureAt(dir);
-      }
-    for (let i = 0; i < vertexCount; i++)
-      dir
-        .fromArray(baseMesh.dirs, i * 3)
-        .multiplyScalar(this.radius + elevations[i] * S.amplitude - DROP)
-        .toArray(pos, i * 3);
-    const geo = new THREE.BufferGeometry();
-    geo.setIndex(baseMesh.index);
-    geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
-    let hasBakedColors = false;
-    if (canBake()) {
+      for (let i = 0; i < vertexCount; i++)
+        dir
+          .fromArray(baseMesh.dirs, i * 3)
+          .multiplyScalar(this.radius + elevations[i] * S.amplitude - DROP)
+          .toArray(pos, i * 3);
+      const geo = new THREE.BufferGeometry();
+      geo.setIndex(baseMesh.index);
+      geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
       // analytic normals + biome colours baked on the GPU once; the per-frame vertex shader only reads attributes
       const elevMoistArray = new Float32Array(vertexCount * 2);
       for (let i = 0; i < vertexCount; i++) {
         elevMoistArray[i * 2] = elevations[i];
         elevMoistArray[i * 2 + 1] = moistures[i];
       }
-      // normals bake must finish before color bake (color MODE 4 reads nrm attribute)
-      const normalReadback = await bakePoints(baseMesh.dirs, 3),
-        normalArray = new Float32Array(vertexCount * 3);
+      const normalArray = new Float32Array(vertexCount * 3);
       for (let i = 0; i < vertexCount; i++) {
-        normalArray[i * 3] = normalReadback[i * 4];
+        normalArray[i * 3]     = normalReadback[i * 4];
         normalArray[i * 3 + 1] = normalReadback[i * 4 + 1];
         normalArray[i * 3 + 2] = normalReadback[i * 4 + 2];
       }
@@ -289,28 +283,44 @@ void main() {
       }),
         colorArray = new Float32Array(vertexCount * 3);
       for (let i = 0; i < vertexCount; i++) {
-        colorArray[i * 3] = colorReadback[i * 4];
+        colorArray[i * 3]     = colorReadback[i * 4];
         colorArray[i * 3 + 1] = colorReadback[i * 4 + 1];
         colorArray[i * 3 + 2] = colorReadback[i * 4 + 2];
       }
       geo.setAttribute("normal", new THREE.BufferAttribute(normalArray, 3));
-      geo.setAttribute("aCol", new THREE.BufferAttribute(colorArray, 3));
-      hasBakedColors = true;
-    } else geo.computeVertexNormals();
-    geo.setAttribute("aE", new THREE.BufferAttribute(elevations, 1));
-    geo.setAttribute("aM", new THREE.BufferAttribute(moistures, 1));
-    const terrain = new THREE.Mesh(
-      geo,
-      terrainMat(false, false, {}, hasBakedColors),
-    );
-    terrain.receiveShadow = false;
-    this.group.add(terrain);
+      geo.setAttribute("aCol",   new THREE.BufferAttribute(colorArray, 3));
+      geo.setAttribute("aE",     new THREE.BufferAttribute(elevations, 1));
+      geo.setAttribute("aM",     new THREE.BufferAttribute(moistures, 1));
+      const terrain = new THREE.Mesh(geo, terrainMat(false, false, {}, true));
+      terrain.receiveShadow = false;
+      this.group.add(terrain);
+    } else {
+      for (let i = 0; i < vertexCount; i++) {
+        dir.fromArray(baseMesh.dirs, i * 3);
+        elevations[i] = this.elevationAt(dir.x, dir.y, dir.z, false);
+        moistures[i] = this.moistureAt(dir);
+      }
+      for (let i = 0; i < vertexCount; i++)
+        dir
+          .fromArray(baseMesh.dirs, i * 3)
+          .multiplyScalar(this.radius + elevations[i] * S.amplitude - DROP)
+          .toArray(pos, i * 3);
+      const geo = new THREE.BufferGeometry();
+      geo.setIndex(baseMesh.index);
+      geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+      geo.computeVertexNormals();
+      geo.setAttribute("aE", new THREE.BufferAttribute(elevations, 1));
+      geo.setAttribute("aM", new THREE.BufferAttribute(moistures, 1));
+      const terrain = new THREE.Mesh(geo, terrainMat(false, false, {}, false));
+      terrain.receiveShadow = false;
+      this.group.add(terrain);
+    }
     this.water.color.set(biomeColors.water);
     this.atmosphere.uniforms.col.value.set(CurrentPalette.atmosphereLimb);
     this.cloudRadius = this.radius + Math.max(110, S.amplitude * 1.3 + 50);
     U.uCloudR.value = this.cloudRadius; // clouds float above the highest peaks
     const waterMesh = new THREE.Mesh(
-        new THREE.SphereGeometry(this.radius, 160, 120),
+        new THREE.SphereGeometry(this.radius, 96, 64),
         this.water,
       ),
       cloudMesh = this.clouds.make(this.cloudRadius),
