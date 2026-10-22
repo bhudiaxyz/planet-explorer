@@ -302,7 +302,7 @@ export function waterFx(m: THREE.MeshStandardMaterial) {
     s.uniforms.uAmp = T.uAmp;
     s.uniforms.uPl = U.uPl;
     VW(s);
-    s.vertexShader = "uniform vec3 uPl;\n" + s.vertexShader;
+    s.vertexShader = "uniform vec3 uPl, uSun;\nuniform float uTime, uWind;\n" + s.vertexShader;
     s.vertexShader = s.vertexShader.replace(
       "#include <begin_vertex>",
       `
