@@ -250,7 +250,7 @@ export const PLANTS: PlantSpec[] = [
     wind: 0.3,
     push: true, // forest understory: follows the tree density field
     tiers: [
-      tier(() => fernGeo(6), 3.4, RAD.near, LOD.near),
+      tier(() => fernGeo(8), 3.4, RAD.near, LOD.near),
       tier(() => fernGeo(3), 3.4, RAD.mid, LOD.mid, 1.5, 1.1),
       tier(fernTiny, 17, RAD.far, LOD.far, 1.4, 1.2),
     ],

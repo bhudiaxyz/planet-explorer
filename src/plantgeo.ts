@@ -50,14 +50,14 @@ export function grassGeo(blades: number, segs: number, wScale = 1) {
 export function shrubGeo() {
   const p: THREE.BufferGeometry[] = [],
     r = rng(5);
-  for (let i = 0; i < 3; i++)
+  for (let i = 0; i < 5; i++)
     blob(
       p,
-      new THREE.Vector3((r() - 0.5) * 0.7, 0.35, (r() - 0.5) * 0.7),
-      0.5 + r() * 0.2,
+      new THREE.Vector3((r() - 0.5) * 0.8, 0.3 + r() * 0.15, (r() - 0.5) * 0.8),
+      0.38 + r() * 0.22,
       N0,
       0.8,
-      2,
+      3,
     );
   return done(p);
 }
