@@ -10,8 +10,19 @@ import {
   alpineLow,
   alpineTiny,
   reedGeo,
+  reedTiny,
   fernGeo,
+  fernTiny,
   mushroomGeo,
+  cactusGeo,
+  cactusLow,
+  cactusTiny,
+  deadScrubGeo,
+  deadScrubLow,
+  deadScrubTiny,
+  sedgeGeo,
+  sedgeLow,
+  sedgeTiny,
 } from "./plantgeo";
 import { rockGeo, rockLow, rockTiny, rockSlabGeo, rockSlabLow, rockSlabTiny, frostRockGeo, frostRockLow, frostRockTiny } from "./rockgeo";
 
@@ -101,11 +112,23 @@ export const PLANTS: PlantSpec[] = [
       tier(() => grassGeo(2, 1, 1.8), 4.5, RAD.far, LOD.far, 3.8, 1.1),
     ],
     // carpets open, moist, gentle, low ground: full cover on plains/grassland, thinner under forest, patchy on dry or steep terrain
-    gate: `pt=pn(d*7.+vec3(11.,0.,0.),1);float gp=sm_(-.45,-.05,m)*(1.-.65*forestMask(d,m))*(1.-sm_(.35,.6,e))*(1.-sm_(.35,.85,sl));
-gp=clamp(gp*(.9+.2*sm_(-.3,.3,pt)),0.,1.);if(sl>=.9||h4>=gp)REJECT;`,
-    result: "return vec4(e*uAmp,pt,m,h3);",
-    look: `sc=vec3(.7+h1*h2*1.2);sc.y*=(1.+step(.9,h7)*.9)*(.75+.7*sm_(-.2,.35,Dv.z));
-tint=uCg*(.85+h1*.3)*mix(vec3(1.),vec3(1.28,1.05,.62),sm_(.15,.6,Dv.y)*.75)*mix(vec3(1.),vec3(1.4,1.15,.5),step(.85,h7)*.8);`,
+    gate: `
+      pt = pn(d * 7. + vec3(11., 0., 0.), 1);
+      float gp = sm_(-.45, -.05, m)
+        * (1. - .65 * forestMask(d, m))
+        * (1. - sm_(.35, .6, e))
+        * (1. - sm_(.35, .85, sl));
+      gp = clamp(gp * (.9 + .2 * sm_(-.3, .3, pt)), 0., 1.);
+      if (sl >= .9 || h4 >= gp) REJECT;
+    `,
+    result: "return vec4(e * uAmp, pt, m, h3);",
+    look: `
+      sc = vec3(.7 + h1 * h2 * 1.2);
+      sc.y *= (1. + step(.9, h7) * .9) * (.75 + .7 * sm_(-.2, .35, Dv.z));
+      tint = uCg * (.85 + h1 * .3)
+        * mix(vec3(1.), vec3(1.28, 1.05, .62), sm_(.15, .6, Dv.y) * .75)
+        * mix(vec3(1.), vec3(1.4, 1.15, .5), step(.85, h7) * .8);
+    `,
   }),
   plant({
     name: "flowers",
@@ -113,11 +136,20 @@ tint=uCg*(.85+h1*.3)*mix(vec3(1.),vec3(1.28,1.05,.62),sm_(.15,.6,Dv.y)*.75)*mix(
     wind: 0.4,
     push: true, // meadow patches in clearings
     tiers: [tier(flowerGeo, 3.4, RAD.flower, LOD.flower)],
-    pre: "cf=clusterField(d,1.);if(h5>=.04*PMUL*cf*5.)REJECT;",
-    gate: "if(e>=.38||sl>=.5||m<-.2||forestMask(d,m)>.6)REJECT;",
-    look: `sc=vec3(.8+h1*.6);float hm=step(.4,min(vColor.r,min(vColor.g,vColor.b)));int pk=int(h3*6.);
-vec3 fcol=pk==0?vec3(.9,.9,.88):(pk==1?vec3(.9,.62,.05):(pk==2?vec3(.28,.12,.55):(pk==3?vec3(.85,.25,.4):(pk==4?vec3(.9,.28,.04):vec3(.12,.25,.8)))));
-tint=mix(vec3(1.),fcol,hm);`,
+    pre: "cf = clusterField(d, 1.); if (h5 >= .04 * PMUL * cf * 5.) REJECT;",
+    gate: "if (e >= .38 || sl >= .5 || m < -.2 || forestMask(d, m) > .6) REJECT;",
+    look: `
+      sc = vec3(.8 + h1 * .6);
+      float hm = step(.4, min(vColor.r, min(vColor.g, vColor.b)));
+      int pk = int(h3 * 6.);
+      vec3 fcol = pk == 0 ? vec3(.9, .9, .88)
+        : pk == 1 ? vec3(.9, .62, .05)
+        : pk == 2 ? vec3(.28, .12, .55)
+        : pk == 3 ? vec3(.85, .25, .4)
+        : pk == 4 ? vec3(.9, .28, .04)
+        :           vec3(.12, .25, .8);
+      tint = mix(vec3(1.), fcol, hm);
+    `,
   }),
   plant({
     name: "shrubs",
@@ -131,10 +163,19 @@ tint=mix(vec3(1.),fcol,hm);`,
       tier(shrubLow, 8.5, RAD.mid, LOD.mid),
       tier(shrubTiny, 17, RAD.far, LOD.far, 1.9, 1.9),
     ],
-    pre: "cf=clusterField(d,2.);if(h6>=.009*PMUL*cf*4.)REJECT;",
-    gate: "if(e>=.3||sl>=.6||m<=-.05)REJECT;",
-    look: `sc=vec3(.8+h2*1.1)*vec3(1.,.8+h1*.5,1.);
-tint=(h7<.2?vec3(.05,.2,.04):(h7<.4?vec3(.12,.2,.05):(h7<.58?vec3(.04,.18,.14):(h7<.72?vec3(.17,.27,.05):(h7<.86?vec3(.2,.07,.04):(h7<.94?vec3(.3,.2,.04):vec3(.45,.22,.3)))))))*(.75+h2*.5);`,
+    pre: "cf = clusterField(d, 2.); if (h6 >= .009 * PMUL * cf * 4.) REJECT;",
+    gate: "if (e >= .3 || sl >= .6 || m <= -.05) REJECT;",
+    look: `
+      sc = vec3(.8 + h2 * 1.1) * vec3(1., .8 + h1 * .5, 1.);
+      tint = (h7 < .2  ? vec3(.05, .2,  .04)
+            : h7 < .4  ? vec3(.12, .2,  .05)
+            : h7 < .58 ? vec3(.04, .18, .14)
+            : h7 < .72 ? vec3(.17, .27, .05)
+            : h7 < .86 ? vec3(.2,  .07, .04)
+            : h7 < .94 ? vec3(.3,  .2,  .04)
+            :             vec3(.45, .22, .3))
+        * (.75 + h2 * .5);
+    `,
   }),
   plant({
     name: "rocks",
@@ -150,10 +191,18 @@ tint=(h7<.2?vec3(.05,.2,.04):(h7<.4?vec3(.12,.2,.05):(h7<.58?vec3(.04,.18,.14):(
       tier(rockLow, 8.5, RAD.mid, LOD.mid),
       tier(rockTiny, 17, RAD.far, LOD.far),
     ],
-    pre: "cf=clusterField(d,3.);",
-    gate: "if(h6<=1.-(.003+sl*.02+sm_(.4,.6,e)*.015)*PMUL*(.2+cf*2.6))REJECT;",
-    look: `float s=.3+h1*1.6;sc=vec3(s*(.8+h2*.6),s*(.45+h7*.5),s*(.7+h1*.5));
-tint=(h7<.25?vec3(.3,.29,.28):(h7<.5?vec3(.42,.32,.2):(h7<.7?vec3(.16,.16,.19):(h7<.88?vec3(.38,.18,.12):vec3(.5,.5,.55)))))*4.*(.75+h2*.45);`,
+    pre: "cf = clusterField(d, 3.);",
+    gate: "if (h6 <= 1. - (.003 + sl * .02 + sm_(.4, .6, e) * .015) * PMUL * (.2 + cf * 2.6)) REJECT;",
+    look: `
+      float s = .3 + h1 * 1.6;
+      sc = vec3(s * (.8 + h2 * .6), s * (.45 + h7 * .5), s * (.7 + h1 * .5));
+      tint = (h7 < .25 ? vec3(.3,  .29, .28)
+            : h7 < .5  ? vec3(.42, .32, .2)
+            : h7 < .7  ? vec3(.16, .16, .19)
+            : h7 < .88 ? vec3(.38, .18, .12)
+            :             vec3(.5,  .5,  .55))
+        * 4. * (.75 + h2 * .45);
+    `,
   }),
   plant({
     name: "alpine scrub",
@@ -167,9 +216,16 @@ tint=(h7<.25?vec3(.3,.29,.28):(h7<.5?vec3(.42,.32,.2):(h7<.7?vec3(.16,.16,.19):(
       tier(alpineLow, 8.5, RAD.mid, LOD.mid),
       tier(alpineTiny, 17, RAD.far, LOD.far, 1.8, 1.8),
     ],
-    pre: "cf=clusterField(d,4.);if(h6>=.02*PMUL*cf*4.)REJECT;",
-    gate: "if(e<.26||sl>=.8)REJECT;",
-    look: `sc=vec3(.6+h2*.7);tint=(h7<.3?vec3(.1,.13,.07):(h7<.55?vec3(.16,.14,.08):(h7<.8?vec3(.12,.1,.14):vec3(.2,.18,.15))))*(.8+h2*.4);`,
+    pre: "cf = clusterField(d, 4.); if (h6 >= .02 * PMUL * cf * 4.) REJECT;",
+    gate: "if (e < .26 || sl >= .8) REJECT;",
+    look: `
+      sc = vec3(.6 + h2 * .7);
+      tint = (h7 < .3  ? vec3(.1,  .13, .07)
+            : h7 < .55 ? vec3(.16, .14, .08)
+            : h7 < .8  ? vec3(.12, .1,  .14)
+            :             vec3(.2,  .18, .15))
+        * (.8 + h2 * .4);
+    `,
   }),
   plant({
     name: "reeds",
@@ -179,10 +235,14 @@ tint=(h7<.25?vec3(.3,.29,.28):(h7<.5?vec3(.42,.32,.2):(h7<.7?vec3(.16,.16,.19):(
     tiers: [
       tier(() => reedGeo(5), 3.4, RAD.near, LOD.near, 1.3, 1),
       tier(() => reedGeo(3), 6.8, RAD.mid, LOD.mid, 1.8, 1.1),
+      tier(reedTiny, 17, RAD.far, LOD.far, 1.6, 1.4),
     ],
-    pre: "cf=clusterField(d,5.);if(h6>=.12*PMUL*cf*3.)REJECT;",
-    gate: "if(e<-.03||e>=.025||sl>=.35||m<-.25)REJECT;",
-    look: "sc=vec3(.8+h1*.7,.8+h2*.9,.8+h1*.7);tint=vec3(.85+h2*.3);",
+    pre: "cf = clusterField(d, 5.); if (h6 >= .12 * PMUL * cf * 3.) REJECT;",
+    gate: "if (e < -.03 || e >= .025 || sl >= .35 || m < -.25) REJECT;",
+    look: `
+      sc = vec3(.8 + h1 * .7, .8 + h2 * .9, .8 + h1 * .7);
+      tint = vec3(.85 + h2 * .3);
+    `,
   }),
   plant({
     name: "ferns",
@@ -192,11 +252,18 @@ tint=(h7<.25?vec3(.3,.29,.28):(h7<.5?vec3(.42,.32,.2):(h7<.7?vec3(.16,.16,.19):(
     tiers: [
       tier(() => fernGeo(6), 3.4, RAD.near, LOD.near),
       tier(() => fernGeo(3), 3.4, RAD.mid, LOD.mid, 1.5, 1.1),
+      tier(fernTiny, 17, RAD.far, LOD.far, 1.4, 1.2),
     ],
-    pre: "m0=pn(d*uFreq*2.2+vec3(30.,0.,0.),1);fo=treeDensity(d,m0);if(h6>=.05*PMUL*(.08+fo*2.4))REJECT;",
-    gate: "if(m<=0.||e>=.32||sl>=.7)REJECT;",
-    look: `sc=vec3(.9+h2*.9,.8+h1*.6,.9+h2*.9);
-tint=(h7<.3?vec3(.04,.17,.05):(h7<.6?vec3(.08,.22,.05):(h7<.85?vec3(.03,.14,.1):vec3(.14,.2,.04))))*(.8+h2*.4);`,
+    pre: "m0 = pn(d * uFreq * 2.2 + vec3(30., 0., 0.), 1); fo = treeDensity(d, m0); if (h6 >= .05 * PMUL * (.08 + fo * 2.4)) REJECT;",
+    gate: "if (m <= 0. || e >= .32 || sl >= .7) REJECT;",
+    look: `
+      sc = vec3(.9 + h2 * .9, .8 + h1 * .6, .9 + h2 * .9);
+      tint = (h7 < .3  ? vec3(.04, .17, .05)
+            : h7 < .6  ? vec3(.08, .22, .05)
+            : h7 < .85 ? vec3(.03, .14, .1)
+            :             vec3(.14, .2,  .04))
+        * (.8 + h2 * .4);
+    `,
   }),
   plant({
     name: "rock slabs",
@@ -211,10 +278,18 @@ tint=(h7<.3?vec3(.04,.17,.05):(h7<.6?vec3(.08,.22,.05):(h7<.85?vec3(.03,.14,.1):
       tier(rockSlabLow, 8.5, RAD.mid, LOD.mid),
       tier(rockSlabTiny, 17, RAD.far, LOD.far),
     ],
-    pre: "cf=clusterField(d,8.);",
-    gate: "if(h6<=1.-(.004+sl*.025+sm_(.25,.5,e)*.018)*PMUL*(.15+cf*2.4))REJECT;",
-    look: `float s=.2+h1*1.2;sc=vec3(s*(1.+h2*.4),s*(.12+h7*.2),s*(.9+h1*.3));
-tint=(h7<.3?vec3(.45,.32,.18):(h7<.55?vec3(.38,.28,.16):(h7<.78?vec3(.28,.22,.15):(h7<.92?vec3(.52,.38,.22):vec3(.35,.28,.24)))))*4.*(.7+h2*.5);`,
+    pre: "cf = clusterField(d, 8.);",
+    gate: "if (h6 <= 1. - (.004 + sl * .025 + sm_(.25, .5, e) * .018) * PMUL * (.15 + cf * 2.4)) REJECT;",
+    look: `
+      float s = .2 + h1 * 1.2;
+      sc = vec3(s * (1. + h2 * .4), s * (.12 + h7 * .2), s * (.9 + h1 * .3));
+      tint = (h7 < .3  ? vec3(.45, .32, .18)
+            : h7 < .55 ? vec3(.38, .28, .16)
+            : h7 < .78 ? vec3(.28, .22, .15)
+            : h7 < .92 ? vec3(.52, .38, .22)
+            :             vec3(.35, .28, .24))
+        * 4. * (.7 + h2 * .5);
+    `,
   }),
   plant({
     name: "frost rocks",
@@ -229,20 +304,105 @@ tint=(h7<.3?vec3(.45,.32,.18):(h7<.55?vec3(.38,.28,.16):(h7<.78?vec3(.28,.22,.15
       tier(frostRockLow, 8.5, RAD.mid, LOD.mid),
       tier(frostRockTiny, 17, RAD.far, LOD.far),
     ],
-    pre: "cf=clusterField(d,9.);",
-    gate: "if(e<.38||h6<=1.-(.006+sl*.018+sm_(.38,.58,e)*.02)*PMUL*(.3+cf*2.2))REJECT;",
-    look: `float s=.3+h1*1.3;sc=vec3(s*(.8+h2*.5),s*(.55+h7*.6),s*(.75+h1*.4));
-tint=(h7<.3?vec3(.55,.58,.62):(h7<.55?vec3(.62,.65,.7):(h7<.78?vec3(.45,.48,.55):(h7<.92?vec3(.7,.72,.75):vec3(.5,.52,.6)))))*3.5*(.8+h2*.35);`,
+    pre: "cf = clusterField(d, 9.);",
+    gate: "if (e < .38 || h6 <= 1. - (.006 + sl * .018 + sm_(.38, .58, e) * .02) * PMUL * (.3 + cf * 2.2)) REJECT;",
+    look: `
+      float s = .3 + h1 * 1.3;
+      sc = vec3(s * (.8 + h2 * .5), s * (.55 + h7 * .6), s * (.75 + h1 * .4));
+      tint = (h7 < .3  ? vec3(.55, .58, .62)
+            : h7 < .55 ? vec3(.62, .65, .7)
+            : h7 < .78 ? vec3(.45, .48, .55)
+            : h7 < .92 ? vec3(.7,  .72, .75)
+            :             vec3(.5,  .52, .6))
+        * 3.5 * (.8 + h2 * .35);
+    `,
   }),
   plant({
     name: "mushrooms",
     kind: 7,
     wind: 0.05, // tight clumps on damp forest floor
     tiers: [tier(mushroomGeo, 3.4, RAD.mush, LOD.mush)],
-    pre: "m0=pn(d*uFreq*2.2+vec3(30.,0.,0.),1);fo=treeDensity(d,m0);cf=clusterField(d,7.);if(h6>=.035*PMUL*fo*(.2+cf*3.))REJECT;",
-    gate: "if(m<=.12||e>=.28||sl>=.5)REJECT;",
-    look: `sc=vec3(.7+h1*.8);float hm2=step(.4,min(vColor.r,min(vColor.g,vColor.b)));
-vec3 mcol=h7<.3?vec3(.5,.05,.04):(h7<.55?vec3(.25,.12,.06):(h7<.75?vec3(.5,.2,.04):(h7<.9?vec3(.4,.35,.25):vec3(.3,.12,.4))));tint=mix(vec3(1.),mcol,hm2);`,
+    pre: "m0 = pn(d * uFreq * 2.2 + vec3(30., 0., 0.), 1); fo = treeDensity(d, m0); cf = clusterField(d, 7.); if (h6 >= .035 * PMUL * fo * (.2 + cf * 3.)) REJECT;",
+    gate: "if (m <= .12 || e >= .28 || sl >= .5) REJECT;",
+    look: `
+      sc = vec3(.7 + h1 * .8);
+      float hm2 = step(.4, min(vColor.r, min(vColor.g, vColor.b)));
+      vec3 mcol = h7 < .3  ? vec3(.5,  .05, .04)
+                : h7 < .55 ? vec3(.25, .12, .06)
+                : h7 < .75 ? vec3(.5,  .2,  .04)
+                : h7 < .9  ? vec3(.4,  .35, .25)
+                :             vec3(.3,  .12, .4);
+      tint = mix(vec3(1.), mcol, hm2);
+    `,
+  }),
+  plant({
+    name: "cactus",
+    kind: 10,
+    wind: 0.05,
+    hardy: true,
+    collide: true,
+    lean: 0.08,
+    disp: true,
+    tiers: [
+      tier(cactusGeo, 3.4, RAD.near, LOD.near),
+      tier(cactusLow, 6.8, RAD.mid, LOD.mid, 1.0, 2.0),
+      tier(cactusTiny, 17, RAD.far, LOD.far, 1.6, 2.2),
+    ],
+    pre: "cf = clusterField(d, 10.); if (h6 >= .018 * PMUL * cf * 3.) REJECT;",
+    gate: "if (e >= .15 || sl >= .6 || m >= -.1) REJECT;",
+    look: `
+      float s = .7 + h1 * .8;
+      sc = vec3(s * (.9 + h2 * .3), s * (1. + h7 * .4), s * (.9 + h2 * .3));
+      tint = (h7 < .4  ? vec3(.18, .35, .12)
+            : h7 < .75 ? vec3(.14, .28, .10)
+            :             vec3(.22, .32, .08))
+        * (.8 + h2 * .4);
+    `,
+  }),
+  plant({
+    name: "dead scrub",
+    kind: 11,
+    wind: 0.08,
+    hardy: true,
+    lean: 0.25,
+    tiers: [
+      tier(deadScrubGeo, 3.4, RAD.near, LOD.near),
+      tier(deadScrubLow, 8.5, RAD.mid, LOD.mid, 1.6, 1.6),
+      tier(deadScrubTiny, 17, RAD.far, LOD.far, 1.5, 1.5),
+    ],
+    pre: "cf = clusterField(d, 11.); if (h6 >= .014 * PMUL * cf * 3.5) REJECT;",
+    gate: "if (e < .1 || sl >= .75 || m >= .05) REJECT;",
+    look: `
+      float s = .5 + h1 * .9;
+      sc = vec3(s * (.8 + h2 * .5), s * (.7 + h7 * .5), s * (.8 + h2 * .5));
+      tint = (h7 < .35 ? vec3(.22, .17, .11)
+            : h7 < .65 ? vec3(.18, .14, .09)
+            : h7 < .88 ? vec3(.28, .20, .12)
+            :             vec3(.16, .13, .10))
+        * (.75 + h2 * .45);
+    `,
+  }),
+  plant({
+    name: "tall sedge",
+    kind: 12,
+    wind: 0.45,
+    push: true,
+    lean: 0.22,
+    tiers: [
+      tier(sedgeGeo, 3.4, RAD.near, LOD.near),
+      tier(sedgeLow, 6.8, RAD.mid, LOD.mid, 1.0, 1.6),
+      tier(sedgeTiny, 17, RAD.far, LOD.far, 1.2, 1.8),
+    ],
+    pre: "cf = clusterField(d, 12.); if (h6 >= .08 * PMUL * cf * 3.) REJECT;",
+    gate: "if (e < .01 || e >= .06 || sl >= .4 || m < 0.) REJECT;",
+    look: `
+      sc = vec3(.8 + h1 * .5, .9 + h2 * .7, .8 + h1 * .5);
+      tint = (h7 < .35 ? vec3(.52, .48, .20)
+            : h7 < .65 ? vec3(.38, .45, .16)
+            : h7 < .88 ? vec3(.60, .52, .22)
+            :             vec3(.42, .38, .14))
+        * (.8 + h2 * .4);
+    `,
   }),
 ];
 
