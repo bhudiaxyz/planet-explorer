@@ -263,6 +263,8 @@ export function sedgeLow() {
 export const cactusTiny = () => tiny(N0, 0.45, 0.22, 0.7, false);
 export const deadScrubTiny = () => tiny(new THREE.Color(0.18, 0.14, 0.10), 0.35, 0.4, 0.35, false);
 export const sedgeTiny = () => tiny(N0, 0.7, 0.18, 1.0, true);
+export const reedTiny = () => tiny(N0, 0.7, 0.15, 1.1, true);
+export const fernTiny = () => tiny(N0, 0.35, 0.55, 0.4, true);
 
 export function reedGeo(blades = 8) {
   const p: THREE.BufferGeometry[] = [],
