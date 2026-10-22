@@ -44,6 +44,15 @@ npm run build      # type-check + production bundle
 - **Cube-map planet surface.** The coarse planet mesh used to carry per-vertex colours. That produced a visible triangle grid, seams at cube-face boundaries, and shimmering at altitude as the camera moved. Now colour and normal+AO are baked per pixel (512² per face, full terrain function) into mipmapped cube maps in `bake.ts`. The coarse mesh samples those maps; the result matches the detailed chunks and stays stable from orbit to ground level.
 - **IGN dithering with uncorrelated offsets.** Both the outer fade (plant appearing at distance) and the inner fade (plant disappearing as a finer tier takes over) use Interleaved Gradient Noise screen-door dithering — but with different seed offsets so the two stipple patterns are uncorrelated. If they shared a seed, inner and outer discard patterns would align and the overlap band would look solid rather than blended.
 
+## Noise and rendering algorithms
+
+- **Permutation table as a texture.** `Noise3` stores its shuffled permutation in a `Uint8Array`. The same 512-entry table is uploaded to the GPU as a `DataTexture` and sampled with `texelFetch` in `pn()`. Every GLSL shader that calls `pn()` produces bit-for-bit the same values as the CPU `Noise3.get()` — player physics, chunk baking and GPU scatter all see the same world.
+- **Domain-warped fBm terrain.** `e3()` shifts the sample point by three perpendicular noise calls before the main fBm. Without warping, Perlin fBm produces axis-aligned ridges; with it, terrain tilts, overhangs, and meanders in all directions. The warp amplitude is ~25 % of the base frequency so it deforms without smearing fine detail.
+- **Ridged noise for mountains.** The mountain contribution is `(1 - |fbm * 2|)²`, which maps the smooth fBm into sharp ridges at zero-crossings. A separate low-frequency smooth mask (`sm_`) confines the ridges to designated mountain zones, leaving lowlands unaffected.
+- **`hs()` — the cheap 3-input hash.** Every per-instance random in the vegetation vertex shader (`h1`–`h7`) comes from a single `fract(dot(fract(vec3 * 0.1031), …))` call. No texture lookup, no integer trickery — just two `fract` and one `dot`, producing visually uncorrelated values per (I, J, face) cell.
+- **`basis()` — cube-face frame from a float.** The scatter system encodes which of the 6 cube faces a tile belongs to as a single float constant (`uSC.z`). The vertex shader recovers the face normal and two tangent vectors with a short integer decode (`fc / 2`, `fc % 2`). This gives every tile a consistent local frame for placing instances without branching on face identity at the draw-call level.
+- **`sm_()` — smoothstep as a first-class tool.** Rather than using `smoothstep` only for visual fades, the terrain function uses `sm_()` (a remapped smoothstep) everywhere a continuous 0–1 transition is needed: biome blending, mountain masking, beach width, underwater colour depth. The result is that every boundary in the world is a smooth gradient rather than a threshold.
+
 ## Adding a plant
 
 1. Add a geometry builder in `plantgeo.ts` (foliage parts use `leaf = true` so the shader supplies the hue).
