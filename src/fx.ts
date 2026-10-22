@@ -23,6 +23,7 @@ tex3.needsUpdate = true;
 export const U = {
   uTime: { value: 0 },
   uWind: { value: 1 },
+  uSway: { value: 1 },
   uFade: { value: 1 },
   uVeg: { value: 1 },
   uSun: { value: new THREE.Vector3(1, 0, 0) },

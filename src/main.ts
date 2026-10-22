@@ -171,6 +171,7 @@ renderer.setAnimationLoop(() => {
   sky.update(dt, camera, player.up, player.alt, tempAt());
   U.uTime.value += dt;
   U.uWind.value = S.wind * (0.6 + sky.cloud * 1.2);
+  U.uSway.value = S.windSway;
   U.uSun.value.copy(sky.sun);
   U.uDayF.value = sky.dayF;
   U.uSky.value.copy(sky.bg);

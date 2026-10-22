@@ -53,9 +53,15 @@ ${lookGLSL()}
 #endif
     vec3  u2 = normalize(d + (ax * (h1 - .5) + az * (h2 - .5)) * LEAN);
     vec3  lp = pp * sc;
-    float y  = max(lp.y, 0.), a = uWind * WK * y * y, ph = I * .11 + J * .13;
+    float y    = max(lp.y, 0.),
+          a    = uWind * WK * y * y,
+          ph   = I * .11 + J * .13;
+    vec2  wDir = normalize(uSun.xz + vec2(0.001));
+    float wave = sin(uTime * 1.8 + dot(vec2(ax.x, az.x) * 4.0, wDir) + ph * .5)
+               * uWind * WK * y * y * 0.7 * uSway;
     gP = d * (uR + D - .03) + ax * lp.x + u2 * lp.y + az * lp.z
-       + (ax * sin(uTime * 1.6 + ph + y * .3) + az * cos(uTime * 1.3 + ph * 1.3 + y * .2)) * a;
+       + (ax * sin(uTime * 1.6 + ph + y * .3) + az * cos(uTime * 1.3 + ph * 1.3 + y * .2)) * a
+       + (ax * wDir.x + az * wDir.y) * wave;
 #if PUSH
     {
       vec3  tp = d * (uR + D) - uPl;
@@ -160,6 +166,7 @@ void main() {
       Object.assign(shaderParams.uniforms, T, {
         uTime: U.uTime,
         uWind: U.uWind,
+        uSway: U.uSway,
         uVeg: U.uVeg,
         uPl: U.uPl,
         uSun: U.uSun,
@@ -171,7 +178,7 @@ void main() {
       shaderParams.vertexShader = shaderParams.vertexShader
         .replace(
           "#include <common>",
-          `#include <common>\nattribute vec2 aCell;uniform vec3 uSC,uPl;uniform float uK,uTime,uWind,uVeg;uniform sampler2D uP;varying float vOuterF,vInnerF;\n${TERRAIN_GLSL}`,
+          `#include <common>\nattribute vec2 aCell;uniform vec3 uSC,uPl,uSun;uniform float uK,uTime,uWind,uSway,uVeg;uniform sampler2D uP;varying float vOuterF,vInnerF;\n${TERRAIN_GLSL}`,
         )
         .replace("#include <beginnormal_vertex>", BEGIN)
         .replace("#include <begin_vertex>", "vec3 transformed=gP;")
