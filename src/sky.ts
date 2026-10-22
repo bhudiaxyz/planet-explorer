@@ -22,6 +22,7 @@ export class Sky {
   disc: THREE.Mesh;
   moonDisc: THREE.Mesh;
   stars: THREE.Points;
+  nebulae: THREE.Points;
   precip: THREE.Points;
   precipitation: Precip;
   lastPrecipPos = new Float32Array(PRECIP_COUNT * 3);
@@ -68,9 +69,59 @@ export class Sky {
         fog: false,
       }),
     );
-    for (const o of [this.stars, this.precip, this.disc, this.moonDisc])
+    // ~14 nebula patches at fixed random directions, large soft gaussian blobs
+    const NEBULA_COUNT = 14;
+    const np = new Float32Array(NEBULA_COUNT * 3);
+    const nc = new Float32Array(NEBULA_COUNT * 3); // hue tint per patch
+    const ns = new Float32Array(NEBULA_COUNT);     // size per patch
+    const NEBULA_HUES = [
+      [0.6, 0.3, 1.0], [0.2, 0.5, 0.9], [1.0, 0.4, 0.3],
+      [0.3, 0.8, 0.6], [0.9, 0.6, 0.2], [0.5, 0.3, 0.9],
+      [0.2, 0.7, 0.5], [0.8, 0.3, 0.5], [0.4, 0.6, 1.0],
+      [1.0, 0.7, 0.3], [0.3, 0.4, 0.8], [0.7, 0.2, 0.6],
+      [0.2, 0.9, 0.7], [0.6, 0.5, 0.2],
+    ];
+    for (let i = 0; i < NEBULA_COUNT; i++) {
+      new THREE.Vector3().randomDirection().multiplyScalar(17500).toArray(np, i * 3);
+      nc[i * 3] = NEBULA_HUES[i][0];
+      nc[i * 3 + 1] = NEBULA_HUES[i][1];
+      nc[i * 3 + 2] = NEBULA_HUES[i][2];
+      ns[i] = 800 + Math.random() * 1200; // world-space radius 800–2000
+    }
+    this.nebulae = new THREE.Points(
+      new THREE.BufferGeometry()
+        .setAttribute("position", new THREE.BufferAttribute(np, 3))
+        .setAttribute("color", new THREE.BufferAttribute(nc, 3))
+        .setAttribute("size", new THREE.BufferAttribute(ns, 1)),
+      new THREE.ShaderMaterial({
+        transparent: true,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+        fog: false,
+        uniforms: { uOpacity: { value: 0 } },
+        vertexShader: `
+attribute vec3 color;
+attribute float size;
+varying vec3 vCol;
+void main() {
+  vCol = color;
+  vec4 mv = modelViewMatrix * vec4(position, 1.0);
+  gl_PointSize = clamp(size / -mv.z * projectionMatrix[1][1] * 0.5, 1.0, 512.0);
+  gl_Position = projectionMatrix * mv;
+}`,
+        fragmentShader: `
+uniform float uOpacity;
+varying vec3 vCol;
+void main() {
+  float d = length(gl_PointCoord - 0.5) * 2.0;
+  float a = exp(-d * d * 3.5) * uOpacity * 0.18;
+  gl_FragColor = vec4(vCol * a, a);
+}`,
+      }),
+    );
+    for (const o of [this.stars, this.nebulae, this.precip, this.disc, this.moonDisc])
       o.frustumCulled = false;
-    scene.add(this.disc, this.moonDisc, this.stars, this.precip);
+    scene.add(this.disc, this.moonDisc, this.stars, this.nebulae, this.precip);
   }
   update(
     dt: number,
@@ -147,11 +198,13 @@ export class Sky {
     this.ambientLight.intensity =
       0.05 + 0.25 * this.dayF * (1 - this.space);
     // bodies
-    this.stars.position.copy(cam.position);
-    (this.stars.material as THREE.PointsMaterial).opacity =
-      (1 - this.dayF * (1 - this.space)) * (1 - this.cloud * 0.7);
-    this.stars.visible =
-      (this.stars.material as THREE.PointsMaterial).opacity > 0.01;
+    const starOp = (1 - this.dayF * (1 - this.space)) * (1 - this.cloud * 0.7);
+    this.stars.rotation.y = S.timeOfDay * Math.PI * 2;
+    (this.stars.material as THREE.PointsMaterial).opacity = starOp;
+    this.stars.visible = starOp > 0.01;
+    this.nebulae.rotation.y = S.timeOfDay * Math.PI * 2;
+    (this.nebulae.material as THREE.ShaderMaterial).uniforms.uOpacity.value = starOp;
+    this.nebulae.visible = starOp > 0.01;
     this.disc.position
       .copy(cam.position)
       .addScaledVector(this.sun, 12000);
