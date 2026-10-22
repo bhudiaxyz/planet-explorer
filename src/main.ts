@@ -15,7 +15,8 @@ import { setRenderer } from "./bake";
 import { U } from "./fx";
 import { smoothstep } from "./util";
 import { S } from "./settings";
-import { isTouchDevice, setupTouch, setGuiToggle } from "./touch";
+import { isTouchDevice, setupTouch, setGuiToggle, setMapToggle } from "./touch";
+import { MapOverlay } from "./map";
 
 // lower default resolution and render scale on mobile/tablet to stay within GPU budget
 if (isTouchDevice) { S.resolution = 128; S.renderScale = 0.75; }
@@ -82,11 +83,15 @@ scene.add(scatter.group, sky.light.target);
 player.col = collider;
 
 // ---- rebuilds (debounced) and context-loss recovery ---------------------------------------------------------------------------------------------
+const mapOverlay = new MapOverlay(renderer, planet, player);
+addEventListener("keydown", e => { if (e.code === "KeyM" && !e.repeat) mapOverlay.toggle(); });
+
 let rebuildTimer = 0;
 const rebuild = (respawn = false) => {
   clearTimeout(rebuildTimer);
   rebuildTimer = window.setTimeout(async () => {
     await planet.build();
+    mapOverlay.reset();
     scatter.dirty = true;
     collider.dirty = true;
     respawn ? player.spawn() : player.refresh();
@@ -114,6 +119,7 @@ if (isTouchDevice) setGuiToggle(() => {
   gui.show(show);
   locs?.show(show);
 });
+if (isTouchDevice) setMapToggle(() => mapOverlay.toggle());
 const hud = document.getElementById("hud")!
 
 // temperature under the player, recomputed only when they moved ≥ ~0.15 m
@@ -241,6 +247,7 @@ renderer.setAnimationLoop(() => {
     hudTimer = 0;
     hud.textContent = hudText();
   }
+  mapOverlay.tick();
   postFX.render(dt);
 });
 })();

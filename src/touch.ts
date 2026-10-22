@@ -67,6 +67,7 @@ export function setupTouch(player: Player, dom: HTMLElement): void {
   const btns = document.createElement("div");
   btns.id = "touch-btns";
   btns.innerHTML = `
+    <button id="btn-map"     aria-label="Map">🗺️</button>
     <button id="btn-jump"    aria-label="Ascend">↑</button>
     <button id="btn-descend" aria-label="Descend">↓</button>
     <button id="btn-sprint"  aria-label="Sprint">⚡</button>
@@ -178,12 +179,19 @@ export function setupTouch(player: Player, dom: HTMLElement): void {
 
   // Update controls hint
   const hint = document.getElementById("ls-controls");
-  if (hint) hint.textContent = "Left thumb · steer/move  ·  Right drag · look  ·  ↑ ascend  ·  ↓ descend  ·  ⟲⟳ roll (fly)  ·  ⚡ sprint  ·  ✈ cycle mode  ·  🛬 land  ·  ☰ settings";
+  if (hint) hint.textContent = "Left thumb · steer/move  ·  Right drag · look  ·  ↑ ascend  ·  ↓ descend  ·  ⟲⟳ roll (fly)  ·  ⚡ sprint  ·  ✈ cycle mode  ·  🛬 land  ·  🗺️ map  ·  ☰ settings";
 }
 
 /** Wire the GUI toggle button to show/hide lil-gui. Called from main after setupGui. */
 export function setGuiToggle(fn: () => void): void {
   document.getElementById("btn-gui")?.addEventListener("touchend", e => {
+    e.stopPropagation(); fn();
+  });
+}
+
+/** Wire the map button. Called from main after MapOverlay is created. */
+export function setMapToggle(fn: () => void): void {
+  document.getElementById("btn-map")?.addEventListener("touchend", e => {
     e.stopPropagation(); fn();
   });
 }
