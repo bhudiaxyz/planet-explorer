@@ -12,7 +12,7 @@ npm run build      # type-check + production bundle
 
 **Desktop / laptop:** click to capture the mouse · WASD move · Shift sprint · Space jump / ascend · C descend (fly) · F walk⇄fly · Q/E roll (fly) · G toggle panel · Esc release mouse
 
-**Mobile / tablet:** left thumb joystick to move · right-side drag to look · ↑ jump · ⚡ sprint · ✈ walk⇄fly · ☰ toggle panel
+**Mobile / tablet:** left thumb joystick to move · right-side drag to look · ↑ ascend · ↓ descend · ⟲⟳ roll (fly) · ⚡ sprint · ✈ walk⇄fly · ☰ toggle panel
 
 ## Module map
 
@@ -28,15 +28,15 @@ npm run build      # type-check + production bundle
 | Colour palettes  | `palette.ts`                                         | 13 Solar System planet palettes (biome colours, rock/plant/foliage tints, atmosphere, precipitation). `setPalette()` mutates the live `biomeColors` object so every system picks up the change on next rebuild. |
 | Player           | `player.ts`, `collision.ts`, `footprints.ts`         | Walk/fly controller, collision with trees/rocks/shrubs/landmarks, snow footprints.                                                                      |
 | Touch input      | `touch.ts`                                           | Virtual nipplejs joystick (left half) + swipe-to-look (right half) + action buttons for mobile/tablet. No-ops on desktop.                              |
-| Atmosphere       | `sky.ts`, `night.ts`, `precip.ts`                    | Sun/moon/weather state, aurora, fireflies, GPU rain/snow — all colours driven by `CurrentPalette`.                                                      |
-| Rendering        | `fx.ts`, `postfx.ts`, `shadows.ts`                   | Shared shader materials and uniforms; HDR post chain with adaptive resolution; shadow rig.                                                              |
+| Atmosphere       | `sky.ts`, `night.ts`, `precip.ts`                    | Sun/moon/weather state, parallax stars and nebulae, aurora, fireflies, GPU rain/snow — all colours driven by `CurrentPalette`.                          |
+| Rendering        | `fx.ts`, `postfx.ts`, `shadows.ts`                   | Shared shader materials and uniforms; HDR post chain with adaptive resolution; sun and moon shadow rigs with throttled depth-pass updates.              |
 
 ## Key ideas
 
 - **One terrain function, two implementations.** Walking height, tree placement and all GPU placement use the same noise (`noise.ts` ↔ `gpu.ts`), so what you see is what you stand on.
 - **Bake once, sample cheaply.** Chunk heights/normals/colours, plant placement, planet colours/normals (cube maps) and tree candidates are computed on the GPU only when needed, never per frame.
 - **No popping.** Ground cover tiers fade in/out at both their outer and inner edges via IGN screen-door dithering; hi/mid tree detail tiers cross-fade smoothly over ~0.4 s as altitude changes; terrain chunks fade and geomorph between LOD levels; shadows, weather, vegetation density and atmosphere all animate instead of switching.
-- **Clustering.** `gpu.ts` defines smooth density fields (`forestMask`, `groveMask`, `treeDensity`, `clusterField`). Trees, ferns and mushrooms share `treeDensity` so the understory sits under the forests; shrubs, rocks, flowers, scrub and reeds use their own `clusterField(kind)` patches; grass carpets open, moist, gentle ground.
+- **Clustering.** `gpu.ts` defines smooth density fields (`forestMask`, `groveMask`, `treeDensity`, `clusterField`). Trees, ferns and mushrooms share `treeDensity` so the understory sits under the forests; shrubs, rocks, flowers, cactus, dead scrub, reeds and tall sedge use their own `clusterField(kind)` patches; grass carpets open, moist, gentle ground.
 
 ## Adding a plant
 
