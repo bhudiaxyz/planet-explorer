@@ -2,7 +2,7 @@ import * as THREE from "three";
 import { Planet } from "./planet";
 import { Sky } from "./sky";
 import { SkyDome } from "./skyfx";
-import { Aurora, Fireflies, GalacticBand } from "./night";
+import { Aurora, Fireflies, GalacticBand, Bioluminescence } from "./night";
 import { Player } from "./player";
 import { Scatter } from "./vegetation";
 import { Collider } from "./collision";
@@ -51,6 +51,7 @@ const sky = new Sky(scene, planet),
 const aurora = new Aurora(scene),
   fireflies = new Fireflies(scene),
   galacticBand = new GalacticBand(scene),
+  biolumi = new Bioluminescence(scene),
   footprints = new Footprints(player, planet),
   postFX = new PostFX(renderer, scene, camera);
 postFX.aerial.setCamera(camera.near, camera.far);
@@ -203,6 +204,7 @@ renderer.setAnimationLoop(() => {
     camera.position,
     night * (1 - smoothstep(20, 40, player.alt)) * (1 - sky.precipitationAmount),
   );
+  biolumi.update(dt, camera.position);
   shadows.update(dt, player.alt, sky.dayF, sky.sun, camera.position);
   if ((hudTimer += dt) > 0.25) {
     hudTimer = 0;

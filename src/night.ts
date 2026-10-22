@@ -141,6 +141,65 @@ void main() {
     this.pts.visible = intensity > 0.02;
   }
 }
+const BIO_COUNT = 180;
+export class Bioluminescence {
+  pts: THREE.Points;
+  mat: THREE.ShaderMaterial;
+  constructor(scene: THREE.Scene) {
+    const sd = new Float32Array(BIO_COUNT * 4);
+    for (let i = 0; i < sd.length; i++) sd[i] = Math.random();
+    const geo = new THREE.BufferGeometry()
+      .setAttribute("position", new THREE.BufferAttribute(new Float32Array(BIO_COUNT * 3), 3))
+      .setAttribute("sd",       new THREE.BufferAttribute(sd, 4));
+    this.mat = new THREE.ShaderMaterial({
+      transparent: true,
+      depthWrite:  false,
+      blending:    THREE.AdditiveBlending,
+      uniforms: { ...T, uT: { value: 0 }, uCam: { value: new THREE.Vector3() }, uNight: U.uNight },
+      vertexShader: `
+${TERRAIN_GLSL}
+attribute vec4   sd;
+uniform   vec3   uCam;
+uniform   float  uT, uNight;
+varying   float  vPulse, vMoist;
+void main() {
+  vec3  cell  = fract(uCam / 60.0 + sd.xyz - 0.5) * 60.0 - 30.0 + uCam;
+  vec3  d     = normalize(cell);
+  float elev  = e3(d, true);
+  float moist = 0.5 + 0.5 * pn(d * uFreq * 2.2 + vec3(30., 0., 0.), 1);
+  float land  = step(0.0, elev);
+  float ok    = land * smoothstep(0.2, 0.45, moist) * (1.0 - smoothstep(0.72, 0.85, moist));
+  float r     = length(uCam) + elev * uAmp + 0.25;
+  vec3  wpos  = d * r;
+  wpos.x     += sin(uT * 0.4 + sd.x * 6.28) * 0.4;
+  wpos.y     += sin(uT * 0.3 + sd.y * 6.28) * 0.3;
+  wpos.z     += cos(uT * 0.35 + sd.z * 6.28) * 0.4;
+  vPulse      = fract(sd.w + uT * 0.06);
+  vMoist      = moist * ok;
+  vec4 mv     = modelViewMatrix * vec4(wpos, 1.0);
+  gl_Position  = projectionMatrix * mv;
+  gl_PointSize = mix(2.5, 5.0, sd.x) * (1.0 / -mv.z) * 350.0 * uNight * ok;
+}`,
+      fragmentShader: `
+uniform float uNight;
+varying float vPulse, vMoist;
+void main() {
+  float r     = length(gl_PointCoord - 0.5) * 2.0;
+  if (r > 1.0) discard;
+  float pulse = 0.5 + 0.5 * sin(vPulse * 6.28);
+  vec3  col   = mix(vec3(0.08, 0.88, 0.42), vec3(0.15, 0.45, 1.0), vMoist);
+  gl_FragColor = vec4(col, (1.0 - r * r) * pulse * uNight * vMoist);
+}`,
+    });
+    this.pts = new THREE.Points(geo, this.mat);
+    this.pts.frustumCulled = false;
+    scene.add(this.pts);
+  }
+  update(dt: number, cameraPosition: THREE.Vector3) {
+    this.mat.uniforms.uT.value += dt;
+    this.mat.uniforms.uCam.value.copy(cameraPosition);
+  }
+}
 const BAND_COUNT = 600;
 export class GalacticBand {
   mesh: THREE.Points;
