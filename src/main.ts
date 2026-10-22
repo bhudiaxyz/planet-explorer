@@ -52,6 +52,7 @@ const aurora = new Aurora(scene),
   fireflies = new Fireflies(scene),
   footprints = new Footprints(player, planet),
   postFX = new PostFX(renderer, scene, camera);
+postFX.aerial.setCamera(camera.near, camera.far);
 scene.add(scatter.group, sky.light.target);
 player.col = collider;
 
