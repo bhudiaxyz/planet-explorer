@@ -264,14 +264,22 @@ export function wind<T extends THREE.Material>(m: T, k: number): T {
       )
       .replace(
         "#include <begin_vertex>",
-        `#include <begin_vertex>
-{
-  float ph = instanceMatrix[3].x * .11 + instanceMatrix[3].z * .13;
-  float y  = max(transformed.y, 0.);
-  float a  = uWind * ${k} * y * y;
-  transformed.x += sin(uTime * 1.6 + ph + y * .3) * a;
-  transformed.z += cos(uTime * 1.3 + ph * 1.3 + y * .2) * a;
-}`,
+        `
+vec3 iPos = vec3(
+  instanceMatrix[3][0],
+  instanceMatrix[3][1],
+  instanceMatrix[3][2]
+);
+float _ph  = fract(dot(fract(iPos.xz * 0.1031), iPos.xz + 0.1030)) * 6.2832;
+float _amt = uWind * ${k.toFixed(4)} * sin(uTime * 1.1 + _ph);
+float _bx  = cos(_ph + 1.2),
+      _bz  = sin(_ph + 1.2);
+vec3 lp    = position;
+float _h   = max(lp.y, 0.0);
+lp.x      += _bx * _amt * _h;
+lp.z      += _bz * _amt * _h;
+vec3 transformed = (instanceMatrix * vec4(lp, 1.0)).xyz;
+`,
       );
   };
   return m;
