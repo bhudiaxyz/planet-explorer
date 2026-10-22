@@ -39,21 +39,43 @@ const scene = new THREE.Scene(),
 
 // ---- world & systems ---------------------------------------------------------------------------------------------------------------------------
 (async () => {
+const lsTip = document.getElementById("ls-tip")!;
+const STEPS = 9;
+const setStep = (n: number, label: string) => {
+  lsTip.textContent = `Step ${n} of ${STEPS}: ${label}`;
+  return new Promise<void>(r => requestAnimationFrame(() => r()));
+};
+
+await setStep(1, "Building terrain");
 const planet = new Planet(scene);
 await planet.build();
+
+await setStep(2, "Spawning player");
 const player = new Player(camera, planet, renderer.domElement);
 player.spawn();
-const sky = new Sky(scene, planet),
-  skyDome = new SkyDome(scene),
-  scatter = new Scatter(planet),
-  collider = new Collider(planet, scatter),
-  shadows = new Shadows(renderer, sky.light, isTouchDevice, sky.moon);
-const aurora = new Aurora(scene),
-  fireflies = new Fireflies(scene),
-  galacticBand = new GalacticBand(scene),
-  biolumi = new Bioluminescence(scene),
-  footprints = new Footprints(player, planet),
-  postFX = new PostFX(renderer, scene, camera);
+
+await setStep(3, "Preparing sky");
+const sky = new Sky(scene, planet);
+const skyDome = new SkyDome(scene);
+
+await setStep(4, "Scattering vegetation");
+const scatter = new Scatter(planet);
+const collider = new Collider(planet, scatter);
+const shadows = new Shadows(renderer, sky.light, isTouchDevice, sky.moon);
+
+await setStep(5, "Preparing night sky");
+const aurora = new Aurora(scene);
+const fireflies = new Fireflies(scene);
+const galacticBand = new GalacticBand(scene);
+
+await setStep(6, "Preparing bioluminescence");
+const biolumi = new Bioluminescence(scene);
+
+await setStep(7, "Preparing footprints");
+const footprints = new Footprints(player, planet);
+
+await setStep(8, "Preparing post-processing");
+const postFX = new PostFX(renderer, scene, camera);
 postFX.aerial.setCamera(camera.near, camera.far);
 scene.add(scatter.group, sky.light.target);
 player.col = collider;
@@ -116,11 +138,10 @@ planet.update(player.up, player.alt);
 
 const splash = document.getElementById("ls")!;
 const splashEnter = document.getElementById("ls-enter")!;
-const splashTip = document.getElementById("ls-tip")!;
 const splashControls = document.getElementById("ls-controls")!;
 const showSplash = (label: string, compiled = true) => {
   splashEnter.textContent = label;
-  splashTip.style.display = compiled ? "none" : "";
+  lsTip.style.display = compiled ? "none" : "";
   splashControls.style.display = compiled ? "" : "none";
   splash.classList.add("ready");
   splash.classList.remove("dismissed");
@@ -129,6 +150,7 @@ const hideSplash = () => {
   splash.classList.add("dismissed");
 };
 const enterLabel = isTouchDevice ? "Tap to enter" : "Click to enter";
+await setStep(9, "Compiling shaders");
 showSplash(enterLabel, false);
 renderer.compileAsync(scene, camera).then(() => showSplash(enterLabel));
 splash.addEventListener("click", () => {
