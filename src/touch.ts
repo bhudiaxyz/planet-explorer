@@ -71,6 +71,7 @@ export function setupTouch(player: Player, dom: HTMLElement): void {
     <button id="btn-descend" aria-label="Descend">↓</button>
     <button id="btn-sprint"  aria-label="Sprint">⚡</button>
     <button id="btn-fly"     aria-label="Toggle fly">✈</button>
+    <button id="btn-land"    aria-label="Land">🛬</button>
   `;
   document.body.appendChild(btns);
 
@@ -157,10 +158,27 @@ export function setupTouch(player: Player, dom: HTMLElement): void {
   document.getElementById("btn-fly")!.addEventListener("touchend", e => {
     e.stopPropagation(); player.toggle();
   });
+  document.getElementById("btn-land")!.addEventListener("touchend", e => {
+    e.stopPropagation(); if (player.mode !== "walk") player.land();
+  });
+
+  // Show/hide buttons based on player mode
+  const btnLand = document.getElementById("btn-land")!;
+  const touchRoll = document.getElementById("touch-roll")!;
+  const show = (el: HTMLElement, visible: boolean) =>
+    el.style.display = visible ? "" : "none";
+  show(btnLand, false);
+  show(touchRoll, false);
+  const updateButtons = () => {
+    show(btnLand,   player.mode !== "walk");
+    show(touchRoll, player.mode === "fly");
+    requestAnimationFrame(updateButtons);
+  };
+  requestAnimationFrame(updateButtons);
 
   // Update controls hint
   const hint = document.getElementById("ls-controls");
-  if (hint) hint.textContent = "Left thumb · move  ·  Right drag · look  ·  ↑ ascend  ·  ↓ descend  ·  ⟲⟳ roll  ·  ⚡ sprint  ·  ✈ fly  ·  ☰ settings";
+  if (hint) hint.textContent = "Left thumb · steer/move  ·  Right drag · look  ·  ↑ ascend  ·  ↓ descend  ·  ⟲⟳ roll (fly)  ·  ⚡ sprint  ·  ✈ cycle mode  ·  🛬 land  ·  ☰ settings";
 }
 
 /** Wire the GUI toggle button to show/hide lil-gui. Called from main after setupGui. */

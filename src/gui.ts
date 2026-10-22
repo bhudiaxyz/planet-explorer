@@ -101,7 +101,8 @@ export function setupGui({ planet, player, post, rebuild, rebuildVeg, spots }: C
       "randomize",
     )
     .name("🎲 New random world");
-  gui.add({ fly: () => player.toggle() }, "fly").name("Toggle walk / fly (F)");
+  gui.add({ fly: () => player.toggle() }, "fly").name("Cycle walk / drone / fly (F)");
+  gui.add({ land: () => { if (player.mode !== "walk") player.land(); } }, "land").name("Land (L)");
   addEventListener("keydown", (e) => {
     if (e.code === "KeyG") {
       const show = gui._hidden;

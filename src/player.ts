@@ -14,13 +14,16 @@ const EYE_HEIGHT = 2.4,
   AXIS_X = new THREE.Vector3(1, 0, 0),
   AXIS_Y = new THREE.Vector3(0, 1, 0);
 export class Player {
-  mode: "walk" | "fly" = "walk";
+  mode: "walk" | "fly" | "drone" = "walk";
   dir = new THREE.Vector3(0, 1, 0);
   groundRadius = 0;
   verticalVelocity = 0;
   forward = new THREE.Vector3(1, 0, 0);
   pitch = 0;
   flyPosition = new THREE.Vector3();
+  dronePosition = new THREE.Vector3();
+  droneHoverHeight = 15;
+  landing = false;
   up = new THREE.Vector3(0, 1, 0);
   alt = 0;
   keys = new Set<string>();
@@ -49,6 +52,7 @@ export class Player {
     addEventListener("keydown", (e) => {
       this.keys.add(e.code);
       if (e.code === "KeyF" && !e.repeat) this.toggle();
+      if (e.code === "KeyL" && !e.repeat && this.mode !== "walk") this.land();
       if (e.code === "Space") e.preventDefault();
     });
     addEventListener("keyup", (e) => this.keys.delete(e.code));
@@ -103,10 +107,19 @@ export class Player {
   }
   toggle() {
     if (this.mode === "walk") {
-      this.flyPosition.copy(this.cam.position);
+      // walk → drone: lift off at current position
+      this.dronePosition.copy(this.dir).multiplyScalar(this.groundRadius + EYE_HEIGHT);
+      this.droneHoverHeight = 15;
+      this.mode = "drone";
+      return;
+    }
+    if (this.mode === "drone") {
+      // drone → fly: hand position to fly mode
+      this.flyPosition.copy(this.dronePosition);
       this.mode = "fly";
       return;
     }
+    // fly → walk
     this.dir.copy(this.cam.position).normalize();
     this.forward.copy(this.cam.getWorldDirection(scratchForward));
     this.pitch = 0;
@@ -116,12 +129,43 @@ export class Player {
       this.planet.radiusAt(this.dir) + 25,
     );
     this.mode = "walk";
-    this.planet.forest.last.set(1e9, 0, 0); // force tree LOD rebuild at landing position
+    this.planet.forest.last.set(1e9, 0, 0);
+  }
+  land() {
+    if (this.mode === "fly") {
+      // transition into drone so terrain-following takes over for the descent
+      this.dronePosition.copy(this.flyPosition);
+      const up = this.dronePosition.clone().normalize();
+      this.droneHoverHeight = this.dronePosition.length() - this.planet.radiusAt(up);
+      this.forward.copy(this.cam.getWorldDirection(scratchForward));
+      this.forward.addScaledVector(up, -this.forward.dot(up));
+      if (this.forward.lengthSq() < 1e-6) this.forward.crossVectors(up, AXIS_X);
+      if (this.forward.lengthSq() < 1e-6) this.forward.crossVectors(up, AXIS_Y);
+      this.forward.normalize();
+      this.pitch = 0;
+      this.mode = "drone";
+    }
+    this.landing = true;
+  }
+  private snapToGround() {
+    this.dir.copy(this.dronePosition).normalize();
+    this.forward.copy(this.cam.getWorldDirection(scratchForward));
+    this.forward.addScaledVector(this.dir, -this.forward.dot(this.dir));
+    if (this.forward.lengthSq() < 1e-6) this.forward.crossVectors(this.dir, AXIS_X);
+    if (this.forward.lengthSq() < 1e-6) this.forward.crossVectors(this.dir, AXIS_Y);
+    this.forward.normalize();
+    this.pitch = 0;
+    this.verticalVelocity = 0;
+    this.groundRadius = this.planet.radiusAt(this.dir);
+    this.landing = false;
+    this.mode = "walk";
+    this.planet.forest.last.set(1e9, 0, 0);
+    if (this.col) this.col.dirty = true;
   }
   look(dx: number, dy: number) {
     const mouseSensitivity = 0.0022;
-    if (this.mode === "walk") {
-      this.forward.applyAxisAngle(this.dir, -dx * mouseSensitivity);
+    if (this.mode === "walk" || this.mode === "drone") {
+      this.forward.applyAxisAngle(this.up, -dx * mouseSensitivity);
       this.pitch = Math.max(
         -1.5,
         Math.min(1.5, this.pitch - dy * mouseSensitivity),
@@ -203,6 +247,56 @@ export class Player {
         .add(camera.position);
       camera.lookAt(scratchLookAt);
       this.alt = this.groundRadius + EYE_HEIGHT - groundRadius;
+    } else if (this.mode === "drone") {
+      const dronePos = this.dronePosition;
+      const droneUp = this.up.copy(dronePos).normalize();
+
+      // project forward onto tangent plane; guard against alignment with up (poles)
+      this.forward.addScaledVector(droneUp, -this.forward.dot(droneUp));
+      if (this.forward.lengthSq() < 1e-6) this.forward.crossVectors(droneUp, AXIS_X);
+      if (this.forward.lengthSq() < 1e-6) this.forward.crossVectors(droneUp, AXIS_Y);
+      this.forward.normalize();
+
+      const speed = sprint ? 40 : 15;
+
+      // A/D steers (yaws forward around up); always advance forward
+      this.forward.applyAxisAngle(droneUp, -strafeAxis * dt * 1.4).normalize();
+      dronePos.addScaledVector(this.forward, speed * dt);
+
+      // Space/C adjusts target hover height (suppressed while landing)
+      if (this.landing) {
+        const ascend = (this.touchJump ? 1 : 0) + this.isKeyDown("Space");
+        if (ascend) { this.landing = false; } // abort landing if player pulls up
+        else { this.droneHoverHeight = Math.max(0, this.droneHoverHeight - 8 * dt); }
+      } else {
+        const vInput = (this.touchJump ? 1 : 0) - (this.touchDescend ? 1 : 0)
+          + this.isKeyDown("Space") - this.isKeyDown("KeyC");
+        this.droneHoverHeight = Math.max(3, this.droneHoverHeight + vInput * speed * dt);
+      }
+
+      // re-derive up after horizontal move (direction may have shifted)
+      droneUp.copy(dronePos).normalize();
+      const terrainR = this.planet.radiusAt(droneUp);
+      const targetR  = terrainR + this.droneHoverHeight;
+      const currentR = dronePos.length();
+      // smooth terrain-following; faster correction when below target
+      const t = currentR < targetR ? Math.min(1, dt * 6) : Math.min(1, dt * 3);
+      dronePos.setLength(currentR + (targetR - currentR) * t);
+      if (!this.landing && dronePos.length() < terrainR + 3) dronePos.setLength(terrainR + 3);
+      if (this.landing && dronePos.length() <= terrainR + EYE_HEIGHT + 0.3) {
+        this.snapToGround();
+        return;
+      }
+
+      camera.position.copy(dronePos);
+      camera.up.copy(droneUp);
+      scratchLookAt
+        .copy(this.forward)
+        .multiplyScalar(Math.cos(this.pitch))
+        .addScaledVector(droneUp, Math.sin(this.pitch))
+        .add(dronePos);
+      camera.lookAt(scratchLookAt);
+      this.alt = dronePos.length() - terrainR;
     } else {
       camera.updateMatrixWorld();
       const flyPos = this.flyPosition,
