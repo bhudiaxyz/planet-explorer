@@ -81,6 +81,19 @@ export class Player {
     if (this.forward.lengthSq() < 1e-6) this.forward.crossVectors(candidateDir, AXIS_X);
     this.forward.normalize();
   }
+  warpTo(dir: THREE.Vector3) {
+    this.mode = "walk";
+    this.boost = 0;
+    this.dir.copy(dir);
+    this.groundRadius = this.planet.radiusAt(dir);
+    this.verticalVelocity = 0;
+    this.pitch = 0;
+    this.forward.crossVectors(dir, AXIS_Y);
+    if (this.forward.lengthSq() < 1e-6) this.forward.crossVectors(dir, AXIS_X);
+    this.forward.normalize();
+    this.planet.forest.last.set(1e9, 0, 0);
+    if (this.col) this.col.dirty = true;
+  }
   refresh() {
     if (this.mode === "walk")
       this.groundRadius = Math.max(

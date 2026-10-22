@@ -5,6 +5,7 @@ import { PALETTES, biomeColors, setPalette } from "./palette";
 import type { Planet } from "./planet";
 import type { Player } from "./player";
 import type { PostFX } from "./postfx";
+import type { Spot } from "./spots";
 
 interface Ctx {
   planet: Planet;
@@ -12,6 +13,7 @@ interface Ctx {
   post: PostFX;
   rebuild: (respawn?: boolean) => void;
   rebuildVeg: () => void;
+  spots: Spot[];
 }
 // [setting, min, max, step]; terrain settings rebuild the planet when released (seed/radius also respawn the player)
 const TERRAIN: [keyof Settings, number, number, number][] = [
@@ -28,7 +30,7 @@ const TERRAIN: [keyof Settings, number, number, number][] = [
 ];
 
 /** Builds the settings panel (G toggles it). */
-export function setupGui({ planet, player, post, rebuild, rebuildVeg }: Ctx) {
+export function setupGui({ planet, player, post, rebuild, rebuildVeg, spots }: Ctx) {
   const gui = new GUI({ title: "Planet settings", width: Math.min(280, innerWidth - 8) });
   const paletteState = { palette: "Earth" };
   gui.add(paletteState, "palette", Object.keys(PALETTES))
@@ -75,6 +77,18 @@ export function setupGui({ planet, player, post, rebuild, rebuildVeg }: Ctx) {
   if (isTouchDevice)
     sky.add(S, "touchLookSensitivity", 0.5, 6, 0.1).name("look sensitivity");
   sky.add(S, "weather", Object.values(WEATHER_TYPE));
+  let locs: GUI | null = null;
+  if (spots.length) {
+    const touch = isTouchDevice;
+    locs = new GUI({ title: "📍", width: touch ? 70 : 58 });
+    for (const spot of spots)
+      locs.add({ go: () => player.warpTo(spot.dir) }, "go").name(spot.icon);
+    Object.assign(locs.domElement.style, { position: "fixed", top: "78px", left: "10px" });
+    if (touch) {
+      locs.domElement.style.setProperty("--widget-height", "44px");
+      locs.hide();
+    }
+  }
   gui
     .add(
       {
@@ -89,8 +103,13 @@ export function setupGui({ planet, player, post, rebuild, rebuildVeg }: Ctx) {
     .name("🎲 New random world");
   gui.add({ fly: () => player.toggle() }, "fly").name("Toggle walk / fly (F)");
   addEventListener("keydown", (e) => {
-    if (e.code === "KeyG") gui.show(gui._hidden);
+    if (e.code === "KeyG") {
+      const show = gui._hidden;
+      gui.show(show);
+      locs?.show(show);
+    }
   });
-  return gui;
+  return { gui, locs };
 }
 export type { GUI };
+export type SetupGuiResult = { gui: GUI; locs: GUI | null };

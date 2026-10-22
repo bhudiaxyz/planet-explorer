@@ -10,6 +10,7 @@ import { PostFX } from "./postfx";
 import { Shadows } from "./shadows";
 import { Footprints } from "./footprints";
 import { setupGui } from "./gui";
+import { findSpots } from "./spots";
 import { setRenderer } from "./bake";
 import { U } from "./fx";
 import { smoothstep } from "./util";
@@ -40,7 +41,7 @@ const scene = new THREE.Scene(),
 // ---- world & systems ---------------------------------------------------------------------------------------------------------------------------
 (async () => {
 const lsTip = document.getElementById("ls-tip")!;
-const STEPS = 9;
+const STEPS = 10;
 const setStep = (n: number, label: string) => {
   lsTip.textContent = `Step ${n} of ${STEPS}: ${label}`;
   return new Promise<void>(r => requestAnimationFrame(() => r()));
@@ -97,14 +98,22 @@ renderer.domElement.addEventListener("webglcontextlost", (e) =>
 renderer.domElement.addEventListener("webglcontextrestored", () =>
   rebuild(false),
 );
-const gui = setupGui({ planet, player, post: postFX, rebuild, rebuildVeg: () => scatter.rebuild() });
+
+await setStep(9, "Scouting locations");
+const spots = findSpots(planet);
+
+const { gui, locs } = setupGui({ planet, player, post: postFX, rebuild, rebuildVeg: () => scatter.rebuild(), spots });
 addEventListener("resize", () => {
   postFX.resize();
   camera.aspect = innerWidth / innerHeight;
   camera.updateProjectionMatrix();
 });
 setupTouch(player, renderer.domElement);
-if (isTouchDevice) setGuiToggle(() => gui.show(gui._hidden));
+if (isTouchDevice) setGuiToggle(() => {
+  const show = gui._hidden;
+  gui.show(show);
+  locs?.show(show);
+});
 const hud = document.getElementById("hud")!
 
 // temperature under the player, recomputed only when they moved ≥ ~0.15 m
@@ -150,7 +159,7 @@ const hideSplash = () => {
   splash.classList.add("dismissed");
 };
 const enterLabel = isTouchDevice ? "Tap to enter" : "Click to enter";
-await setStep(9, "Compiling shaders");
+await setStep(10, "Compiling shaders");
 showSplash(enterLabel, false);
 renderer.compileAsync(scene, camera).then(() => showSplash(enterLabel));
 splash.addEventListener("click", () => {
