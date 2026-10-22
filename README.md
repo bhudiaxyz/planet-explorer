@@ -1,6 +1,6 @@
 # Procedural Planet Explorer
 
-A first-person explorer for a procedurally generated spherical world (Three.js + TypeScript + Vite). Walk or fly across 13 Solar System planet palettes; terrain, plants, sky, weather and water are all generated at runtime, and most per-pixel / per-vertex work runs on the GPU.
+A first-person explorer for a procedurally generated spherical world (Three.js + TypeScript + Vite). Walk, drone, or fly across 13 Solar System planet palettes; terrain, plants, sky, weather and water are all generated at runtime, and most per-pixel / per-vertex work runs on the GPU. A startup scan identifies terrain landmarks (beach, canyon, island, mountain peak and more) and surfaces them as one-tap teleports in a persistent Locations panel.
 
 Works on desktop, laptop, mobile and tablet.
 
@@ -10,24 +10,25 @@ npm run dev        # development server
 npm run build      # type-check + production bundle
 ```
 
-**Desktop / laptop:** click to capture the mouse · WASD move · Shift sprint · Space jump / ascend · C descend (fly) · F walk⇄fly · Q/E roll (fly) · G toggle panel · Esc release mouse
+**Desktop / laptop:** click to capture the mouse · WASD move · Shift sprint · Space jump / ascend · C descend · F cycle walk → drone → fly · L land · Q/E roll (fly) · G toggle panels · Esc release mouse
 
-**Mobile / tablet:** left thumb joystick to move · right-side drag to look · ↑ ascend · ↓ descend · ⟲⟳ roll (fly) · ⚡ sprint · ✈ walk⇄fly · ☰ toggle panel
+**Mobile / tablet:** left thumb joystick · right-side drag to look · ↑ ascend · ↓ descend · ⟲⟳ roll (fly only) · ⚡ sprint · ✈ cycle walk → drone → fly · 🛬 land · ☰ toggle panels
 
 ## Module map
 
 | Area             | Files                                                | Role                                                                                                                                                    |
 | ---------------- | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Entry            | `main.ts`                                            | Wires everything and runs the frame loop (movement in ≤33 ms sub-steps).                                                                                |
-| Settings         | `settings.ts`, `config.ts`, `gui.ts`                 | User-tweakable settings (including wind sway intensity); engineering constants (LOD bands, chunk size, tree count…); the settings panel.                |
+| Settings         | `settings.ts`, `config.ts`, `gui.ts`                 | User-tweakable settings (including wind sway intensity); engineering constants (LOD bands, chunk size, tree count…); the settings panel and the Locations quick-travel panel.                |
 | Terrain function | `noise.ts`, `gpu.ts`                                 | Perlin noise on the CPU **and** the same function in GLSL (permutation table uploaded as a texture), biome colouring, shared vegetation density fields. |
 | GPU compute      | `bake.ts`                                            | Render-to-texture helpers: chunk height/normal/colour bakes, bulk point sampling, planet cube maps, small read-backs for collision.                     |
 | Planet           | `planet.ts`, `chunks.ts`, `landmarks.ts`, `skyfx.ts` | Coarse planet mesh + cube maps; streamed 1.5 m terrain chunks (pooled, faded, geomorphed); landmarks and floating islands; clouds and sky dome.         |
 | Trees            | `forest.ts`, `trees.ts`, `geoutil.ts`                | Clustered tree placement, three-tier LOD, per-tree hue/shape; procedural tree geometry and materials.                                                   |
 | Ground cover     | `plants.ts`, `vegetation.ts`, `plantgeo.ts`          | **Plant catalog** (one entry per plant type: geometry tiers + GLSL placement/look snippets) and the GPU scatter that renders it.                        |
 | Colour palettes  | `palette.ts`                                         | 13 Solar System planet palettes (biome colours, rock/plant/foliage tints, atmosphere, precipitation). `setPalette()` mutates the live `biomeColors` object so every system picks up the change on next rebuild. |
-| Player           | `player.ts`, `collision.ts`, `footprints.ts`         | Walk/fly controller, collision with trees/rocks/shrubs/landmarks, snow footprints.                                                                      |
-| Touch input      | `touch.ts`                                           | Virtual nipplejs joystick (left half) + swipe-to-look (right half) + action buttons for mobile/tablet. No-ops on desktop.                              |
+| Player           | `player.ts`, `collision.ts`, `footprints.ts`         | Walk / drone / fly controller, collision with trees/rocks/shrubs/landmarks, snow footprints.                                                            |
+| Locations        | `spots.ts`                                           | Scans the planet surface at startup to find up to 10 terrain archetypes (beach, canyon, island, cliffs, plains, snow field, desert, lagoon, rainforest, mountain peak) plus fixed poles and equatorial waypoints. Results feed the Locations panel. |
+| Touch input      | `touch.ts`                                           | Virtual nipplejs joystick (left half) + swipe-to-look (right half) + mode-aware action buttons for mobile/tablet. No-ops on desktop.                    |
 | Atmosphere       | `sky.ts`, `night.ts`, `precip.ts`                    | Sun/moon/weather state, parallax stars and nebulae, aurora, fireflies, GPU rain/snow, galactic band with Great Rift, dawn/dusk horizon band, moisture-gated bioluminescent motes — all colours driven by `CurrentPalette`. |
 | Rendering        | `fx.ts`, `postfx.ts`, `aerialfx.ts`, `shadows.ts`   | Shared shader materials and uniforms (`U`); HDR post chain (aerial perspective → bloom) with adaptive resolution; sun and moon shadow rigs with throttled depth-pass updates. |
 
@@ -37,6 +38,7 @@ npm run build      # type-check + production bundle
 - **Bake once, sample cheaply.** Chunk heights/normals/colours, plant placement, planet colours/normals (cube maps) and tree candidates are computed on the GPU only when needed, never per frame.
 - **No popping.** Ground cover tiers fade in/out at both their outer and inner edges via IGN screen-door dithering; hi/mid tree detail tiers cross-fade smoothly over ~0.4 s as altitude changes; terrain chunks fade and geomorph between LOD levels; shadows, weather, vegetation density and atmosphere all animate instead of switching.
 - **Clustering.** `gpu.ts` defines smooth density fields (`forestMask`, `groveMask`, `treeDensity`, `clusterField`). Trees, ferns and mushrooms share `treeDensity` so the understory sits under the forests; shrubs, rocks, flowers, cactus, dead scrub, reeds and tall sedge use their own `clusterField(kind)` patches; grass carpets open, moist, gentle ground.
+- **Three movement modes.** Walk hugs the terrain with gravity and collision. Drone flies forward continuously at a set height above the ground — A/D steers, Space/C adjusts hover height, terrain-following smoothly corrects after hills and valleys, L initiates a gradual descent to walk. Fly is free-form with altitude-scaled speed and roll. F cycles between all three; L lands from drone or fly.
 - **Spherical world on a flat renderer.** Nothing in Three.js knows the world is a sphere. The player's `up` vector is recalculated from the surface normal each frame; the camera follows suit. All positions are world-space Cartesian; the "ground" is just wherever the terrain function puts it on the unit sphere scaled by radius. No coordinate-system transforms, no seams.
 - **GPU scatter: placement texture, not CPU lists.** Each ground-cover tier runs a bake pass (one 8-bit texel per instance cell) that computes elevation, moisture, slope and cluster density in GLSL and writes a reject sentinel or a height value. The vertex shader reads that texel; rejected instances collapse to a degenerate point. The CPU never touches per-instance data after the bake — it only decides when the lattice has moved far enough to re-bake.
 - **Shadow texel-snapping.** The ortho shadow frustum is quantised to shadow-map texel steps before being uploaded to the GPU. Without this, sub-texel drift as the camera moves causes every shadow edge to crawl one texel per frame. The snap is ~3 lines in `shadows.ts` and eliminates the artefact entirely.
