@@ -280,7 +280,7 @@ vec3 lp    = position;
 float _h   = max(lp.y, 0.0);
 lp.x      += _bx * _amt * _h;
 lp.z      += _bz * _amt * _h;
-vec3 transformed = (instanceMatrix * vec4(lp, 1.0)).xyz;
+vec3 transformed = lp;
 `,
       );
   };
@@ -307,7 +307,6 @@ export function waterFx(m: THREE.MeshStandardMaterial) {
       "#include <begin_vertex>",
       `
 vec3 transformed  = position;
-vec3 objectNormal = normal;
 
 // world position for wave sampling
 vec3 wp = (modelMatrix * vec4(position, 1.0)).xyz;
