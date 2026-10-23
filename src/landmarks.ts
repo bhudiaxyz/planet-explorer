@@ -12,7 +12,8 @@ export const LANDMARK_ICON: Record<string, string> = {
   "Monolith Ring":   "🗿",
   "Twisted Spire":   "⛰️",
   "Tombstone Field": "🪦",
-  "Floating Island": "🏝️",
+  "Floating Island": "⛅",
+  "Stone Arch":      "🌉",
   "Crashed Ship":    "🚀",
   "Pillar Field":    "🪨",
   "Impact Crater":   "☄️",
@@ -55,6 +56,25 @@ export const LANDMARK_NAMES = [
   "Ilus","Laconia","Medina","Ring Station","Ilus Prime",
   // Babylon 5
   "Minbar","Narn","Centauri Prime","Z'ha'dum","Rigel VII",
+  // US National Parks
+  "Yellowstone","Yosemite","Grand Canyon","Zion","Bryce Canyon",
+  "Arches","Canyonlands","Capitol Reef","Badlands","Grand Teton",
+  "Olympic","Rainier","Crater Lake","Denali","Kenai Fjords",
+  "Sequoia","Joshua Tree","Death Valley","Saguaro","Petrified Forest",
+  "Acadia","Everglades","Biscayne","Dry Tortugas","Shenandoah",
+  "Great Smoky","Mammoth Cave","Isle Royale","Sleeping Bear","Voyageurs",
+  "Glacier","Waterton","Rocky Mountain","Mesa Verde","Black Canyon",
+  // World National Parks & Natural Sites
+  "Banff","Jasper","Algonquin","Nahanni","Kluane",
+  "Torres del Paine","Iguazú","Pantanal","Galápagos","Patagonia",
+  "Fiordland","Abel Tasman","Tongariro","Purnululu","Kakadu",
+  "Cradle Mountain","Blue Mountains","Daintree","Nambung","Karijini",
+  "Serengeti","Ngorongoro","Virunga","Okavango","Etosha",
+  "Kruger","Bwindi","Simien","Tsavo","Amboseli",
+  "Sagarmatha","Kaziranga","Sundarbans","Ranthambore","Nagarhole",
+  "Jiuzhaigou","Zhangjiajie","Huangshan","Wulingyuan","Changbai",
+  "Plitvice","Durmitor","Triglav","Białowieża","Ordesa",
+  "Doñana","Skellig Michael","Cairngorms","Snowdonia","Dartmoor",
   // terrain-flavoured
   "North Pole","South Pole","Equator 0°","Equator 90°","Equator 180°","Equator 270°",
   "Crater Lake","Obsidian Flats","Ashfall Plain","Midnight Basin","Ironspire",
@@ -107,7 +127,7 @@ export function buildLandmarks(pl: Planet, group: THREE.Group) {
     m.castShadow = m.receiveShadow = true;
     return m;
   };
-  const kinds = ["ring", "spire", "tombs", "island", "island", "ship", "pillars", "crater"];
+  const kinds = ["ring", "spire", "tombs", "island", "arch", "ship", "pillars", "crater"];
   let nIsl = 0;
   for (let n = 0; n < 24; n++) {
     const kind = kinds[n % 8],
@@ -117,7 +137,8 @@ export function buildLandmarks(pl: Planet, group: THREE.Group) {
       if (d.lengthSq() > 1 || d.lengthSq() < 0.01) continue;
       d.normalize();
       const e = pl.elev(d);
-      if (e > 0.04 && e < 0.3 && pl.temp(d, e) > 0.3) break;
+      const eMax = kind === "spire" ? 0.45 : kind === "crater" || kind === "ring" || kind === "arch" ? 0.18 : 0.3;
+      if (e > 0.04 && e < eMax && pl.temp(d, e) > 0.3) break;
     }
     const g = new THREE.Group(),
       cr = pl.radiusAt(d);
@@ -204,7 +225,7 @@ export function buildLandmarks(pl: Planet, group: THREE.Group) {
       if (spireCrystals.length) {
         const cm = new THREE.Mesh(mergeGeometries(spireCrystals)!, crystalMat);
         cm.castShadow = true;
-        cm.frustumCulled = false;
+
         spireGroup.add(cm);
       }
       g.add(spireGroup);
@@ -249,13 +270,14 @@ export function buildLandmarks(pl: Planet, group: THREE.Group) {
       if (tombCrystals.length) {
         const cm = new THREE.Mesh(mergeGeometries(tombCrystals)!, crystalMat);
         cm.castShadow = true;
-        cm.frustumCulled = false;
+
         g.add(cm);
       }
     } else if (kind === "ship") {
       // crashed spacecraft: elongated hull with swept wings and engine nacelles, nose buried
       const sz = 0.85 + r() * 0.65;
       const pitch = 0.18 + r() * 0.2;
+      const shipYaw = r() * Math.PI * 2;
       const hl = 20 * sz, hw = 3.0 * sz, hh = 2.2 * sz;
       const shipCol = STONE.clone().offsetHSL(0.6, -0.14, 0.02);
       // hull body
@@ -282,8 +304,11 @@ export function buildLandmarks(pl: Planet, group: THREE.Group) {
           new THREE.Vector3(dx, ground(dx, dz) + ds * 0.18, dz),
           new THREE.Euler((r() - 0.5) * 0.6, r() * 6.283, (r() - 0.5) * 0.4), shipCol);
       }
-      obs.push({ d: d.clone(), ax: wax(Math.PI / 2), rx: hl * 0.45, rz: hw * 0.55, H: hh, mode: 0 });
-      g.add(bake(parts));
+      obs.push({ d: d.clone(), ax: wax(Math.PI / 2 + shipYaw), rx: hl * 0.45, rz: hw * 0.55, H: hh, mode: 0 });
+      const sg = new THREE.Group();
+      sg.rotation.y = shipYaw;
+      sg.add(bake(parts));
+      g.add(sg);
     } else if (kind === "pillars") {
       // basalt hexagonal column field with glowing lava cracks
       const sz = 0.75 + r() * 0.9;
@@ -313,7 +338,7 @@ export function buildLandmarks(pl: Planet, group: THREE.Group) {
       if (pillarCrystals.length) {
         const cm = new THREE.Mesh(mergeGeometries(pillarCrystals)!, crystalMat);
         cm.castShadow = true;
-        cm.frustumCulled = false;
+
         g.add(cm);
       }
     } else if (kind === "crater") {
@@ -347,6 +372,43 @@ export function buildLandmarks(pl: Planet, group: THREE.Group) {
       part(parts, new THREE.CylinderGeometry(rimR * 0.62, rimR * 0.68, 0.2, 12),
         new THREE.Vector3(0, 0.1, 0), new THREE.Euler(0, 0, 0),
         DARK.clone().offsetHSL(0, -0.4, -0.08));
+      g.add(bake(parts));
+    } else if (kind === "arch") {
+      // natural stone arch: two pillars bridged by a crown, adapted to terrain slope
+      const sz = 0.85 + r() * 0.75;
+      const half = (8 + r() * 6) * sz;
+      const pw = (1.6 + r() * 0.9) * sz;
+      const archYaw = r() * Math.PI * 2;
+      const ax1 = Math.cos(archYaw) * half, az1 = Math.sin(archYaw) * half;
+      const gy1 = ground(ax1, az1), gy2 = ground(-ax1, -az1);
+      const ph = (7 + r() * 5) * sz;
+      const topY = Math.max(gy1, gy2) + ph;
+      for (const [px, pz, gy] of [[ax1, az1, gy1], [-ax1, -az1, gy2]] as [number, number, number][]) {
+        const pillarH = topY - gy;
+        part(parts, new THREE.BoxGeometry(pw, pillarH, pw * 1.15),
+          new THREE.Vector3(px, gy + pillarH / 2, pz),
+          new THREE.Euler(0, archYaw, 0), STONE);
+        obs.push({ d: wd(px, pz), ax: wax(archYaw), rx: pw * 0.65, rz: pw * 0.65, H: Infinity, mode: 0 });
+      }
+      // crown span
+      part(parts, new THREE.BoxGeometry(half * 2.2, pw * 0.8, pw * 1.05),
+        new THREE.Vector3(0, topY + pw * 0.35, 0),
+        new THREE.Euler(0, archYaw, (r() - 0.5) * 0.03),
+        DARK.clone().offsetHSL(0, 0, 0.08));
+      // keystone
+      part(parts, new THREE.BoxGeometry(pw * 0.9, pw * 0.75, pw * 0.9),
+        new THREE.Vector3(0, topY, 0),
+        new THREE.Euler(0, archYaw, 0), STONE);
+      // base rubble
+      for (let k = 0, n2 = 4 + (r() * 6 | 0); k < n2; k++) {
+        const da = r() * 6.283, dd = half * (0.15 + r() * 0.85), ds = (0.35 + r() * 1.2) * sz;
+        const dx = Math.cos(da) * dd, dz2 = Math.sin(da) * dd;
+        part(parts, new THREE.IcosahedronGeometry(1, 0),
+          new THREE.Vector3(dx, ground(dx, dz2) + ds * 0.3, dz2),
+          new THREE.Euler(r() * 3, r() * 3, r() * 3),
+          STONE.clone().offsetHSL(0, 0, (r() - 0.5) * 0.1),
+          new THREE.Vector3(ds, ds * 0.6, ds));
+      }
       g.add(bake(parts));
     } else {
       // every island is different: palette (grass / autumn / teal / violet / frost), 2-4 rock tiers, stalactites, trees, optional pond, waterfall,
@@ -638,7 +700,7 @@ export function buildLandmarks(pl: Planet, group: THREE.Group) {
       if (crystals.length) {
         const cm = new THREE.Mesh(mergeGeometries(crystals)!, crystalMat);
         cm.castShadow = true;
-        cm.frustumCulled = false;
+
         isl.add(cm);
       }
       isl.position.y = 55 + r() * 55;
@@ -655,6 +717,7 @@ export function buildLandmarks(pl: Planet, group: THREE.Group) {
         : kind === "ship"  ? "Crashed Ship"
         : kind === "pillars" ? "Pillar Field"
         : kind === "crater"  ? "Impact Crater"
+        : kind === "arch"    ? "Stone Arch"
         : "Floating Island",
       label: LANDMARK_NAMES[(labelOffset + list.length) % LANDMARK_NAMES.length],
       pos: g.position.clone(),
