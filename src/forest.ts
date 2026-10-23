@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import type { Planet } from "./planet";
-import { smoothstep } from "./util";
+import { smoothstep } from "./utilgeo";
 import { rng } from "./noise";
 import { S } from "./settings";
 import { CFG } from "./config";

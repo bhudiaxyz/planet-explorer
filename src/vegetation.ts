@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import type { Planet } from "./planet";
-import { frame, smoothstep } from "./util";
+import { frame, smoothstep } from "./utilgeo";
 import { T, TERRAIN_GLSL } from "./gpu";
 import { makeRT, draw, QUAD_VS, readRT } from "./bake";
 import { U, TINT_GLSL, IGN } from "./fx";

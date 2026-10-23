@@ -3,7 +3,7 @@ import { S } from "./settings";
 import { CFG } from "./config";
 import { terrainMat } from "./fx";
 import { makeRT, bakeChunk } from "./bake";
-import { frame, type Frame } from "./util";
+import { frame, type Frame } from "./utilgeo";
 const {
   cells: CS,
   cell: CC,

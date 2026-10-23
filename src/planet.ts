@@ -6,7 +6,7 @@ import { syncTerrain } from "./gpu";
 import { canBake, bakePoints, Atlas } from "./bake";
 import { ChunkManager } from "./chunks";
 import { CFG } from "./config";
-import { smoothstep, frame } from "./util";
+import { smoothstep, frame } from "./utilgeo";
 import { Forest } from "./forest";
 import { CurrentPalette, biomeColors } from "./palette";
 import { buildLandmarks } from "./landmarks";

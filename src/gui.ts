@@ -1,6 +1,7 @@
 import GUI from "lil-gui";
 import { S, WEATHER_TYPE, type Settings } from "./settings";
-import { pushSeedUrl } from "./main";
+import { pushSeedUrl, currentSeedWord } from "./main";
+import { genSeedWord } from "./util";
 import { isTouchDevice } from "./touch";
 import { PALETTES, biomeColors, setPalette } from "./palette";
 import type { Planet } from "./planet";
@@ -16,9 +17,8 @@ interface Ctx {
   rebuildVeg: () => void;
   spots: Spot[];
 }
-// [setting, min, max, step]; terrain settings rebuild the planet when released (seed/radius also respawn the player)
+// [setting, min, max, step]; terrain settings rebuild the planet when released (radius also respawns the player)
 const TERRAIN: [keyof Settings, number, number, number][] = [
-  ["seed", 0, 99999, 1],
   ["radius", 200, 1500, 10],
   ["resolution", 64, 512, 16],
   ["amplitude", 5, 200, 1],
@@ -55,10 +55,12 @@ export function setupGui({ planet, player, post, rebuild, rebuildVeg, spots }: C
       rebuild();
     });
   const terrain = gui.addFolder("Terrain");
+  const seedState = { word: currentSeedWord };
+  terrain.add(seedState, "word").name("seed").onFinishChange((v: string) => { pushSeedUrl(v); rebuild(true); });
   for (const [k, min, max, step] of TERRAIN)
     terrain
       .add(S, k, min, max, step)
-      .onFinishChange(() => { if (k === "seed") pushSeedUrl(S.seed); rebuild(k === "seed" || k === "radius"); });
+      .onFinishChange(() => { rebuild(k === "radius"); });
   const biomes = gui.addFolder("Biomes");
   biomes
     .add(S, "forest", 0, 2, 0.05)
@@ -116,11 +118,12 @@ export function setupGui({ planet, player, post, rebuild, rebuildVeg, spots }: C
     .add(
       {
         randomize: () => {
-          S.seed = Math.floor(Math.random() * 99999);
+          const word = genSeedWord();
+          seedState.word = word;
           const weathers = Object.values(WEATHER_TYPE);
           S.weather = weathers[Math.floor(Math.random() * weathers.length)];
           gui.controllersRecursive().forEach((c) => c.updateDisplay());
-          pushSeedUrl(S.seed);
+          pushSeedUrl(word);
           rebuild(true);
         },
       },

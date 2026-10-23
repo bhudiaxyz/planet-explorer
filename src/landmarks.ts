@@ -8,7 +8,8 @@ import { CurrentPalette } from "./palette";
 const UP = new THREE.Vector3(0, 1, 0);
 export type Landmark = { name: string; label: string; pos: THREE.Vector3 };
 
-const SCI_FI_NAMES = [
+const LANDMARK_NAMES = [
+  // sci-fi
   "Arrakeen","Giedi Prime","Caladan","Arrakis","Salusa Secundus",
   "Trantor","Helicon","Terminus","Askonia","Kalgan",
   "Komarr","Barrayar","Athos","Sigma Draconis","Aral",
@@ -24,6 +25,15 @@ const SCI_FI_NAMES = [
   "Gilevane","Khar'shan","Irune","Sur'Kesh","Dekuuna",
   "Hyperion","Pacem","Hebron","Tau Ceti Center","Lusus",
   "Ringworld","Map of Known Space","Fist of God","Arch","Spill Mountain",
+  // galaxies
+  "Andromeda","Triangulum","Whirlpool","Sombrero","Cartwheel",
+  "Pinwheel","Sunflower","Sculptor","Centaurus A","Bode's Galaxy",
+  "Large Magellanic","Small Magellanic","Black Eye","Tadpole","Antennae",
+  // nebulae
+  "Orion Nebula","Crab Nebula","Eagle Nebula","Helix Nebula","Ring Nebula",
+  "Horsehead","Pillars of Creation","Lagoon Nebula","Veil Nebula","Carina Nebula",
+  "Rosette","Tarantula","Butterfly Nebula","Cat's Eye","Owl Nebula",
+  "Flame Nebula","Pelican Nebula","Witch Head","Running Man","Soul Nebula",
 ];
 // Rare deterministic landmarks: monolith rings, twisted spires, tombstone fields, floating islands.
 // Each landmark's parts are baked into ONE vertex-coloured mesh (about 210 draw calls and as many shadow draws become 16).
@@ -31,7 +41,7 @@ export function buildLandmarks(pl: Planet, group: THREE.Group) {
   const r = rng(S.seed + 900),
     list: Landmark[] = [],
     obs: Obs[] = [],
-    labelOffset = Math.floor(r() * SCI_FI_NAMES.length),
+    labelOffset = Math.floor(r() * LANDMARK_NAMES.length),
     bob: { m: THREE.Object3D; y: number; ph: number }[] = [];
   const mat = new THREE.MeshStandardMaterial({
     vertexColors: true,
@@ -523,7 +533,7 @@ export function buildLandmarks(pl: Planet, group: THREE.Group) {
             : kind === "tombs"
               ? "tombstone field"
               : "floating island",
-      label: SCI_FI_NAMES[(labelOffset + list.length) % SCI_FI_NAMES.length],
+      label: LANDMARK_NAMES[(labelOffset + list.length) % LANDMARK_NAMES.length],
       pos: g.position.clone(),
     });
   }

@@ -13,7 +13,8 @@ import { setupGui } from "./gui";
 import { findSpots } from "./spots";
 import { setRenderer } from "./bake";
 import { U } from "./fx";
-import { smoothstep } from "./util";
+import { smoothstep } from "./utilgeo";
+import { genSeedWord, hashSeedWord } from "./util";
 import { S } from "./settings";
 import { isTouchDevice, setupTouch, setGuiToggle, setMapToggle } from "./touch";
 import { MapOverlay } from "./map";
@@ -21,12 +22,16 @@ import { MapOverlay } from "./map";
 // lower default resolution and render scale on mobile/tablet to stay within GPU budget
 if (isTouchDevice) { S.resolution = 128; S.renderScale = 0.75; }
 
-// seed from URL (?seed=12345) — random if absent
-const urlSeed = new URLSearchParams(location.search).get("seed");
-if (urlSeed !== null) S.seed = Math.max(0, Math.min(99999, parseInt(urlSeed, 10) || 0));
-export function pushSeedUrl(seed: number) {
+// word-based seed: hash string → number for noise; URL stores the word
+export let currentSeedWord = genSeedWord();
+const urlWord = new URLSearchParams(location.search).get("seed");
+if (urlWord) currentSeedWord = urlWord;
+S.seed = hashSeedWord(currentSeedWord);
+export function pushSeedUrl(word: string) {
+  currentSeedWord = word;
+  S.seed = hashSeedWord(word);
   const p = new URLSearchParams(location.search);
-  p.set("seed", String(seed));
+  p.set("seed", word);
   history.replaceState(null, "", "?" + p.toString());
 }
 
@@ -60,7 +65,7 @@ const setStep = (n: number, label: string) => {
 await setStep(1, "Building terrain");
 const planet = new Planet(scene);
 await planet.build();
-pushSeedUrl(S.seed);
+pushSeedUrl(currentSeedWord);
 
 await setStep(2, "Spawning player");
 const player = new Player(camera, planet, renderer.domElement);
