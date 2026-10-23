@@ -93,12 +93,13 @@ export function setupGui({ planet, player, post, rebuild, rebuildVeg, spots }: C
     // ungrouped spots (fixed nav + terrain features) go flat
     for (const spot of spots.filter(s => !s.group))
       locs.add({ go: () => player.warpTo(spot.dir) }, "go").name(`${spot.icon} ${spot.name}`);
-    // landmark types go into collapsible subfolders
-    const groups = [...new Set(spots.filter(s => s.group).map(s => s.group!))];
-    for (const g of groups) {
+    // landmark types go into collapsible subfolders — single pass
+    const grouped = new Map<string, Spot[]>();
+    for (const s of spots) if (s.group) (grouped.get(s.group) ?? (grouped.set(s.group, []), grouped.get(s.group)!)).push(s);
+    for (const [g, members] of grouped) {
       const folder = locs.addFolder(g);
       folder.close();
-      for (const spot of spots.filter(s => s.group === g))
+      for (const spot of members)
         folder.add({ go: () => player.warpTo(spot.dir) }, "go").name(`${spot.icon} ${spot.name}`);
     }
     Object.assign(locs.domElement.style, { position: "fixed", top: "78px", left: "10px" });

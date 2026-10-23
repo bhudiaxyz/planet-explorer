@@ -9,7 +9,7 @@ const UP = new THREE.Vector3(0, 1, 0);
 export type Landmark = { name: string; label: string; pos: THREE.Vector3 };
 
 const SCI_FI_NAMES = [
-  "Arrakeen","Giedi Prime","Caladan","Geidi","Salusa Secundus",
+  "Arrakeen","Giedi Prime","Caladan","Arrakis","Salusa Secundus",
   "Trantor","Helicon","Terminus","Askonia","Kalgan",
   "Komarr","Barrayar","Athos","Sigma Draconis","Aral",
   "Solaris","Rheya","Kelvin Station","Snow","Harey",
@@ -519,7 +519,7 @@ export function buildLandmarks(pl: Planet, group: THREE.Group) {
             : kind === "tombs"
               ? "tombstone field"
               : "floating island",
-      label: SCI_FI_NAMES[list.length % SCI_FI_NAMES.length],
+      label: SCI_FI_NAMES[Math.floor(r() * SCI_FI_NAMES.length)],
       pos: g.position.clone(),
     });
   }
