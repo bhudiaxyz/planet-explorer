@@ -51,10 +51,10 @@ export function buildLandmarks(pl: Planet, group: THREE.Group) {
     m.castShadow = m.receiveShadow = true;
     return m;
   };
-  const kinds = ["ring", "spire", "tombs", "island"];
+  const kinds = ["ring", "spire", "spire", "tombs", "tombs", "island", "island", "island"];
   let nIsl = 0;
-  for (let n = 0; n < 16; n++) {
-    const kind = kinds[n % 4],
+  for (let n = 0; n < 24; n++) {
+    const kind = kinds[n % 8],
       d = new THREE.Vector3();
     for (let a = 0; a < 400; a++) {
       d.set(r() * 2 - 1, r() * 2 - 1, r() * 2 - 1);
@@ -99,23 +99,58 @@ export function buildLandmarks(pl: Planet, group: THREE.Group) {
       }
       g.add(bake(parts));
     } else if (kind === "spire") {
+      const sz = 0.4 + r() * 1.4, twist = 0.12 + r() * 0.22;
       for (let i = 0; i < 14; i++)
         part(
           parts,
-          new THREE.BoxGeometry(5 - i * 0.3, 5.2, 5 - i * 0.3),
-          new THREE.Vector3(0, i * 5 + 1, 0),
-          new THREE.Euler(0, i * 0.22, 0),
+          new THREE.BoxGeometry((5 - i * 0.3) * sz, 5.2 * sz, (5 - i * 0.3) * sz),
+          new THREE.Vector3(0, (i * 5 + 1) * sz, 0),
+          new THREE.Euler(0, i * twist, 0),
           DARK,
         );
+      // crystal clusters at 3-4 heights spiralling up the column
+      const spireCrystals: THREE.BufferGeometry[] = [];
+      const spireHue = new THREE.Color(...CurrentPalette.crystals[n % 3]);
+      const clusterCount = 3 + ((r() * 2) | 0);
+      for (let c = 0; c < clusterCount; c++) {
+        const ht = (3 + c * 4.5) * sz, baseW = (4.5 - c * 0.25) * sz * 0.55;
+        const ca = c * 2.1 + r() * 0.8;
+        const count = 2 + ((r() * 3) | 0);
+        for (let k = 0; k < count; k++) {
+          const a2 = ca + (k / count) * 2.2, cs = (0.3 + r() * 0.5) * sz;
+          part(spireCrystals, new THREE.OctahedronGeometry(1, 0),
+            new THREE.Vector3(Math.cos(a2) * baseW, ht + cs, Math.sin(a2) * baseW),
+            new THREE.Euler((r() - 0.5) * 0.5, a2, 0.35 + (r() - 0.5) * 0.2),
+            spireHue.clone().offsetHSL(0, 0, (r() - 0.5) * 0.12),
+            new THREE.Vector3(0.35 * cs, 1.8 * cs, 0.35 * cs));
+        }
+      }
+      // crystal crown at the apex
+      const apexY = 14 * 5.2 * sz;
+      for (let k = 0; k < 5; k++) {
+        const a2 = (k / 5) * 6.283, cs = (0.25 + r() * 0.35) * sz;
+        part(spireCrystals, new THREE.OctahedronGeometry(1, 0),
+          new THREE.Vector3(Math.cos(a2) * sz * 0.8, apexY + cs, Math.sin(a2) * sz * 0.8),
+          new THREE.Euler(0, a2, 0.2),
+          spireHue.clone().offsetHSL(0, 0, 0.1),
+          new THREE.Vector3(0.3 * cs, 2.2 * cs, 0.3 * cs));
+      }
       obs.push({
         d: d.clone(),
         ax: wax(0),
-        rx: 3.3,
-        rz: 3.3,
+        rx: 3.3 * sz,
+        rz: 3.3 * sz,
         H: Infinity,
         mode: 0,
       });
-      g.add(bake(parts));
+      const spireGroup = new THREE.Group();
+      spireGroup.add(bake(parts));
+      if (spireCrystals.length) {
+        const cm = new THREE.Mesh(mergeGeometries(spireCrystals)!, crystalMat);
+        cm.frustumCulled = false;
+        spireGroup.add(cm);
+      }
+      g.add(spireGroup);
     } else if (kind === "tombs") {
       for (let i = 0; i < 26; i++) {
         const h = 1.5 + r(),
@@ -141,9 +176,28 @@ export function buildLandmarks(pl: Planet, group: THREE.Group) {
         });
       }
       g.add(bake(parts));
+      // scattered glowing crystals among the tombstones
+      const tombCrystals: THREE.BufferGeometry[] = [];
+      const tombHue = new THREE.Color(...CurrentPalette.crystals[n % 3]);
+      for (let k = 0, n2 = 6 + ((r() * 8) | 0); k < n2; k++) {
+        const a2 = r() * 6.283, cr = r() * 14,
+          x2 = Math.cos(a2) * cr, z2 = Math.sin(a2) * cr,
+          cs = 0.15 + r() * 0.35;
+        part(tombCrystals, new THREE.OctahedronGeometry(1, 0),
+          new THREE.Vector3(x2, ground(x2, z2) + cs * 1.2, z2),
+          new THREE.Euler((r() - 0.5) * 0.3, r() * 6.283, (r() - 0.5) * 0.3),
+          tombHue.clone().offsetHSL(0, 0, (r() - 0.5) * 0.15),
+          new THREE.Vector3(0.35 * cs, 1.8 * cs, 0.35 * cs));
+      }
+      if (tombCrystals.length) {
+        const cm = new THREE.Mesh(mergeGeometries(tombCrystals)!, crystalMat);
+        cm.frustumCulled = false;
+        g.add(cm);
+      }
     } else {
       // every island is different: palette (grass / autumn / teal / violet / frost), 2-4 rock tiers, stalactites, trees, optional pond, waterfall,
       // glowing crystals (HDR, picked up by bloom) and orbiting debris (it rotates with the island), plus a small random tilt
+      // shape archetypes (v%4): 0=classic cylinder+cones, 1=pancake stack, 2=jagged mesa, 3=spire island
       const v = nIsl++,
         sz = 0.7 + r() * 0.9,
         rad = 10 * sz,
@@ -157,38 +211,89 @@ export function buildLandmarks(pl: Planet, group: THREE.Group) {
         rock = new THREE.Color(rocks[(v + ((r() * 3) | 0)) % 4]),
         tiers = 2 + ((r() * 3) | 0),
         crystals: THREE.BufferGeometry[] = [];
-      part(
-        parts,
-        new THREE.CylinderGeometry(rad, rad * 0.95, 1.5, 12),
-        new THREE.Vector3(0, 0, 0),
-        E(0, r() * 3, 0),
-        turf,
-      );
-      for (let k = 0; k < 5; k++) {
-        const a2 = r() * 6.283,
-          d2 = rad * (0.75 + r() * 0.2);
-        part(
-          parts,
-          new THREE.IcosahedronGeometry(1, 1),
-          new THREE.Vector3(Math.cos(a2) * d2, 0.1, Math.sin(a2) * d2),
-          E(0, 0, 0),
-          turf.clone().offsetHSL(0, 0, (r() - 0.5) * 0.08),
-          new THREE.Vector3(1.2 + r(), 0.5, 1.2 + r()),
-        );
-      }
-      let y = -0.4,
-        rr = rad * 0.95;
-      for (let t = 0; t < tiers; t++) {
-        const h = (7 + r() * 5) * sz * (1 - t * 0.15);
-        part(
-          parts,
-          new THREE.ConeGeometry(rr, h, 7 + ((r() * 4) | 0)),
-          new THREE.Vector3((r() - 0.5) * rad * 0.15, y - h / 2, (r() - 0.5) * rad * 0.15),
-          E(Math.PI, r() * 3, 0),
-          rock.clone().offsetHSL(0, 0, -t * 0.05 + (r() - 0.5) * 0.04),
-        );
-        y -= h * 0.8;
-        rr *= 0.62 + r() * 0.2;
+      const shape = v % 4;
+      let bottomY = -0.4; // approximate bottom of the cone stack, used by stalactites below
+      if (shape === 1) {
+        // pancake stack: 2-3 staggered flat discs
+        const discs = 2 + ((r() * 2) | 0);
+        for (let d3 = 0; d3 < discs; d3++) {
+          const dr = rad * (1 - d3 * 0.22), ox = (r() - 0.5) * rad * 0.3, oz = (r() - 0.5) * rad * 0.3;
+          part(parts, new THREE.CylinderGeometry(dr, dr * 0.92, 1.8 - d3 * 0.3, 10),
+            new THREE.Vector3(ox, d3 * 2.2, oz), E(0, r() * 3, 0),
+            turf.clone().offsetHSL(0, 0, -d3 * 0.04));
+          for (let k = 0; k < 4; k++) {
+            const a2 = r() * 6.283, d2 = dr * (0.7 + r() * 0.2);
+            part(parts, new THREE.IcosahedronGeometry(1, 1),
+              new THREE.Vector3(ox + Math.cos(a2) * d2, d3 * 2.2 + 0.1, oz + Math.sin(a2) * d2),
+              E(0, 0, 0), turf.clone().offsetHSL(0, 0, (r() - 0.5) * 0.08),
+              new THREE.Vector3(1.1 + r() * 0.6, 0.45, 1.1 + r() * 0.6));
+          }
+        }
+        // single tapered cone below
+        const bh = (8 + r() * 6) * sz;
+        part(parts, new THREE.ConeGeometry(rad * 0.85, bh, 8),
+          new THREE.Vector3(0, -bh / 2 - 0.2, 0), E(Math.PI, r() * 3, 0), rock);
+        bottomY = -bh - 0.2;
+      } else if (shape === 2) {
+        // jagged mesa: squat box body, lumpy icosahedra on top rim
+        const mw = rad * 1.1, mh = 2.2 + r() * 1.2;
+        part(parts, new THREE.BoxGeometry(mw, mh, mw * 0.88),
+          new THREE.Vector3(0, 0, 0), E(0, r() * 3, 0), turf);
+        for (let k = 0; k < 8; k++) {
+          const a2 = r() * 6.283, d2 = mw * (0.45 + r() * 0.15), ls = 0.8 + r() * 1.2;
+          part(parts, new THREE.IcosahedronGeometry(1, 0),
+            new THREE.Vector3(Math.cos(a2) * d2, mh / 2 + ls * 0.3, Math.sin(a2) * d2),
+            E(r() * 3, r() * 3, r() * 3),
+            rock.clone().offsetHSL(0, 0, (r() - 0.5) * 0.1),
+            new THREE.Vector3(ls, ls * 0.7, ls));
+        }
+        let y2 = -mh / 2, rr2 = mw * 0.72;
+        for (let t = 0; t < tiers; t++) {
+          const h = (5 + r() * 4) * sz * (1 - t * 0.18);
+          part(parts, new THREE.ConeGeometry(rr2, h, 6 + ((r() * 3) | 0)),
+            new THREE.Vector3((r() - 0.5) * rad * 0.12, y2 - h / 2, (r() - 0.5) * rad * 0.12),
+            E(Math.PI, r() * 3, 0),
+            rock.clone().offsetHSL(0, 0, -t * 0.06 + (r() - 0.5) * 0.04));
+          y2 -= h * 0.75; rr2 *= 0.58 + r() * 0.2;
+        }
+        bottomY = y2;
+      } else if (shape === 3) {
+        // spire island: narrow tall cylinder top, single deep narrow cone below
+        const sr = rad * 0.45, sh = 2.8 + r() * 1.5;
+        part(parts, new THREE.CylinderGeometry(sr, sr * 0.88, sh, 9),
+          new THREE.Vector3(0, 0, 0), E(0, r() * 3, 0), turf);
+        for (let k = 0; k < 4; k++) {
+          const a2 = r() * 6.283, d2 = sr * (0.6 + r() * 0.25);
+          part(parts, new THREE.IcosahedronGeometry(1, 1),
+            new THREE.Vector3(Math.cos(a2) * d2, 0.1, Math.sin(a2) * d2),
+            E(0, 0, 0), turf.clone().offsetHSL(0, 0, (r() - 0.5) * 0.08),
+            new THREE.Vector3(1.0 + r() * 0.5, 0.4, 1.0 + r() * 0.5));
+        }
+        const bh = (18 + r() * 14) * sz;
+        part(parts, new THREE.ConeGeometry(sr * 0.7, bh, 6),
+          new THREE.Vector3(0, -bh / 2 - sh / 2, 0), E(Math.PI, r() * 3, 0), rock);
+        bottomY = -bh - sh / 2;
+      } else {
+        // classic: flat cylinder top + tapered cone stack
+        part(parts, new THREE.CylinderGeometry(rad, rad * 0.95, 1.5, 12),
+          new THREE.Vector3(0, 0, 0), E(0, r() * 3, 0), turf);
+        for (let k = 0; k < 5; k++) {
+          const a2 = r() * 6.283, d2 = rad * (0.75 + r() * 0.2);
+          part(parts, new THREE.IcosahedronGeometry(1, 1),
+            new THREE.Vector3(Math.cos(a2) * d2, 0.1, Math.sin(a2) * d2),
+            E(0, 0, 0), turf.clone().offsetHSL(0, 0, (r() - 0.5) * 0.08),
+            new THREE.Vector3(1.2 + r(), 0.5, 1.2 + r()));
+        }
+        let y = -0.4, rr = rad * 0.95;
+        for (let t = 0; t < tiers; t++) {
+          const h = (7 + r() * 5) * sz * (1 - t * 0.15);
+          part(parts, new THREE.ConeGeometry(rr, h, 7 + ((r() * 4) | 0)),
+            new THREE.Vector3((r() - 0.5) * rad * 0.15, y - h / 2, (r() - 0.5) * rad * 0.15),
+            E(Math.PI, r() * 3, 0),
+            rock.clone().offsetHSL(0, 0, -t * 0.05 + (r() - 0.5) * 0.04));
+          y -= h * 0.8; rr *= 0.62 + r() * 0.2;
+        }
+        bottomY = y;
       }
       for (let k = 0, n2 = 4 + ((r() * 5) | 0); k < n2; k++) {
         const a2 = r() * 6.283,
@@ -197,7 +302,7 @@ export function buildLandmarks(pl: Planet, group: THREE.Group) {
         part(
           parts,
           new THREE.ConeGeometry(0.5 + r() * 0.7, h, 5),
-          new THREE.Vector3(Math.cos(a2) * d2, y - h / 2 + 1 + r() * 2, Math.sin(a2) * d2),
+          new THREE.Vector3(Math.cos(a2) * d2, bottomY - h / 2 + 1 + r() * 2, Math.sin(a2) * d2),
           E(Math.PI, 0, 0),
           rock,
         );
@@ -242,8 +347,8 @@ export function buildLandmarks(pl: Planet, group: THREE.Group) {
             turf.clone().offsetHSL(0, -0.15, -0.12));
         }
       }
-      // plants — per-island archetype cycles: 0=conifer · 1=dome/mushroom · 2=shrub cluster
-      const plantType = v % 3;
+      // plants — per-island archetype cycles: 0=conifer · 1=dome/mushroom · 2=shrub cluster · 3=palm · 4=giant mushroom
+      const plantType = v % 5;
       for (let k = 0, n2 = 3 + ((r() * 5) | 0); k < n2; k++) {
         const a2 = r() * 6.283,
           d2 = r() * rad * 0.7,
@@ -262,6 +367,25 @@ export function buildLandmarks(pl: Planet, group: THREE.Group) {
           part(parts, new THREE.IcosahedronGeometry(1, 1),
             new THREE.Vector3(x, 0.75 + h + 0.5, z), E(0, 0, 0), fc,
             new THREE.Vector3(cr, cr * 0.5, cr));
+        } else if (plantType === 3) {
+          // palm: tall thin trunk + fanning frond cones at top
+          const ph = 2.2 + r() * 1.8, fronds = 4 + ((r() * 3) | 0);
+          part(parts, new THREE.CylinderGeometry(0.1, 0.18, ph, 4),
+            new THREE.Vector3(x, 0.75 + ph / 2, z), E(0, 0, 0), STONE_BARK);
+          for (let f = 0; f < fronds; f++) {
+            const af = (f / fronds) * 6.283, fh = 1.4 + r() * 0.8, tilt = 0.55 + r() * 0.3;
+            part(parts, new THREE.ConeGeometry(0.35 + r() * 0.2, fh, 4),
+              new THREE.Vector3(x + Math.cos(af) * fh * 0.5, 0.75 + ph + fh * 0.25, z + Math.sin(af) * fh * 0.5),
+              E(tilt * Math.sin(af + Math.PI), af, tilt * Math.cos(af + Math.PI)), fc);
+          }
+        } else if (plantType === 4) {
+          // giant mushroom: squat trunk + wide flat cap
+          const mh = 1.0 + r() * 1.2, cr = 1.6 + r() * 1.2;
+          part(parts, new THREE.CylinderGeometry(0.22, 0.32, mh, 5),
+            new THREE.Vector3(x, 0.75 + mh / 2, z), E(0, 0, 0), STONE_BARK);
+          part(parts, new THREE.IcosahedronGeometry(1, 1),
+            new THREE.Vector3(x, 0.75 + mh + cr * 0.3, z), E(0, r() * 3, 0), fc,
+            new THREE.Vector3(cr, cr * 0.28, cr));
         } else {
           // shrub — 3 small cones fanning outward
           for (let s = 0; s < 3; s++) {
@@ -282,14 +406,13 @@ export function buildLandmarks(pl: Planet, group: THREE.Group) {
             rock.clone().offsetHSL(0, 0, 0.06));
         }
       }
-      if (r() < 0.45)
-        part(
-          parts,
-          new THREE.CylinderGeometry(rad * 0.25, rad * 0.25, 0.2, 10),
-          new THREE.Vector3(rad * 0.6 * (r() - 0.5), 0.82, rad * 0.6 * (r() - 0.5)),
-          E(0, 0, 0),
-          new THREE.Color(CurrentPalette.islandPond),
-        );
+      if (r() < 0.45) {
+        // glowing pond — goes into crystal mesh so MeshBasicMaterial makes it bloom
+        const px = rad * 0.6 * (r() - 0.5), pz = rad * 0.6 * (r() - 0.5);
+        part(crystals, new THREE.CylinderGeometry(rad * 0.25, rad * 0.25, 0.18, 10),
+          new THREE.Vector3(px, 0.82, pz), E(0, 0, 0),
+          new THREE.Color(...CurrentPalette.crystals[v % 3]).multiplyScalar(0.55));
+      }
       if (r() < 0.5) {
         const a2 = r() * 6.283,
           h = 8 + r() * 8;
@@ -305,21 +428,45 @@ export function buildLandmarks(pl: Planet, group: THREE.Group) {
           new THREE.Color(CurrentPalette.islandFoam),
         );
       }
-      if (r() < 0.65)
-        for (let k = 0, n2 = 3 + ((r() * 4) | 0); k < n2; k++) {
+      if (r() < 0.65) {
+        const n2 = 5 + ((r() * 5) | 0);
+        for (let k = 0; k < n2; k++) {
           const a2 = r() * 6.283,
-            d2 = rad * (0.4 + r() * 0.5),
             s2 = 0.5 + r() * 0.8,
             hue = new THREE.Color(...CurrentPalette.crystals[v % 3]);
-          part(
-            crystals,
-            new THREE.OctahedronGeometry(1, 0),
-            new THREE.Vector3(Math.cos(a2) * d2, 0.75 + s2 * 1.2, Math.sin(a2) * d2),
+          // ~75% around top circumference, ~25% on the side face
+          const onRim = r() < 0.75;
+          const d2 = onRim ? rad * (0.82 + r() * 0.16) : rad * (0.95 + r() * 0.1);
+          const cy = onRim ? 0.75 + s2 * 1.2 : 0.2 - r() * 1.5;
+          part(crystals, new THREE.OctahedronGeometry(1, 0),
+            new THREE.Vector3(Math.cos(a2) * d2, cy, Math.sin(a2) * d2),
             E((r() - 0.5) * 0.4, r() * 3, (r() - 0.5) * 0.4),
-            hue,
-            new THREE.Vector3(0.5 * s2, 1.6 * s2, 0.5 * s2),
-          );
+            hue, new THREE.Vector3(0.5 * s2, 1.6 * s2, 0.5 * s2));
         }
+      }
+      // rock-face crystals — embedded in the cone tiers, angled outward
+      for (let k = 0, n2 = 3 + ((r() * 4) | 0); k < n2; k++) {
+        const a2 = r() * 6.283, depthFrac = 0.2 + r() * 0.5,
+          cs = (0.2 + r() * 0.4) * sz,
+          yd = bottomY * depthFrac,
+          dr = rad * (0.8 + r() * 0.15),
+          hue = new THREE.Color(...CurrentPalette.crystals[(v + 2) % 3]);
+        part(crystals, new THREE.OctahedronGeometry(1, 0),
+          new THREE.Vector3(Math.cos(a2) * dr, yd, Math.sin(a2) * dr),
+          new THREE.Euler((r() - 0.5) * 0.3, a2, 0.5 + (r() - 0.5) * 0.25),
+          hue, new THREE.Vector3(0.3 * cs, 1.6 * cs, 0.3 * cs));
+      }
+      // hanging underside crystals — always present, contrasting palette hue, point downward
+      for (let k = 0, n2 = 5 + ((r() * 6) | 0); k < n2; k++) {
+        const a2 = r() * 6.283,
+          d2 = rad * (0.3 + r() * 0.6),
+          s2 = 0.4 + r() * 0.9,
+          hue = new THREE.Color(...CurrentPalette.crystals[(v + 1) % 3]);
+        part(crystals, new THREE.OctahedronGeometry(1, 0),
+          new THREE.Vector3(Math.cos(a2) * d2, bottomY + s2 * 1.0 + r() * 3, Math.sin(a2) * d2),
+          E(Math.PI * 0.5 + (r() - 0.5) * 0.3, r() * 3, (r() - 0.5) * 0.3),
+          hue, new THREE.Vector3(0.4 * s2, 2.0 * s2, 0.4 * s2));
+      }
       for (let k = 0, n2 = 3 + ((r() * 3) | 0); k < n2; k++) {
         const a2 = r() * 6.283,
           d2 = rad * (1.25 + r() * 0.5),

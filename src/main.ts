@@ -106,6 +106,7 @@ renderer.domElement.addEventListener("webglcontextrestored", () =>
 
 await setStep(9, "Scouting locations");
 const spots = findSpots(planet);
+mapOverlay.setSpots(spots);
 
 const { gui, locs } = setupGui({ planet, player, post: postFX, rebuild, rebuildVeg: () => scatter.rebuild(), spots });
 addEventListener("resize", () => {

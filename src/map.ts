@@ -1,8 +1,18 @@
 import * as THREE from "three";
 import type { Planet } from "./planet";
 import type { Player } from "./player";
+import type { Landmark } from "./landmarks";
+import type { Spot } from "./spots";
 
 const W = 1024, H = 512;
+
+// emoji icon per landmark kind — matches visual style of scouted locations
+const LANDMARK_ICON: Record<string, string> = {
+  "monolith ring":   "🗿",
+  "twisted spire":   "⛰️",
+  "tombstone field": "🪦",
+  "floating island": "🏝️",
+};
 
 export class MapOverlay {
   visible = false;
@@ -12,6 +22,10 @@ export class MapOverlay {
   private dot: HTMLDivElement;
   private ctx: CanvasRenderingContext2D;
   private baseImageData: ImageData | null = null;
+  private landmarks: Landmark[] = [];
+  private spots: Spot[] = [];
+
+  setSpots(spots: Spot[]) { this.spots = spots; }
 
   constructor(
     private renderer: THREE.WebGLRenderer,
@@ -97,6 +111,7 @@ export class MapOverlay {
   private bakeBase() {
     const atlas = this.planet.atlas;
     if (!atlas?.done) return;
+    this.landmarks = this.planet.landmarks?.list ?? [];
 
     const rt = new THREE.WebGLRenderTarget(W, H, {
       type: THREE.UnsignedByteType,
@@ -168,6 +183,47 @@ export class MapOverlay {
       this.ctx.font = "18px sans-serif";
       this.ctx.textAlign = "center";
       this.ctx.fillText("Map building — open again in a moment", W / 2, H / 2);
+    }
+    // draw landmark icons — same emoji style as scouted locations
+    this.ctx.font = "14px sans-serif";
+    this.ctx.textAlign = "center";
+    for (const lm of this.landmarks) {
+      const d = lm.pos.clone().normalize();
+      const lat = Math.asin(Math.max(-1, Math.min(1, d.y)));
+      const lon = Math.atan2(d.z, d.x);
+      const px = ((lon / (Math.PI * 2)) + 0.5) * W;
+      const py = (0.5 - lat / Math.PI) * H;
+      const icon = LANDMARK_ICON[lm.name] ?? "📍";
+      this.ctx.fillStyle = "rgba(0,0,0,0.55)";
+      this.ctx.fillText(icon, px + 1, py + 5);
+      this.ctx.fillStyle = "#fff";
+      this.ctx.fillText(icon, px, py + 4);
+      this.ctx.font = "bold 11px sans-serif";
+      this.ctx.fillStyle = "rgba(0,0,0,0.65)";
+      this.ctx.fillText(lm.name, px + 1, py + 16);
+      this.ctx.fillStyle = "#e8e4d0";
+      this.ctx.fillText(lm.name, px, py + 15);
+      this.ctx.font = "14px sans-serif";
+    }
+    // draw scouted locations
+    this.ctx.font = "14px sans-serif";
+    for (const sp of this.spots) {
+      const lat = Math.asin(Math.max(-1, Math.min(1, sp.dir.y)));
+      const lon = Math.atan2(sp.dir.z, sp.dir.x);
+      const px = ((lon / (Math.PI * 2)) + 0.5) * W;
+      const py = (0.5 - lat / Math.PI) * H;
+      // shadow then icon emoji
+      this.ctx.fillStyle = "rgba(0,0,0,0.55)";
+      this.ctx.fillText(sp.icon, px + 1, py + 5);
+      this.ctx.fillStyle = "#fff";
+      this.ctx.fillText(sp.icon, px, py + 4);
+      // name label
+      this.ctx.font = "bold 11px sans-serif";
+      this.ctx.fillStyle = "rgba(0,0,0,0.65)";
+      this.ctx.fillText(sp.name, px + 1, py + 16);
+      this.ctx.fillStyle = "#e8e4d0";
+      this.ctx.fillText(sp.name, px, py + 15);
+      this.ctx.font = "14px sans-serif";
     }
   }
 
