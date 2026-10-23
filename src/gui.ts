@@ -1,5 +1,6 @@
 import GUI from "lil-gui";
 import { S, WEATHER_TYPE, type Settings } from "./settings";
+import { pushSeedUrl } from "./main";
 import { isTouchDevice } from "./touch";
 import { PALETTES, biomeColors, setPalette } from "./palette";
 import type { Planet } from "./planet";
@@ -57,7 +58,7 @@ export function setupGui({ planet, player, post, rebuild, rebuildVeg, spots }: C
   for (const [k, min, max, step] of TERRAIN)
     terrain
       .add(S, k, min, max, step)
-      .onFinishChange(() => rebuild(k === "seed" || k === "radius"));
+      .onFinishChange(() => { if (k === "seed") pushSeedUrl(S.seed); rebuild(k === "seed" || k === "radius"); });
   const biomes = gui.addFolder("Biomes");
   biomes
     .add(S, "forest", 0, 2, 0.05)
@@ -95,7 +96,10 @@ export function setupGui({ planet, player, post, rebuild, rebuildVeg, spots }: C
       locs.add({ go: () => player.warpTo(spot.dir) }, "go").name(`${spot.icon} ${spot.name}`);
     // landmark types go into collapsible subfolders — single pass
     const grouped = new Map<string, Spot[]>();
-    for (const s of spots) if (s.group) (grouped.get(s.group) ?? (grouped.set(s.group, []), grouped.get(s.group)!)).push(s);
+    for (const s of spots) if (s.group) {
+      if (!grouped.has(s.group)) grouped.set(s.group, []);
+      grouped.get(s.group)!.push(s);
+    }
     for (const [g, members] of grouped) {
       const folder = locs.addFolder(g);
       folder.close();
@@ -113,7 +117,10 @@ export function setupGui({ planet, player, post, rebuild, rebuildVeg, spots }: C
       {
         randomize: () => {
           S.seed = Math.floor(Math.random() * 99999);
+          const weathers = Object.values(WEATHER_TYPE);
+          S.weather = weathers[Math.floor(Math.random() * weathers.length)];
           gui.controllersRecursive().forEach((c) => c.updateDisplay());
+          pushSeedUrl(S.seed);
           rebuild(true);
         },
       },

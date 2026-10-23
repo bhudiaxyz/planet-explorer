@@ -40,19 +40,19 @@ varying vec3 vD;
 ${NOISE_GLSL}
 void main() {
   float e = dot(vD, uUp);
-  if (e < .05 || uAmt < .01) discard;
+  if (uAmt < .01) discard;
   float az  = atan(dot(vD, uR), dot(vD, uF) + 1e-5);
   float w   = n(vec2(az * 3. + uT * .05, uT * .1)) * 2. + n(vec2(az * 9., uT * .3));
   float c   = pow(abs(sin(az * 2. + w + uT * .15)), 3.);
-  float b   = smoothstep(.08, .22, e) * (1. - smoothstep(.4, .75, e));
+  float b   = smoothstep(.04, .22, e) * (1. - smoothstep(.4, .75, e));
   float ray = n(vec2(az * 40., e * 3. - uT * .5));
-  float I   = c * b * (.5 + .7 * ray) * uAmt * 1.6;
+  float I   = c * b * (.5 + .7 * ray) * uAmt;
   vec3  col = mix(vec3(.15, 1., .5), vec3(.6, .25, .9), smoothstep(.2, .6, e));
   gl_FragColor = vec4(col * I, I);
 }`,
   });
   mesh = new THREE.Mesh(
-    new THREE.SphereGeometry(16000, 32, 16),
+    new THREE.IcosahedronGeometry(16000, 3),
     this.mat,
   );
   constructor(scene: THREE.Scene) {

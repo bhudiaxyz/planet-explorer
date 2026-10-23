@@ -204,6 +204,7 @@ void main() {
     this.mesh.frustumCulled = false;
     this.mesh.matrixAutoUpdate = false;
     this.mesh.receiveShadow = true;
+    this.mesh.castShadow = spec.kind === 0; // only large-form plants cast shadows
   }
   /** Rebakes placement when the lattice centre moved. Returns true if a bake happened (so the caller can budget bakes per frame). */
   update(playerDirection: THREE.Vector3, planetRadius: number, allowBake = true): boolean {

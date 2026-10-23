@@ -48,16 +48,17 @@ void main() {
   basis(uCh.z, nA, uu, vv);
   vec3  P  = nA * uR + uu * (uCh.x + L.x) * ${CELL} + vv * (uCh.y + L.y) * ${CELL};
   vec3  d0 = normalize(P);
-  vec3  d1 = normalize(P + uu * ${CELL});
-  vec3  d2 = normalize(P + vv * ${CELL});
+  vec3  du = uu * ${CELL}, dv = vv * ${CELL};
+  vec3  d1 = normalize(P + du), d2 = normalize(P + dv);
+  vec3  d3 = normalize(P - du), d4 = normalize(P - dv);
   float e  = e3(d0, true);
-  vec3  p0 = d0 * (uR + e            * uAmp);
   vec3  p1 = d1 * (uR + e3(d1, true) * uAmp);
   vec3  p2 = d2 * (uR + e3(d2, true) * uAmp);
-  vec3  n  = normalize(cross(p1 - p0, p2 - p0));
+  vec3  p3 = d3 * (uR + e3(d3, true) * uAmp);
+  vec3  p4 = d4 * (uR + e3(d4, true) * uAmp);
+  vec3  n  = normalize(cross(p1 - p3, p2 - p4));
 #ifdef COL
-  float em = (e3(normalize(P + uu * ${CELL}), true) + e3(normalize(P - uu * ${CELL}), true)
-            + e3(normalize(P + vv * ${CELL}), true) + e3(normalize(P - vv * ${CELL}), true)) * .25;
+  float em = (e3(d1, true) + e3(d3, true) + e3(d2, true) + e3(d4, true)) * .25;
   float ao = 1. - clamp((em - e) * uAmp * 1.2, 0., .35) + clamp((e - em) * uAmp * .4, 0., .1);
   gl_FragColor = vec4(biome(d0, e, pn(d0 * uFreq * 2.2 + vec3(30., 0., 0.), 1), n) * ao, 1.);
 #else

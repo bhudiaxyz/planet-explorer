@@ -150,7 +150,9 @@ export function findSpots(planet: Planet): Spot[] {
 
   const fixed: Spot[] = [
     { name: "North Pole", icon: "⛄", dir: new THREE.Vector3(0, 1, 0) },
+    { name: "Aurora Borealis", icon: "🌌", dir: new THREE.Vector3(0.34, 0.94, 0).normalize() },
     { name: "South Pole", icon: "🦭", dir: new THREE.Vector3(0, -1, 0) },
+    { name: "Aurora Australis", icon: "🌌", dir: new THREE.Vector3(0.34, -0.94, 0).normalize() },
     { name: "Equator 0°",   icon: "⬆️", dir: new THREE.Vector3(1, 0, 0).normalize() },
     { name: "Equator 90°",  icon: "➡️", dir: new THREE.Vector3(0, 0, 1).normalize() },
     { name: "Equator 180°", icon: "⬇️", dir: new THREE.Vector3(-1, 0, 0).normalize() },

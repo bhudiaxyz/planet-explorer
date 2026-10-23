@@ -21,6 +21,15 @@ import { MapOverlay } from "./map";
 // lower default resolution and render scale on mobile/tablet to stay within GPU budget
 if (isTouchDevice) { S.resolution = 128; S.renderScale = 0.75; }
 
+// seed from URL (?seed=12345) — random if absent
+const urlSeed = new URLSearchParams(location.search).get("seed");
+if (urlSeed !== null) S.seed = Math.max(0, Math.min(99999, parseInt(urlSeed, 10) || 0));
+export function pushSeedUrl(seed: number) {
+  const p = new URLSearchParams(location.search);
+  p.set("seed", String(seed));
+  history.replaceState(null, "", "?" + p.toString());
+}
+
 // ---- renderer & scene ------------------------------------------------------------------------------------------------------------------------
 const renderer = new THREE.WebGLRenderer({
   antialias: !isTouchDevice,
@@ -51,6 +60,7 @@ const setStep = (n: number, label: string) => {
 await setStep(1, "Building terrain");
 const planet = new Planet(scene);
 await planet.build();
+pushSeedUrl(S.seed);
 
 await setStep(2, "Spawning player");
 const player = new Player(camera, planet, renderer.domElement);

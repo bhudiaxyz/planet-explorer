@@ -31,6 +31,7 @@ export function buildLandmarks(pl: Planet, group: THREE.Group) {
   const r = rng(S.seed + 900),
     list: Landmark[] = [],
     obs: Obs[] = [],
+    labelOffset = Math.floor(r() * SCI_FI_NAMES.length),
     bob: { m: THREE.Object3D; y: number; ph: number }[] = [];
   const mat = new THREE.MeshStandardMaterial({
     vertexColors: true,
@@ -165,6 +166,7 @@ export function buildLandmarks(pl: Planet, group: THREE.Group) {
       spireGroup.add(bake(parts));
       if (spireCrystals.length) {
         const cm = new THREE.Mesh(mergeGeometries(spireCrystals)!, crystalMat);
+        cm.castShadow = true;
         cm.frustumCulled = false;
         spireGroup.add(cm);
       }
@@ -209,6 +211,7 @@ export function buildLandmarks(pl: Planet, group: THREE.Group) {
       }
       if (tombCrystals.length) {
         const cm = new THREE.Mesh(mergeGeometries(tombCrystals)!, crystalMat);
+        cm.castShadow = true;
         cm.frustumCulled = false;
         g.add(cm);
       }
@@ -501,6 +504,7 @@ export function buildLandmarks(pl: Planet, group: THREE.Group) {
       const isl = bake(parts);
       if (crystals.length) {
         const cm = new THREE.Mesh(mergeGeometries(crystals)!, crystalMat);
+        cm.castShadow = true;
         cm.frustumCulled = false;
         isl.add(cm);
       }
@@ -519,7 +523,7 @@ export function buildLandmarks(pl: Planet, group: THREE.Group) {
             : kind === "tombs"
               ? "tombstone field"
               : "floating island",
-      label: SCI_FI_NAMES[Math.floor(r() * SCI_FI_NAMES.length)],
+      label: SCI_FI_NAMES[(labelOffset + list.length) % SCI_FI_NAMES.length],
       pos: g.position.clone(),
     });
   }

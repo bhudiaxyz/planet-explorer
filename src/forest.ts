@@ -382,7 +382,7 @@ export class Forest {
         makeInstancedMesh(midDetailGeos[si], 1),
         makeInstancedMesh(lowDetailGeos[si], 2),
       ];
-      speciesMeshes[0].castShadow = speciesMeshes[0].receiveShadow = true;
+      speciesMeshes.forEach((m, i) => { m.receiveShadow = true; m.castShadow = i < 2; });
       speciesMeshes[0].visible = speciesMeshes[1].visible = false;
       const lowDetailMesh = speciesMeshes[2];
       (lowDetailMesh.instanceMatrix.array as Float32Array).set(lists.far);

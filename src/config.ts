@@ -4,9 +4,9 @@ export const CFG = {
   chunk: {
     cells: 64,
     cell: 1.5,
-    radius: 2,
+    radius: 3,
     drop: 1.5,
-    skirt: 8,
+    skirt: 12,
     makeAlt: 185,
     clearAlt: 215,
     budget: 4,
