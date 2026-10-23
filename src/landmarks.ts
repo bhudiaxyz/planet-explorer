@@ -34,6 +34,23 @@ const LANDMARK_NAMES = [
   "Horsehead","Pillars of Creation","Lagoon Nebula","Veil Nebula","Carina Nebula",
   "Rosette","Tarantula","Butterfly Nebula","Cat's Eye","Owl Nebula",
   "Flame Nebula","Pelican Nebula","Witch Head","Running Man","Soul Nebula",
+  // Culture ships
+  "Sleeper Service","Mistake Not","Quietly Confident","Just Read the Instructions",
+  "Experiencing A Significant Gravitas Shortfall","Lightly Seared on the Reality Grill",
+  // Revelation Space
+  "Yellowstone","Resurgam","Ararat","Hela","Absolution Gap",
+  // Le Guin
+  "Anarres","Urras","Gethen","Rocannon's World","Athshe",
+  // The Expanse
+  "Ilus","Laconia","Medina","Ring Station","Ilus Prime",
+  // Babylon 5
+  "Minbar","Narn","Centauri Prime","Z'ha'dum","Rigel VII",
+  // terrain-flavoured
+  "North Pole","South Pole","Equator 0°","Equator 90°","Equator 180°","Equator 270°",
+  "Crater Lake","Obsidian Flats","Ashfall Plain","Midnight Basin","Ironspire",
+  "The Shallows","High Ridge","Storm Coast","Dust Bowl","Caldera",
+  "The Rift","Sunken Vale","Mountain Peak","Coastal Cliffs","Ancient Shelf",
+  "Canyon","Open Plains","Lagoon","Desert","Forest",
 ];
 // Rare deterministic landmarks: monolith rings, twisted spires, tombstone fields, floating islands.
 // Each landmark's parts are baked into ONE vertex-coloured mesh (about 210 draw calls and as many shadow draws become 16).
@@ -80,7 +97,7 @@ export function buildLandmarks(pl: Planet, group: THREE.Group) {
     m.castShadow = m.receiveShadow = true;
     return m;
   };
-  const kinds = ["ring", "spire", "spire", "tombs", "tombs", "island", "island", "island"];
+  const kinds = ["ring", "spire", "tombs", "island", "island", "ship", "pillars", "crater"];
   let nIsl = 0;
   for (let n = 0; n < 24; n++) {
     const kind = kinds[n % 8],
@@ -225,6 +242,102 @@ export function buildLandmarks(pl: Planet, group: THREE.Group) {
         cm.frustumCulled = false;
         g.add(cm);
       }
+    } else if (kind === "ship") {
+      // crashed spacecraft: elongated hull with swept wings and engine nacelles, nose buried
+      const sz = 0.85 + r() * 0.65;
+      const pitch = 0.18 + r() * 0.2;
+      const hl = 20 * sz, hw = 3.0 * sz, hh = 2.2 * sz;
+      const shipCol = STONE.clone().offsetHSL(0.6, -0.14, 0.02);
+      // hull body
+      part(parts, new THREE.BoxGeometry(hw, hh, hl),
+        new THREE.Vector3(0, hh * 0.45, 0),
+        new THREE.Euler(pitch, 0, 0), shipCol);
+      // swept wings
+      for (const side of [-1, 1] as const) {
+        part(parts, new THREE.BoxGeometry(8 * sz, 0.45 * sz, 5 * sz),
+          new THREE.Vector3(side * (hw * 0.5 + 4 * sz), hh * 0.42, 2 * sz),
+          new THREE.Euler(pitch, 0, side * 0.08), shipCol);
+      }
+      // engine nacelles
+      for (const side of [-1, 1] as const) {
+        part(parts, new THREE.CylinderGeometry(0.9 * sz, 0.65 * sz, 4.5 * sz, 7),
+          new THREE.Vector3(side * hw * 0.38, hh * 0.38 + 0.9 * sz, hl * 0.37),
+          new THREE.Euler(pitch, 0, 0), DARK);
+      }
+      // debris scatter
+      for (let k = 0, n2 = 5 + (r() * 7 | 0); k < n2; k++) {
+        const da = r() * 6.283, dd = 8 + r() * 18, ds = 0.4 + r() * 1.8;
+        const dx = Math.cos(da) * dd, dz = Math.sin(da) * dd;
+        part(parts, new THREE.BoxGeometry(ds, ds * 0.35, ds * 0.9),
+          new THREE.Vector3(dx, ground(dx, dz) + ds * 0.18, dz),
+          new THREE.Euler((r() - 0.5) * 0.6, r() * 6.283, (r() - 0.5) * 0.4), shipCol);
+      }
+      obs.push({ d: d.clone(), ax: wax(Math.PI / 2), rx: hl * 0.45, rz: hw * 0.55, H: hh, mode: 0 });
+      g.add(bake(parts));
+    } else if (kind === "pillars") {
+      // basalt hexagonal column field with glowing lava cracks
+      const sz = 0.75 + r() * 0.9;
+      const pillarCrystals: THREE.BufferGeometry[] = [];
+      const count = 12 + (r() * 10 | 0);
+      for (let k = 0; k < count; k++) {
+        const pa = r() * 6.283, pd = r() * r() * 20 * sz;
+        const px = Math.cos(pa) * pd, pz = Math.sin(pa) * pd;
+        const ph = (4 + r() * 12) * sz, pr = (0.6 + r() * 0.65) * sz;
+        part(parts, new THREE.CylinderGeometry(pr * 0.88, pr, ph, 6),
+          new THREE.Vector3(px, ground(px, pz) + ph * 0.5 - 0.4, pz),
+          new THREE.Euler((r() - 0.5) * 0.07, r() * 1.05, (r() - 0.5) * 0.07),
+          DARK.clone().offsetHSL(0, -0.25, (r() - 0.5) * 0.06));
+        if (k < 5) obs.push({ d: wd(px, pz), ax: wax(pa), rx: pr * 1.1, rz: pr * 1.1, H: Infinity, mode: 0 });
+      }
+      // glowing lava cracks between pillars
+      for (let k = 0, n2 = 6 + (r() * 8 | 0); k < n2; k++) {
+        const la = r() * 6.283, ld = r() * 12 * sz;
+        const lx = Math.cos(la) * ld, lz = Math.sin(la) * ld;
+        const cs = 0.2 + r() * 0.45;
+        part(pillarCrystals, new THREE.BoxGeometry(cs * 0.28, cs * 2.8, cs * 0.28),
+          new THREE.Vector3(lx, ground(lx, lz) + cs * 1.4, lz),
+          new THREE.Euler((r() - 0.5) * 0.25, r() * 6.283, (r() - 0.5) * 0.25),
+          new THREE.Color(1.0, 0.28 + r() * 0.2, 0.04));
+      }
+      g.add(bake(parts));
+      if (pillarCrystals.length) {
+        const cm = new THREE.Mesh(mergeGeometries(pillarCrystals)!, crystalMat);
+        cm.castShadow = true;
+        cm.frustumCulled = false;
+        g.add(cm);
+      }
+    } else if (kind === "crater") {
+      // impact crater: raised boulder rim, scattered ejecta, scorched dark centre
+      const sz = 1.0 + r() * 1.2;
+      const rimR = 16 * sz;
+      const rimCount = 14 + (r() * 10 | 0);
+      for (let k = 0; k < rimCount; k++) {
+        const ra = (k / rimCount) * 6.283 + (r() - 0.5) * 0.45;
+        const rd = rimR * (0.82 + r() * 0.35);
+        const rx2 = Math.cos(ra) * rd, rz2 = Math.sin(ra) * rd;
+        const rs = (1.4 + r() * 2.8) * sz;
+        part(parts, new THREE.IcosahedronGeometry(1, 1),
+          new THREE.Vector3(rx2, ground(rx2, rz2) + rs * 0.45, rz2),
+          new THREE.Euler(r() * 3, r() * 3, r() * 3),
+          STONE.clone().offsetHSL(0, 0, (r() - 0.5) * 0.1),
+          new THREE.Vector3(rs, rs * 0.72, rs));
+        if (k % 4 === 0) obs.push({ d: wd(rx2, rz2), ax: wax(ra), rx: rs * 0.85, rz: rs * 0.85, H: rs * 0.7, mode: 2 });
+      }
+      // scattered ejecta beyond the rim
+      for (let k = 0, n2 = 8 + (r() * 10 | 0); k < n2; k++) {
+        const ea = r() * 6.283, ed = rimR * (1.1 + r() * 0.9), es = (0.4 + r() * 1.2) * sz;
+        const ex = Math.cos(ea) * ed, ez = Math.sin(ea) * ed;
+        part(parts, new THREE.IcosahedronGeometry(1, 0),
+          new THREE.Vector3(ex, ground(ex, ez) + es * 0.3, ez),
+          new THREE.Euler(r() * 3, r() * 3, r() * 3),
+          STONE.clone().offsetHSL(0, 0, (r() - 0.5) * 0.1),
+          new THREE.Vector3(es, es * 0.5, es));
+      }
+      // scorched centre disc
+      part(parts, new THREE.CylinderGeometry(rimR * 0.62, rimR * 0.68, 0.2, 12),
+        new THREE.Vector3(0, 0.1, 0), new THREE.Euler(0, 0, 0),
+        DARK.clone().offsetHSL(0, -0.4, -0.08));
+      g.add(bake(parts));
     } else {
       // every island is different: palette (grass / autumn / teal / violet / frost), 2-4 rock tiers, stalactites, trees, optional pond, waterfall,
       // glowing crystals (HDR, picked up by bloom) and orbiting debris (it rotates with the island), plus a small random tilt
@@ -526,13 +639,13 @@ export function buildLandmarks(pl: Planet, group: THREE.Group) {
     }
     list.push({
       name:
-        kind === "ring"
-          ? "monolith ring"
-          : kind === "spire"
-            ? "twisted spire"
-            : kind === "tombs"
-              ? "tombstone field"
-              : "floating island",
+        kind === "ring"    ? "monolith ring"
+        : kind === "spire" ? "twisted spire"
+        : kind === "tombs" ? "tombstone field"
+        : kind === "ship"  ? "crashed ship"
+        : kind === "pillars" ? "pillar field"
+        : kind === "crater"  ? "impact crater"
+        : "floating island",
       label: LANDMARK_NAMES[(labelOffset + list.length) % LANDMARK_NAMES.length],
       pos: g.position.clone(),
     });

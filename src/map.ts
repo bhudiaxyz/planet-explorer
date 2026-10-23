@@ -13,6 +13,9 @@ const LANDMARK_ICON: Record<string, string> = {
   "twisted spire":   "⛰️",
   "tombstone field": "🪦",
   "floating island": "🏝️",
+  "crashed ship":    "🚀",
+  "pillar field":    "🪨",
+  "impact crater":   "☄️",
 };
 
 export class MapOverlay {

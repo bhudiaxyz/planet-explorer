@@ -164,6 +164,9 @@ export function findSpots(planet: Planet): Spot[] {
     "twisted spire":   "⛰️",
     "tombstone field": "🪦",
     "floating island": "🏝️",
+    "crashed ship":    "🚀",
+    "pillar field":    "🪨",
+    "impact crater":   "☄️",
   };
   const landmarks: Spot[] = planet.landmarks.list.map(lm => {
     const d = lm.pos.clone().normalize();
@@ -177,7 +180,7 @@ export function findSpots(planet: Planet): Spot[] {
 
   const scanned = features
     .filter(f => f.dir !== null)
-    .map(f => ({ name: f.name, icon: f.icon, dir: f.dir! }));
+    .map(f => ({ name: f.name, icon: f.icon, dir: f.dir!, group: "beauty spots" }));
 
-  return [...fixed, ...landmarks, ...scanned];
+  return [...fixed, ...scanned, ...landmarks];
 }
