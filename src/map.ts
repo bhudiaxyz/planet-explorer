@@ -20,7 +20,9 @@ export class MapOverlay {
   private container: HTMLDivElement;
   private bg: HTMLDivElement;
   private canvas: HTMLCanvasElement;
-  private dot: HTMLDivElement;
+  private dotLon = 0;
+  private dotLat = 0;
+  private dotHeading = 0;
   private ctx: CanvasRenderingContext2D;
   private baseCanvas: HTMLCanvasElement | null = null;
   private landmarks: Landmark[] = [];
@@ -30,9 +32,6 @@ export class MapOverlay {
   private nightBuf!: Uint8ClampedArray;
   private nightImageData!: ImageData;
   private lastSun = new THREE.Vector3(Infinity, 0, 0);
-  private lastLon = NaN;
-  private lastLat = NaN;
-  private lastHeading = NaN;
 
   setSpots(spots: Spot[]) {
     this.ungroupedSpots = spots.filter(s => !s.group);
@@ -55,20 +54,6 @@ export class MapOverlay {
     this.canvas.height = H;
     this.ctx = this.canvas.getContext("2d")!;
 
-    this.dot = document.createElement("div");
-    Object.assign(this.dot.style, {
-      position: "absolute",
-      width: "0", height: "0",
-      borderLeft: "7px solid transparent",
-      borderRight: "7px solid transparent",
-      borderBottom: "16px solid #e84",
-      filter: "drop-shadow(0 0 3px rgba(0,0,0,.9))",
-      transform: "translate(-50%,-50%) rotate(0deg)",
-      transformOrigin: "50% 67%",
-      pointerEvents: "none",
-      zIndex: "1",
-    });
-
     this.container = document.createElement("div");
     Object.assign(this.container.style, {
       position: "fixed",
@@ -83,7 +68,6 @@ export class MapOverlay {
     });
     this.canvas.style.cssText = "width:100%;height:100%;display:block;";
     this.container.appendChild(this.canvas);
-    this.container.appendChild(this.dot);
 
     document.body.appendChild(this.bg);
     document.body.appendChild(this.container);
@@ -107,6 +91,7 @@ export class MapOverlay {
     this.bg.style.display = d;
     this.container.style.display = d;
     if (this.visible) {
+      this.updateDot();
       if (!this.baseCanvas) this.bakeBase();
       this.drawBase();
       this.updateDot();
@@ -270,27 +255,40 @@ export class MapOverlay {
       this.ctx.fillText("Map building — open again in a moment", W / 2, H / 2);
     }
     this.drawNightOverlay();
+    this.drawDot();
+  }
+
+  private drawDot() {
+    const px = ((this.dotLon / (Math.PI * 2)) + 0.5) * W;
+    const py = (0.5 - this.dotLat / Math.PI) * H;
+    const ctx = this.ctx;
+    ctx.save();
+    ctx.translate(px, py);
+    ctx.rotate(this.dotHeading * Math.PI / 180);
+    ctx.shadowColor = "rgba(0,0,0,0.9)";
+    ctx.shadowBlur = 4;
+    ctx.fillStyle = "#ee8844";
+    ctx.beginPath();
+    ctx.moveTo(0, -18);
+    ctx.lineTo(10, 10);
+    ctx.lineTo(0, 4);
+    ctx.lineTo(-10, 10);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
   }
 
   private updateDot() {
-    const up = this.player.up;
-    const lat = Math.asin(Math.max(-1, Math.min(1, up.y)));
-    const lon = Math.atan2(up.z, up.x);
-    if (Math.abs(lon - this.lastLon) > 2e-4 || Math.abs(lat - this.lastLat) > 2e-4) {
-      this.dot.style.left = `${((lon / (Math.PI * 2)) + 0.5) * 100}%`;
-      this.dot.style.top  = `${(0.5 - lat / Math.PI) * 100}%`;
-      this.lastLon = lon; this.lastLat = lat;
-    }
-    // project forward onto local east/north to get map heading
+    const up = this.player.dir;
+    this.dotLat = Math.asin(Math.max(-1, Math.min(1, up.y)));
+    this.dotLon = Math.atan2(up.z, up.x);
     const fwd = this.player.forward;
-    const eastX = -Math.sin(lon), eastZ = Math.cos(lon);
-    const northX = -Math.sin(lat) * Math.cos(lon), northY = Math.cos(lat), northZ = -Math.sin(lat) * Math.sin(lon);
+    const eastX = -Math.sin(this.dotLon), eastZ = Math.cos(this.dotLon);
+    const northX = -Math.sin(this.dotLat) * Math.cos(this.dotLon),
+          northY = Math.cos(this.dotLat),
+          northZ = -Math.sin(this.dotLat) * Math.sin(this.dotLon);
     const e = fwd.x * eastX + fwd.z * eastZ;
     const n = fwd.x * northX + fwd.y * northY + fwd.z * northZ;
-    const headingDeg = Math.atan2(e, n) * (180 / Math.PI);
-    if (Math.abs(headingDeg - this.lastHeading) > 0.5) {
-      this.dot.style.transform = `translate(-50%,-50%) rotate(${headingDeg}deg)`;
-      this.lastHeading = headingDeg;
-    }
+    this.dotHeading = Math.atan2(e, n) * (180 / Math.PI);
   }
 }

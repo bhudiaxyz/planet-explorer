@@ -94,10 +94,8 @@ export class ChunkManager {
         want.add(k);
         if (!this.map.has(k)) todo.push([ci + a, cj + b]);
       }
-    todo.sort(
-      (x, y) =>
-        Math.hypot(x[0] - ci, x[1] - cj) - Math.hypot(y[0] - ci, y[1] - cj),
-    ); // nearest first
+    const dist2 = (p: [number, number]) => { const dx = p[0] - ci, dy = p[1] - cj; return dx * dx + dy * dy; };
+    todo.sort((x, y) => dist2(x) - dist2(y)); // nearest first
     let budget = this.map.size ? BUDGET : FIRST;
     for (const [a, b] of todo) {
       if (budget-- <= 0) break;
@@ -114,7 +112,7 @@ export class ChunkManager {
         Math.max(
           Math.abs(m.userData.ci - ci),
           Math.abs(m.userData.cj - cj),
-        ) >= 3; // target LOD; tick() geomorphs to it
+        ) > CR; // target LOD; tick() geomorphs to it — only beyond the streaming radius
     for (const k of want) if (!this.map.has(k)) return; // finish loading before retiring anything
     for (const [k, m] of this.map)
       if (!want.has(k)) {
@@ -154,7 +152,8 @@ export class ChunkManager {
       if (fadeUniform.value <= 0) {
         this.group.remove(m);
         this.pool.push(m);
-        this.dying.splice(i, 1);
+        this.dying[i] = this.dying[this.dying.length - 1];
+        this.dying.pop();
       }
     }
   }

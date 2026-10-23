@@ -34,6 +34,8 @@ export class Collider {
   private obstaclePos = new THREE.Vector3();
   private tangent1 = new THREE.Vector3();
   private tangent2 = new THREE.Vector3();
+  private scratchD = new THREE.Vector3();
+  private scratchAx = new THREE.Vector3();
   constructor(
     private planet: Planet,
     private scatter: Scatter,
@@ -83,24 +85,24 @@ export class Collider {
             this.basisTangentV,
             (bakeSnapshot.cellJ + y - K + h2 - 0.5) * cell,
           );
-        const d = this.obstaclePos.clone().normalize();
-        if (d.distanceTo(dir) * planetRadius > 18) continue;
+        this.scratchD.copy(this.obstaclePos).normalize();
+        if (this.scratchD.distanceTo(dir) * planetRadius > 18) continue;
         this.tangent1
-          .crossVectors(d, Math.abs(d.y) < 0.99 ? Y : X)
+          .crossVectors(this.scratchD, Math.abs(this.scratchD.y) < 0.99 ? Y : X)
           .normalize();
-        this.tangent2.crossVectors(d, this.tangent1);
+        this.tangent2.crossVectors(this.scratchD, this.tangent1);
         if (layer.kind === 3) {
           // rocks: scale s = .3+1.6·h1, yaw from h3 (identical to the vertex shader)
           const s = 0.3 + h1 * 1.6;
           if (s < 0.45) continue; // pebbles are stepped over
-          const a = h3 * 6.283,
-            ax = this.tangent1
-              .clone()
-              .multiplyScalar(Math.cos(a))
-              .addScaledVector(this.tangent2, Math.sin(a));
+          const a = h3 * 6.283;
+          this.scratchAx
+            .copy(this.tangent1)
+            .multiplyScalar(Math.cos(a))
+            .addScaledVector(this.tangent2, Math.sin(a));
           this.obs.push({
-            d,
-            ax,
+            d: this.scratchD.clone(),
+            ax: this.scratchAx.clone(),
             rx: 0.95 * s,
             rz: 0.76 * s,
             H: 0.78 * s,
@@ -110,7 +112,7 @@ export class Collider {
           // shrubs: uniform scale .8+1.1·h2
           const s = 0.8 + h2 * 1.1;
           this.obs.push({
-            d,
+            d: this.scratchD.clone(),
             ax: this.tangent1.clone(),
             rx: 0.8 * s,
             rz: 0.8 * s,

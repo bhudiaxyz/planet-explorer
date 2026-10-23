@@ -26,6 +26,7 @@ export class Planet {
   landmarks: ReturnType<typeof buildLandmarks> = { list: [], obs: [], tick: () => {} };
   chunks = new ChunkManager(this.group, () => this.radius);
   private elapsedTime = 0;
+  private scratchDir = new THREE.Vector3();
   atmosphere = new THREE.ShaderMaterial({
     transparent: true,
     side: THREE.BackSide,
@@ -162,7 +163,7 @@ void main() {
       j = Math.min(N - 1, Math.floor(B)),
       fa = A - i,
       fb = B - j,
-      sampleDir = new THREE.Vector3();
+      sampleDir = this.scratchDir;
     const g = (a: number, b: number) => {
       sampleDir
         .copy(fr.normal)

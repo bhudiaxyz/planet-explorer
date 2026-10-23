@@ -42,12 +42,9 @@ export class Sky {
         fog: false,
       }),
     );
-    const sp = new Float32Array(7500);
+    const sp = new Float32Array(7500), sv = new THREE.Vector3();
     for (let i = 0; i < 2500; i++)
-      new THREE.Vector3()
-        .randomDirection()
-        .multiplyScalar(18000)
-        .toArray(sp, i * 3);
+      sv.randomDirection().multiplyScalar(18000).toArray(sp, i * 3);
     this.stars = new THREE.Points(
       new THREE.BufferGeometry().setAttribute(
         "position",
@@ -229,7 +226,7 @@ void main() {
     this.moon.color.set(CurrentPalette.moonLight);
     this.ambientLight.color.set(CurrentPalette.ambientLight);
     this.ambientLight.intensity =
-      0.05 + 0.25 * this.dayF * (1 - this.space);
+      0.12 + 0.25 * this.dayF * (1 - this.space);
     // bodies
     const starOp = (1 - this.dayF * (1 - this.space)) * (1 - this.cloud * 0.7);
     this.stars.rotation.y = S.timeOfDay * Math.PI * 2;
