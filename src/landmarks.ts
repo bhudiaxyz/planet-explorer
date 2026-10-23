@@ -8,7 +8,17 @@ import { CurrentPalette } from "./palette";
 const UP = new THREE.Vector3(0, 1, 0);
 export type Landmark = { name: string; label: string; pos: THREE.Vector3 };
 
-const LANDMARK_NAMES = [
+export const LANDMARK_ICON: Record<string, string> = {
+  "Monolith Ring":   "🗿",
+  "Twisted Spire":   "⛰️",
+  "Tombstone Field": "🪦",
+  "Floating Island": "🏝️",
+  "Crashed Ship":    "🚀",
+  "Pillar Field":    "🪨",
+  "Impact Crater":   "☄️",
+};
+
+export const LANDMARK_NAMES = [
   // sci-fi
   "Arrakeen","Giedi Prime","Caladan","Arrakis","Salusa Secundus",
   "Trantor","Helicon","Terminus","Askonia","Kalgan",
@@ -52,7 +62,7 @@ const LANDMARK_NAMES = [
   "The Rift","Sunken Vale","Mountain Peak","Coastal Cliffs","Ancient Shelf",
   "Canyon","Open Plains","Lagoon","Desert","Forest",
 ];
-// Rare deterministic landmarks: monolith rings, twisted spires, tombstone fields, floating islands.
+// Rare deterministic landmarks: monolith rings, twisted spires, tombstone fields, floating islands, crashed ships, basalt pillar fields, impact craters.
 // Each landmark's parts are baked into ONE vertex-coloured mesh (about 210 draw calls and as many shadow draws become 16).
 export function buildLandmarks(pl: Planet, group: THREE.Group) {
   const r = rng(S.seed + 900),
@@ -639,13 +649,13 @@ export function buildLandmarks(pl: Planet, group: THREE.Group) {
     }
     list.push({
       name:
-        kind === "ring"    ? "monolith ring"
-        : kind === "spire" ? "twisted spire"
-        : kind === "tombs" ? "tombstone field"
-        : kind === "ship"  ? "crashed ship"
-        : kind === "pillars" ? "pillar field"
-        : kind === "crater"  ? "impact crater"
-        : "floating island",
+        kind === "ring"    ? "Monolith Ring"
+        : kind === "spire" ? "Twisted Spire"
+        : kind === "tombs" ? "Tombstone Field"
+        : kind === "ship"  ? "Crashed Ship"
+        : kind === "pillars" ? "Pillar Field"
+        : kind === "crater"  ? "Impact Crater"
+        : "Floating Island",
       label: LANDMARK_NAMES[(labelOffset + list.length) % LANDMARK_NAMES.length],
       pos: g.position.clone(),
     });

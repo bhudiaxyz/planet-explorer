@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import type { Planet } from "./planet";
+import { LANDMARK_ICON, LANDMARK_NAMES } from "./landmarks";
 import { rng } from "./noise";
 import { S } from "./settings";
 
@@ -17,8 +18,7 @@ export function findSpots(planet: Planet): Spot[] {
     name: string;
     icon: string;
     score: (e: number, nbrs: number[], t: number, m: number) => number;
-    best: number;
-    dir: THREE.Vector3 | null;
+    candidates: { score: number; dir: THREE.Vector3 }[];
   };
 
   const features: Feature[] = [
@@ -29,7 +29,7 @@ export function findSpots(planet: Planet): Spot[] {
         const nWater = nbrs.filter(n => n < 0).length;
         return nWater >= 1 ? 1 - Math.abs(e - 0.02) * 20 + nWater * 0.15 : 0;
       },
-      best: 0, dir: null,
+      candidates: [],
     },
     {
       name: "Mountain Peak", icon: "🏔️",
@@ -37,7 +37,7 @@ export function findSpots(planet: Planet): Spot[] {
         if (e < 0.35) return 0;
         return nbrs.every(n => n < e) ? e : 0;
       },
-      best: 0, dir: null,
+      candidates: [],
     },
     {
       name: "Canyon", icon: "🏜️",
@@ -47,7 +47,7 @@ export function findSpots(planet: Planet): Spot[] {
         const rise = mean - e;
         return rise > 0.08 ? rise : 0;
       },
-      best: 0, dir: null,
+      candidates: [],
     },
     {
       name: "Island", icon: "🏝️",
@@ -56,7 +56,7 @@ export function findSpots(planet: Planet): Spot[] {
         const nWater = nbrs.filter(n => n < 0).length;
         return nWater >= 6 ? nWater - 5 + e : 0;
       },
-      best: 0, dir: null,
+      candidates: [],
     },
     {
       name: "Coastal Cliffs", icon: "🌊",
@@ -65,7 +65,7 @@ export function findSpots(planet: Planet): Spot[] {
         const nWater = nbrs.filter(n => n < 0).length;
         return nWater >= 1 && nWater <= 4 ? e * nWater : 0;
       },
-      best: 0, dir: null,
+      candidates: [],
     },
     {
       name: "Open Plains", icon: "🌿",
@@ -76,7 +76,7 @@ export function findSpots(planet: Planet): Spot[] {
         const nWater = nbrs.filter(n => n < 0).length;
         return nWater === 0 && variance < 0.0008 && m > 0.4 ? 1 - variance * 1000 : 0;
       },
-      best: 0, dir: null,
+      candidates: [],
     },
     {
       name: "Snow Field", icon: "❄️",
@@ -86,7 +86,7 @@ export function findSpots(planet: Planet): Spot[] {
         const variance = nbrs.reduce((a, b) => a + (b - mean) ** 2, 0) / nbrs.length;
         return variance < 0.002 ? e - t * 0.5 : 0;
       },
-      best: 0, dir: null,
+      candidates: [],
     },
     {
       name: "Desert", icon: "☀️",
@@ -96,7 +96,7 @@ export function findSpots(planet: Planet): Spot[] {
         const variance = nbrs.reduce((a, b) => a + (b - mean) ** 2, 0) / nbrs.length;
         return variance < 0.003 ? t + (0.3 - m) : 0;
       },
-      best: 0, dir: null,
+      candidates: [],
     },
     {
       name: "Lagoon", icon: "🐠",
@@ -105,7 +105,7 @@ export function findSpots(planet: Planet): Spot[] {
         const nLand = nbrs.filter(n => n > 0).length;
         return nLand >= 5 ? nLand - 4 - Math.abs(e) * 5 : 0;
       },
-      best: 0, dir: null,
+      candidates: [],
     },
     {
       name: "Rainforest", icon: "🌴",
@@ -114,7 +114,7 @@ export function findSpots(planet: Planet): Spot[] {
         const nWater = nbrs.filter(n => n < 0).length;
         return nWater === 0 ? t + m : 0;
       },
-      best: 0, dir: null,
+      candidates: [],
     },
   ];
 
@@ -144,7 +144,21 @@ export function findSpots(planet: Planet): Spot[] {
     const nbrs = getNeighbors(tmp);
     for (const f of features) {
       const s = f.score(e, nbrs, t, m);
-      if (s > f.best) { f.best = s; f.dir = tmp.clone(); }
+      if (s <= 0) continue;
+      // keep candidate if it's far enough (>30°) from all existing ones, or better than the worst
+      const MIN_ANG = 0.52; // ~30°
+      const far = f.candidates.every(c => c.dir.angleTo(tmp) > MIN_ANG);
+      if (far) {
+        f.candidates.push({ score: s, dir: tmp.clone() });
+        if (f.candidates.length > 3) {
+          f.candidates.sort((a, b) => b.score - a.score);
+          f.candidates.length = 3;
+        }
+      } else {
+        const closest = f.candidates.reduce((best, c) =>
+          c.dir.angleTo(tmp) < best.dir.angleTo(tmp) ? c : best);
+        if (s > closest.score) { closest.score = s; closest.dir = tmp.clone(); }
+      }
     }
   }
 
@@ -159,15 +173,6 @@ export function findSpots(planet: Planet): Spot[] {
     { name: "Equator 270°", icon: "⬅️", dir: new THREE.Vector3(0, 0, -1).normalize() },
   ];
 
-  const landmarkIcons: Record<string, string> = {
-    "monolith ring":   "🗿",
-    "twisted spire":   "⛰️",
-    "tombstone field": "🪦",
-    "floating island": "🏝️",
-    "crashed ship":    "🚀",
-    "pillar field":    "🪨",
-    "impact crater":   "☄️",
-  };
   const landmarks: Spot[] = planet.landmarks.list.map(lm => {
     const d = lm.pos.clone().normalize();
     const side = new THREE.Vector3(0, 1, 0).cross(d);
@@ -175,12 +180,20 @@ export function findSpots(planet: Planet): Spot[] {
     side.normalize();
     // offset ~8 m away so the player doesn't spawn inside the landmark
     d.addScaledVector(side, 8 / S.radius).normalize();
-    return { name: lm.label, icon: landmarkIcons[lm.name] ?? "📍", dir: d, group: lm.name };
+    return { name: lm.label, icon: LANDMARK_ICON[lm.name] ?? "📍", dir: d, group: lm.name };
   });
 
-  const scanned = features
-    .filter(f => f.dir !== null)
-    .map(f => ({ name: f.name, icon: f.icon, dir: f.dir!, group: "beauty spots" }));
+  const nameOffset = Math.floor(rand() * LANDMARK_NAMES.length);
+  let nameIdx = 0;
+  const scanned = features.flatMap(f => {
+    f.candidates.sort((a, b) => b.score - a.score);
+    return f.candidates.map(c => ({
+      name: LANDMARK_NAMES[(nameOffset + nameIdx++) % LANDMARK_NAMES.length],
+      icon: f.icon,
+      dir: c.dir,
+      group: f.name,
+    }));
+  });
 
   return [...fixed, ...scanned, ...landmarks];
 }

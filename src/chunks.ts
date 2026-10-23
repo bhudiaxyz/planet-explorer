@@ -112,7 +112,7 @@ export class ChunkManager {
         Math.max(
           Math.abs(m.userData.ci - ci),
           Math.abs(m.userData.cj - cj),
-        ) > CR; // target LOD; tick() geomorphs to it — only beyond the streaming radius
+        ) >= CR; // target LOD; tick() geomorphs to it — only the outermost ring uses half-res
     for (const k of want) if (!this.map.has(k)) return; // finish loading before retiring anything
     for (const [k, m] of this.map)
       if (!want.has(k)) {

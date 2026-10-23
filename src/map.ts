@@ -1,22 +1,13 @@
 import * as THREE from "three";
 import type { Planet } from "./planet";
 import type { Player } from "./player";
-import type { Landmark } from "./landmarks";
+import { type Landmark, LANDMARK_ICON } from "./landmarks";
 import type { Spot } from "./spots";
 import { U } from "./fx";
 
 const W = 1024, H = 512;
 
 // emoji icon per landmark kind — matches visual style of scouted locations
-const LANDMARK_ICON: Record<string, string> = {
-  "monolith ring":   "🗿",
-  "twisted spire":   "⛰️",
-  "tombstone field": "🪦",
-  "floating island": "🏝️",
-  "crashed ship":    "🚀",
-  "pillar field":    "🪨",
-  "impact crater":   "☄️",
-};
 
 export class MapOverlay {
   visible = false;
@@ -259,6 +250,40 @@ export class MapOverlay {
     }
     this.drawNightOverlay();
     this.drawDot();
+    this.drawCompass();
+  }
+
+  private drawCompass() {
+    const ctx = this.ctx;
+    const cx = W - 36, cy = 36, r = 22;
+    ctx.save();
+    ctx.shadowColor = "rgba(0,0,0,0.8)";
+    ctx.shadowBlur = 6;
+    // N arrow (points to top of map = north pole)
+    ctx.fillStyle = "#e84444";
+    ctx.beginPath();
+    ctx.moveTo(cx, cy - r);
+    ctx.lineTo(cx + 6, cy);
+    ctx.lineTo(cx, cy - 4);
+    ctx.lineTo(cx - 6, cy);
+    ctx.closePath();
+    ctx.fill();
+    // S arrow
+    ctx.fillStyle = "#cccccc";
+    ctx.beginPath();
+    ctx.moveTo(cx, cy + r);
+    ctx.lineTo(cx + 6, cy);
+    ctx.lineTo(cx, cy + 4);
+    ctx.lineTo(cx - 6, cy);
+    ctx.closePath();
+    ctx.fill();
+    // N label
+    ctx.shadowBlur = 3;
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "bold 11px sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText("N", cx, cy - r - 4);
+    ctx.restore();
   }
 
   private drawDot() {
