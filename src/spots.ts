@@ -157,9 +157,21 @@ export function findSpots(planet: Planet): Spot[] {
     { name: "Equator 270°", icon: "⬅️", dir: new THREE.Vector3(0, 0, -1).normalize() },
   ];
 
+  const landmarkIcons: Record<string, string> = {
+    "monolith ring":   "🗿",
+    "twisted spire":   "⛰️",
+    "tombstone field": "🪦",
+    "floating island": "🏝️",
+  };
+  const landmarks: Spot[] = planet.landmarks.list.map(lm => ({
+    name: lm.name,
+    icon: landmarkIcons[lm.name] ?? "📍",
+    dir: lm.pos.clone().normalize(),
+  }));
+
   const scanned = features
     .filter(f => f.dir !== null)
     .map(f => ({ name: f.name, icon: f.icon, dir: f.dir! }));
 
-  return [...fixed, ...scanned];
+  return [...fixed, ...landmarks, ...scanned];
 }

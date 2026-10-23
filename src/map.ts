@@ -3,6 +3,7 @@ import type { Planet } from "./planet";
 import type { Player } from "./player";
 import type { Landmark } from "./landmarks";
 import type { Spot } from "./spots";
+import { U } from "./fx";
 
 const W = 1024, H = 512;
 
@@ -93,13 +94,11 @@ export class MapOverlay {
     }
   }
 
-  /** Call from frame loop while visible to keep the player dot current. */
+  /** Call from frame loop while visible to keep the player dot and day/night overlay current. */
   tick() {
     if (!this.visible) return;
-    if (!this.baseImageData && this.planet.atlas?.done) {
-      this.bakeBase();
-      this.drawBase();
-    }
+    if (!this.baseImageData && this.planet.atlas?.done) this.bakeBase();
+    this.drawBase();
     this.updateDot();
   }
 
@@ -173,6 +172,32 @@ export class MapOverlay {
     rt.dispose();
   }
 
+  private drawNightOverlay() {
+    // low-res overlay (bilinear upscale gives soft terminator edge)
+    const OW = 256, OH = 128;
+    const sun = U.uSun.value;
+    const buf = new Uint8ClampedArray(OW * OH * 4);
+    for (let y = 0; y < OH; y++) {
+      const lat = (0.5 - y / OH) * Math.PI;
+      const cosLat = Math.cos(lat), sinLat = Math.sin(lat);
+      for (let x = 0; x < OW; x++) {
+        const lon = (x / OW - 0.5) * Math.PI * 2;
+        const dx = cosLat * Math.cos(lon), dy = sinLat, dz = cosLat * Math.sin(lon);
+        const dot = dx * sun.x + dy * sun.y + dz * sun.z;
+        // smoothstep terminator: fully dark at dot < -0.07, fully lit at dot > 0.07
+        const t = 1 - Math.max(0, Math.min(1, (dot + 0.07) / 0.14));
+        const alpha = Math.round(t * 148); // max ~58% dark
+        const i = (y * OW + x) * 4;
+        buf[i] = 0; buf[i+1] = 0; buf[i+2] = 8; buf[i+3] = alpha;
+      }
+    }
+    const off = document.createElement("canvas");
+    off.width = OW; off.height = OH;
+    const octx = off.getContext("2d")!;
+    octx.putImageData(new ImageData(buf, OW, OH), 0, 0);
+    this.ctx.drawImage(off, 0, 0, W, H);
+  }
+
   private drawBase() {
     if (this.baseImageData) {
       this.ctx.putImageData(this.baseImageData, 0, 0);
@@ -184,6 +209,7 @@ export class MapOverlay {
       this.ctx.textAlign = "center";
       this.ctx.fillText("Map building — open again in a moment", W / 2, H / 2);
     }
+    this.drawNightOverlay();
     // draw landmark icons — same emoji style as scouted locations
     this.ctx.font = "14px sans-serif";
     this.ctx.textAlign = "center";
