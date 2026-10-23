@@ -81,7 +81,12 @@ export class MapOverlay {
 
   /** Call from frame loop while visible to keep the player dot current. */
   tick() {
-    if (this.visible) this.updateDot();
+    if (!this.visible) return;
+    if (!this.baseImageData && this.planet.atlas?.done) {
+      this.bakeBase();
+      this.drawBase();
+    }
+    this.updateDot();
   }
 
   /** Call after planet rebuild to invalidate the cached base image. */
@@ -98,26 +103,32 @@ export class MapOverlay {
       depthBuffer: false,
     });
     const mat = new THREE.ShaderMaterial({
-      uniforms: { uCube: { value: atlas.rtC.texture } },
+      uniforms: {
+        uCube:  { value: atlas.rtC.texture },
+        uCubeN: { value: atlas.rtN.texture },
+      },
       vertexShader: `void main() { gl_Position = vec4(position.xy, 0., 1.); }`,
       fragmentShader: `
         uniform samplerCube uCube;
-        // ACES filmic approximation (matches renderer.toneMapping = ACESFilmicToneMapping)
-        vec3 aces(vec3 x) {
-          return clamp((x*(2.51*x+0.03))/(x*(2.43*x+0.59)+0.14), 0.0, 1.0);
-        }
+        uniform samplerCube uCubeN;
         void main() {
           vec2 uv = gl_FragCoord.xy / vec2(${W}.0, ${H}.0);
           float lon = (uv.x - .5) * 6.283185307;
           float lat = (uv.y - .5) * 3.141592654;
           vec3 dir = vec3(cos(lat)*cos(lon), sin(lat), cos(lat)*sin(lon));
           vec4 col = textureCube(uCube, dir);
-          col.rgb = aces(col.rgb);
-          col.rgb = pow(col.rgb, vec3(1.0/2.2)); // linear → sRGB
-          // boost saturation
+          vec4 nm  = textureCube(uCubeN, dir);
+          // atlas colours are already LDR — just gamma-correct
+          col.rgb = pow(max(col.rgb, vec3(0.)), vec3(1.0/2.2));
+          // normal-based shading: fixed sun from upper-left + AO
+          vec3 sun = normalize(vec3(-0.5, 1.0, -0.3));
+          float diff = clamp(dot(nm.xyz, sun), 0., 1.);
+          float ao   = nm.w;
+          col.rgb *= mix(0.55, 1.0, diff) * mix(0.75, 1.0, ao);
+          // saturation boost
           float luma = dot(col.rgb, vec3(0.299, 0.587, 0.114));
-          col.rgb = mix(vec3(luma), col.rgb, 1.5);
-          gl_FragColor = col;
+          col.rgb = mix(vec3(luma), col.rgb, 1.4);
+          gl_FragColor = vec4(col.rgb, 1.);
         }`,
     });
     const geo = new THREE.PlaneGeometry(2, 2);
