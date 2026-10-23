@@ -10,7 +10,7 @@ export default defineConfig({
     target: 'es2020',
     rollupOptions: {
       output: {
-        manualChunks: { three: ['three'] },
+        manualChunks: (id) => id.includes('three') ? 'three' : undefined,
       },
     },
   },

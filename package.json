@@ -11,12 +11,12 @@
   "dependencies": {
     "lil-gui": "^0.21.0",
     "nipplejs": "^1.0.4",
-    "three": "^0.180.0"
+    "three": "^0.186.1"
   },
   "devDependencies": {
-    "@types/three": "^0.180.0",
-    "typescript": "^5.9.0",
-    "vite": "^7.0.0"
+    "@types/three": "^0.186.0",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.5"
   },
   "allowScripts": {
     "esbuild@0.28.2": true,
