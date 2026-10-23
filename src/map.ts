@@ -226,9 +226,9 @@ export class MapOverlay {
       this.ctx.fillText(icon, px, py + 4);
       this.ctx.font = "bold 11px sans-serif";
       this.ctx.fillStyle = "rgba(0,0,0,0.65)";
-      this.ctx.fillText(lm.name, px + 1, py + 16);
+      this.ctx.fillText(lm.label, px + 1, py + 16);
       this.ctx.fillStyle = "#e8e4d0";
-      this.ctx.fillText(lm.name, px, py + 15);
+      this.ctx.fillText(lm.label, px, py + 15);
       this.ctx.font = "14px sans-serif";
     }
     // draw scouted locations

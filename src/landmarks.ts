@@ -6,7 +6,25 @@ import { rng } from "./noise";
 import { S } from "./settings";
 import { CurrentPalette } from "./palette";
 const UP = new THREE.Vector3(0, 1, 0);
-export type Landmark = { name: string; pos: THREE.Vector3 };
+export type Landmark = { name: string; label: string; pos: THREE.Vector3 };
+
+const SCI_FI_NAMES = [
+  "Arrakeen","Giedi Prime","Caladan","Geidi","Salusa Secundus",
+  "Trantor","Helicon","Terminus","Askonia","Kalgan",
+  "Komarr","Barrayar","Athos","Sigma Draconis","Aral",
+  "Solaris","Rheya","Kelvin Station","Snow","Harey",
+  "LV-426","Fiorina 161","Fury 161","Weyland Station","Hadley's Hope",
+  "Magrathea","Betelgeuse VII","Krikkit","Rupert","Vogsphere",
+  "Caprica","Picon","Scorpia","Gemenon","Kobol",
+  "Pandora","Hell's Gate","Iknimaya","Kelutral","Toruk Makto",
+  "Ego","Contraxia","Knowhere","Sovereign","Sakaar",
+  "Tatooine","Hoth","Bespin","Endor","Coruscant",
+  "Reach","Threshold","Installation 04","Harvest","Meridian",
+  "Rannoch","Palaven","Tuchanka","Thessia","Eden Prime",
+  "Gilevane","Khar'shan","Irune","Sur'Kesh","Dekuuna",
+  "Hyperion","Pacem","Hebron","Tau Ceti Center","Lusus",
+  "Ringworld","Map of Known Space","Fist of God","Arch","Spill Mountain",
+];
 // Rare deterministic landmarks: monolith rings, twisted spires, tombstone fields, floating islands.
 // Each landmark's parts are baked into ONE vertex-coloured mesh (about 210 draw calls and as many shadow draws become 16).
 export function buildLandmarks(pl: Planet, group: THREE.Group) {
@@ -501,6 +519,7 @@ export function buildLandmarks(pl: Planet, group: THREE.Group) {
             : kind === "tombs"
               ? "tombstone field"
               : "floating island",
+      label: SCI_FI_NAMES[list.length % SCI_FI_NAMES.length],
       pos: g.position.clone(),
     });
   }

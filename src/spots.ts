@@ -3,7 +3,7 @@ import type { Planet } from "./planet";
 import { rng } from "./noise";
 import { S } from "./settings";
 
-export type Spot = { name: string; icon: string; dir: THREE.Vector3 };
+export type Spot = { name: string; icon: string; dir: THREE.Vector3; group?: string };
 
 // Scan N random surface points and score each against 10 terrain archetypes.
 export function findSpots(planet: Planet): Spot[] {
@@ -164,9 +164,10 @@ export function findSpots(planet: Planet): Spot[] {
     "floating island": "🏝️",
   };
   const landmarks: Spot[] = planet.landmarks.list.map(lm => ({
-    name: lm.name,
+    name: lm.label,
     icon: landmarkIcons[lm.name] ?? "📍",
     dir: lm.pos.clone().normalize(),
+    group: lm.name,
   }));
 
   const scanned = features

@@ -29,6 +29,14 @@ const TERRAIN: [keyof Settings, number, number, number][] = [
   ["seaLevel", -0.3, 0.4, 0.01],
 ];
 
+// left-align button labels inside the locations panel
+const locsStyle = document.createElement("style");
+locsStyle.textContent = [
+  ".locs-panel .lil-controller.lil-function button { text-align: left; }",
+  ".locs-panel .children .lil-controller.lil-function button { padding-left: 14px; }",
+].join(" ");
+document.head.appendChild(locsStyle);
+
 /** Builds the settings panel (G toggles it). */
 export function setupGui({ planet, player, post, rebuild, rebuildVeg, spots }: Ctx) {
   const gui = new GUI({ title: "Planet settings", width: Math.min(280, innerWidth - 8) });
@@ -80,9 +88,19 @@ export function setupGui({ planet, player, post, rebuild, rebuildVeg, spots }: C
   let locs: GUI | null = null;
   if (spots.length) {
     const touch = isTouchDevice;
-    locs = new GUI({ title: "📍", width: touch ? 70 : 58 });
-    for (const spot of spots)
-      locs.add({ go: () => player.warpTo(spot.dir) }, "go").name(spot.icon);
+    locs = new GUI({ title: "📍", width: touch ? 120 : 110 });
+    locs.domElement.classList.add("locs-panel");
+    // ungrouped spots (fixed nav + terrain features) go flat
+    for (const spot of spots.filter(s => !s.group))
+      locs.add({ go: () => player.warpTo(spot.dir) }, "go").name(`${spot.icon} ${spot.name}`);
+    // landmark types go into collapsible subfolders
+    const groups = [...new Set(spots.filter(s => s.group).map(s => s.group!))];
+    for (const g of groups) {
+      const folder = locs.addFolder(g);
+      folder.close();
+      for (const spot of spots.filter(s => s.group === g))
+        folder.add({ go: () => player.warpTo(spot.dir) }, "go").name(`${spot.icon} ${spot.name}`);
+    }
     Object.assign(locs.domElement.style, { position: "fixed", top: "78px", left: "10px" });
     if (touch) {
       locs.domElement.style.setProperty("--widget-height", "44px");
