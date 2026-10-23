@@ -7,8 +7,8 @@ export const CFG = {
     radius: 4,
     drop: 1.5,
     skirt: 12,
-    makeAlt: 185,
-    clearAlt: 215,
+    makeAlt: 480,
+    clearAlt: 580,
     budget: 4,
     firstBudget: 25,
   },
@@ -16,13 +16,13 @@ export const CFG = {
   treeLod: [40, 70, 130, 170] as const,
   // ground-cover tiers: [full-size until, gone beyond, inner gone below, inner full above]  (see vegetation.ts for the lifecycle rules)
   plantLod: {
-    near: [14, 28, 2, 8],
-    mid: [48, 68, 8, 20],
-    far: [150, 190, 38, 56],
-    flower: [26, 40, 3, 8],
-    mush: [10, 26, 2, 6],
+    near:   [22, 32, 0, 0.5],  // inner fade disabled (near is finest tier); outer pushed further
+    mid:    [50, 72, 8, 20],
+    far:    [155, 200, 38, 56],
+    flower: [30, 44, 0, 0.5],  // inner fade disabled
+    mush:   [12, 28, 0, 0.5],  // inner fade disabled
   },
-  plantRadius: { near: 34, mid: 74, far: 200, flower: 44, mush: 30 },
+  plantRadius: { near: 36, mid: 76, far: 204, flower: 48, mush: 32 },
   forest: { count: 22000, minSpacing: 2.4, tries: 12 },
   shadow: { size: 2048, half: 120, hz: 30 },
 } as const;

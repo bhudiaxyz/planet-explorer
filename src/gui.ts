@@ -111,6 +111,10 @@ export function setupGui({ planet, player, post, rebuild, rebuildVeg, spots }: C
     Object.assign(locs.domElement.style, { position: "fixed", top: "78px", left: "10px" });
     if (touch) {
       locs.domElement.style.setProperty("--widget-height", "44px");
+      Object.assign(locs.domElement.style, {
+        maxHeight: "calc(100dvh - 90px)",
+        overflowY: "auto",
+      });
       locs.hide();
     }
   }

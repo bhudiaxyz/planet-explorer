@@ -49,7 +49,7 @@ export const LANDMARK_NAMES = [
   "Sleeper Service","Mistake Not","Quietly Confident","Just Read the Instructions",
   "Experiencing A Significant Gravitas Shortfall","Lightly Seared on the Reality Grill",
   // Revelation Space
-  "Yellowstone","Resurgam","Ararat","Hela","Absolution Gap",
+  "Chasm City","Resurgam","Ararat","Hela","Absolution Gap",
   // Le Guin
   "Anarres","Urras","Gethen","Rocannon's World","Athshe",
   // The Expanse
@@ -76,8 +76,7 @@ export const LANDMARK_NAMES = [
   "Plitvice","Durmitor","Triglav","Białowieża","Ordesa",
   "Doñana","Skellig Michael","Cairngorms","Snowdonia","Dartmoor",
   // terrain-flavoured
-  "North Pole","South Pole","Equator 0°","Equator 90°","Equator 180°","Equator 270°",
-  "Crater Lake","Obsidian Flats","Ashfall Plain","Midnight Basin","Ironspire",
+  "Obsidian Flats","Ashfall Plain","Midnight Basin","Ironspire","Cinder Reach",
   "The Shallows","High Ridge","Storm Coast","Dust Bowl","Caldera",
   "The Rift","Sunken Vale","Mountain Peak","Coastal Cliffs","Ancient Shelf",
   "Canyon","Open Plains","Lagoon","Desert","Forest",

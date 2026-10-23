@@ -28,7 +28,8 @@ export class MapOverlay {
   private lastSun = new THREE.Vector3(Infinity, 0, 0);
 
   setSpots(spots: Spot[]) {
-    this.ungroupedSpots = spots.filter(s => !s.group);
+    // exclude landmark spots — they are drawn separately via this.landmarks
+    this.ungroupedSpots = spots.filter(s => !s.group || !(s.group in LANDMARK_ICON));
   }
 
   constructor(

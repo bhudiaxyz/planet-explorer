@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import type { Planet } from "./planet";
 import { smoothstep } from "./utilgeo";
+import { treeDensityCPU } from "./treeutil"; // shared with spots.ts
 import { rng } from "./noise";
 import { S } from "./settings";
 import { CFG } from "./config";
@@ -57,29 +58,6 @@ type Tree = {
 };
 
 /** CPU twin of GLSL treeDensity() (gpu.ts): used only when the GPU bake is unavailable. */
-function treeDensityCPU(planet: Planet, direction: THREE.Vector3, moisture: number) {
-  const f = S.frequency,
-    noise2 = planet.noise2;
-  return (
-    smoothstep(
-      -0.05,
-      0.22,
-      noise2.get(direction.x * f * 5 + 50, direction.y * f * 5, direction.z * f * 5),
-    ) *
-    smoothstep(-0.12, 0.2, moisture) *
-    (0.25 +
-      0.75 *
-        smoothstep(
-          -0.1,
-          0.3,
-          noise2.get(
-            direction.x * f * 18,
-            direction.y * f * 18 + 91,
-            direction.z * f * 18,
-          ),
-        ))
-  );
-}
 /** Species by altitude/climate; `stand` (smooth noise) makes neighbouring trees share a species so forests read as stands, not confetti. */
 function pickSpecies(
   elevation: number,

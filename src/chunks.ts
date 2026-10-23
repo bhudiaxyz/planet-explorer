@@ -104,7 +104,7 @@ export class ChunkManager {
         a,
         b,
         `${currentFrame.face},${a},${b}`,
-        Math.max(Math.abs(a - ci), Math.abs(b - cj)) >= 2,
+        Math.max(Math.abs(a - ci), Math.abs(b - cj)) >= CR,
       );
     }
     for (const m of this.map.values())

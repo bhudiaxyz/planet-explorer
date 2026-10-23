@@ -3,12 +3,16 @@ import type { Planet } from "./planet";
 import { LANDMARK_ICON, LANDMARK_NAMES } from "./landmarks";
 import { rng } from "./noise";
 import { S } from "./settings";
+import { treeDensityCPU } from "./treeutil";
 
 export type Spot = { name: string; icon: string; dir: THREE.Vector3; group?: string };
 
-// Scan N random surface points and score each against 10 terrain archetypes.
-export function findSpots(planet: Planet): Spot[] {
-  const SCAN = 10000;
+const yield_ = () => new Promise<void>(r => setTimeout(r));
+
+// Scan N random surface points and score each against terrain archetypes.
+// Returns a Promise so the caller can await it without blocking the frame loop.
+export async function findSpots(planet: Planet): Promise<Spot[]> {
+  const SCAN = 4000;
   const rand = rng(S.seed ^ 0xdeadbeef);
   const tmp = new THREE.Vector3();
   const perp = new THREE.Vector3();
@@ -17,6 +21,7 @@ export function findSpots(planet: Planet): Spot[] {
   type Feature = {
     name: string;
     icon: string;
+    needsNeighbours?: boolean; // false = score uses only e/t/m, skip the 8 elev neighbour fetch
     score: (e: number, nbrs: number[], t: number, m: number) => number;
     candidates: { score: number; dir: THREE.Vector3 }[];
   };
@@ -116,6 +121,16 @@ export function findSpots(planet: Planet): Spot[] {
       },
       candidates: [],
     },
+    {
+      name: "Dense Forest", icon: "🌲",
+      needsNeighbours: false,
+      score: (e, _nbrs, t, m) => {
+        if (e < 0.05 || e > 0.35 || t < 0.15 || t > 0.6 || m < 0.55) return 0;
+        const td = treeDensityCPU(planet, tmp, m);
+        return td > 0.3 ? td : 0;
+      },
+      candidates: [],
+    },
   ];
 
   const getNeighbors = (dir: THREE.Vector3): number[] => {
@@ -134,15 +149,20 @@ export function findSpots(planet: Planet): Spot[] {
     return results;
   };
 
-  for (let i = 0; i < SCAN; i++) {
+  let unsatisfied = features.length;
+  for (let i = 0; i < SCAN && unsatisfied > 0; i++) {
+    if (i % 200 === 0) await yield_();
     tmp.set(rand() * 2 - 1, rand() * 2 - 1, rand() * 2 - 1);
     if (tmp.lengthSq() > 1 || tmp.lengthSq() < 0.01) continue;
     tmp.normalize();
     const e = planet.elev(tmp);
     const t = planet.temp(tmp, e);
     const m = planet.moistureAt(tmp);
-    const nbrs = getNeighbors(tmp);
+    // only fetch neighbours when at least one unsatisfied feature needs them
+    const wantNbrs = features.some(f => f.candidates.length < 3 && f.needsNeighbours !== false);
+    const nbrs = wantNbrs ? getNeighbors(tmp) : [];
     for (const f of features) {
+      if (f.candidates.length >= 3) continue;
       const s = f.score(e, nbrs, t, m);
       if (s <= 0) continue;
       // keep candidate if it's far enough (>30°) from all existing ones, or better than the worst
@@ -154,6 +174,7 @@ export function findSpots(planet: Planet): Spot[] {
           f.candidates.sort((a, b) => b.score - a.score);
           f.candidates.length = 3;
         }
+        if (f.candidates.length === 3) unsatisfied--;
       } else {
         const closest = f.candidates.reduce((best, c) =>
           c.dir.angleTo(tmp) < best.dir.angleTo(tmp) ? c : best);
@@ -162,15 +183,35 @@ export function findSpots(planet: Planet): Spot[] {
     }
   }
 
+  // Fill any feature short of 3 candidates — tight rescan then guaranteed clone fallback
+  for (const f of features) {
+    if (f.candidates.length >= 3) continue;
+    for (let i = 0; i < 3000 && f.candidates.length < 3; i++) {
+      if (i % 200 === 0) await yield_();
+      tmp.set(rand() * 2 - 1, rand() * 2 - 1, rand() * 2 - 1);
+      if (tmp.lengthSq() > 1 || tmp.lengthSq() < 0.01) continue;
+      tmp.normalize();
+      const e = planet.elev(tmp), t = planet.temp(tmp, e), m = planet.moistureAt(tmp);
+      const s = f.score(e, getNeighbors(tmp), t, m);
+      if (s > 0 && f.candidates.every(c => c.dir.angleTo(tmp) > 0.05))
+        f.candidates.push({ score: s, dir: tmp.clone() });
+    }
+    while (f.candidates.length < 3) {
+      const offset = new THREE.Vector3(rand() - 0.5, rand() - 0.5, rand() - 0.5).normalize();
+      const base = f.candidates[0]?.dir ?? new THREE.Vector3(rand() * 2 - 1, 0, rand() * 2 - 1).normalize();
+      f.candidates.push({ score: 0.1, dir: base.clone().addScaledVector(offset, 0.08).normalize() });
+    }
+  }
+
   const fixed: Spot[] = [
-    { name: "North Pole", icon: "⛄", dir: new THREE.Vector3(0, 1, 0) },
-    { name: "Aurora Borealis", icon: "🌌", dir: new THREE.Vector3(0.34, 0.94, 0).normalize() },
-    { name: "South Pole", icon: "🦭", dir: new THREE.Vector3(0, -1, 0) },
-    { name: "Aurora Australis", icon: "🌌", dir: new THREE.Vector3(0.34, -0.94, 0).normalize() },
-    { name: "Equator 0°",   icon: "⬆️", dir: new THREE.Vector3(1, 0, 0).normalize() },
-    { name: "Equator 90°",  icon: "➡️", dir: new THREE.Vector3(0, 0, 1).normalize() },
-    { name: "Equator 180°", icon: "⬇️", dir: new THREE.Vector3(-1, 0, 0).normalize() },
-    { name: "Equator 270°", icon: "⬅️", dir: new THREE.Vector3(0, 0, -1).normalize() },
+    { name: "North Pole",      icon: "⛄",  dir: new THREE.Vector3(0, 1, 0),              group: "Fixed" },
+    { name: "Aurora Borealis", icon: "🌌",  dir: new THREE.Vector3(0.34, 0.94, 0).normalize(),  group: "Fixed" },
+    { name: "South Pole",      icon: "🦭",  dir: new THREE.Vector3(0, -1, 0),             group: "Fixed" },
+    { name: "Aurora Australis",icon: "🌌",  dir: new THREE.Vector3(0.34, -0.94, 0).normalize(), group: "Fixed" },
+    { name: "Equator 0°",      icon: "⬆️", dir: new THREE.Vector3(1, 0, 0).normalize(),   group: "Fixed" },
+    { name: "Equator 90°",     icon: "➡️", dir: new THREE.Vector3(0, 0, 1).normalize(),   group: "Fixed" },
+    { name: "Equator 180°",    icon: "⬇️", dir: new THREE.Vector3(-1, 0, 0).normalize(),  group: "Fixed" },
+    { name: "Equator 270°",    icon: "⬅️", dir: new THREE.Vector3(0, 0, -1).normalize(),  group: "Fixed" },
   ];
 
   const landmarks: Spot[] = planet.landmarks.list.map(lm => {
@@ -183,16 +224,18 @@ export function findSpots(planet: Planet): Spot[] {
     return { name: lm.label, icon: LANDMARK_ICON[lm.name] ?? "📍", dir: d, group: lm.name };
   });
 
+  const usedNames = new Set(landmarks.map(s => s.name));
   const nameOffset = Math.floor(rand() * LANDMARK_NAMES.length);
   let nameIdx = 0;
   const scanned = features.flatMap(f => {
     f.candidates.sort((a, b) => b.score - a.score);
-    return f.candidates.map(c => ({
-      name: LANDMARK_NAMES[(nameOffset + nameIdx++) % LANDMARK_NAMES.length],
-      icon: f.icon,
-      dir: c.dir,
-      group: f.name,
-    }));
+    return f.candidates.map(c => {
+      let name: string;
+      do { name = LANDMARK_NAMES[(nameOffset + nameIdx++) % LANDMARK_NAMES.length]; }
+      while (usedNames.has(name));
+      usedNames.add(name);
+      return { name, icon: f.icon, dir: c.dir, group: f.name };
+    });
   });
 
   return [...fixed, ...scanned, ...landmarks];

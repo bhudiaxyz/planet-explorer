@@ -79,6 +79,8 @@ await setStep(4, "Scattering vegetation");
 const scatter = new Scatter(planet);
 const collider = new Collider(planet, scatter);
 const shadows = new Shadows(renderer, sky.light, isTouchDevice, sky.moon);
+// Start scouting in background after scatter — treeDensityCPU reads planet.noise2, not scatter meshes
+const spotsPromise = findSpots(planet);
 
 await setStep(5, "Preparing night sky");
 const aurora = new Aurora(scene);
@@ -120,7 +122,7 @@ renderer.domElement.addEventListener("webglcontextrestored", () =>
 );
 
 await setStep(9, "Scouting locations");
-const spots = findSpots(planet);
+const spots = await spotsPromise;
 mapOverlay.setSpots(spots);
 
 const { gui, locs } = setupGui({ planet, player, post: postFX, rebuild, rebuildVeg: () => scatter.rebuild(), spots });
