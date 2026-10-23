@@ -20,7 +20,7 @@ interface Ctx {
 const TERRAIN: [keyof Settings, number, number, number][] = [
   ["seed", 0, 99999, 1],
   ["radius", 200, 1500, 10],
-  ["resolution", 64, 256, 8],
+  ["resolution", 64, 512, 16],
   ["amplitude", 5, 200, 1],
   ["frequency", 0.3, 5, 0.05],
   ["octaves", 1, 8, 1],

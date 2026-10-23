@@ -165,12 +165,15 @@ export function findSpots(planet: Planet): Spot[] {
     "tombstone field": "🪦",
     "floating island": "🏝️",
   };
-  const landmarks: Spot[] = planet.landmarks.list.map(lm => ({
-    name: lm.label,
-    icon: landmarkIcons[lm.name] ?? "📍",
-    dir: lm.pos.clone().normalize(),
-    group: lm.name,
-  }));
+  const landmarks: Spot[] = planet.landmarks.list.map(lm => {
+    const d = lm.pos.clone().normalize();
+    const side = new THREE.Vector3(0, 1, 0).cross(d);
+    if (side.lengthSq() < 1e-6) side.set(1, 0, 0);
+    side.normalize();
+    // offset ~8 m away so the player doesn't spawn inside the landmark
+    d.addScaledVector(side, 8 / S.radius).normalize();
+    return { name: lm.label, icon: landmarkIcons[lm.name] ?? "📍", dir: d, group: lm.name };
+  });
 
   const scanned = features
     .filter(f => f.dir !== null)

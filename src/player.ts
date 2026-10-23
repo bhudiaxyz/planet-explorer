@@ -119,7 +119,7 @@ export class Player {
       this.mode = "fly";
       return;
     }
-    // fly → walk: start at current altitude so gravity pulls the player down naturally
+    // fly → walk: drop from current altitude, gravity handles the descent
     this.dir.copy(this.cam.position).normalize();
     this.forward.copy(this.cam.getWorldDirection(scratchForward));
     this.forward.addScaledVector(this.dir, -this.forward.dot(this.dir));
@@ -127,7 +127,7 @@ export class Player {
     if (this.forward.lengthSq() < 1e-6) this.forward.crossVectors(this.dir, AXIS_Y);
     this.forward.normalize();
     this.pitch = 0;
-    this.verticalVelocity = 0;
+    this.verticalVelocity = -30;
     this.groundRadius = this.cam.position.length() - EYE_HEIGHT;
     this.mode = "walk";
     this.planet.forest.last.set(1e9, 0, 0);

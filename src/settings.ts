@@ -41,7 +41,7 @@ export interface Settings {
 export const S: Settings = {
   seed: 1337,
   radius: 700,
-  resolution: 220,
+  resolution: 400,
   amplitude: 70,
   frequency: 1.6,
   octaves: 6,

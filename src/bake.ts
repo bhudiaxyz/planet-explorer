@@ -114,10 +114,12 @@ vec4 comp(vec3 d) {
   if (dot(c, c) < 1e-8) c = vec3(1., 0., 0.);
   vec3 t1 = normalize(c), t2 = cross(d, t1);
   vec3 d1 = normalize(d + t1 * uStep), d2 = normalize(d + t2 * uStep);
-  vec3 p0 = d  * (uR + e3(d,  false) * uAmp);
+  vec3 d3 = normalize(d - t1 * uStep), d4 = normalize(d - t2 * uStep);
   vec3 p1 = d1 * (uR + e3(d1, false) * uAmp);
   vec3 p2 = d2 * (uR + e3(d2, false) * uAmp);
-  vec3 n  = normalize(cross(p1 - p0, p2 - p0));
+  vec3 p3 = d3 * (uR + e3(d3, false) * uAmp);
+  vec3 p4 = d4 * (uR + e3(d4, false) * uAmp);
+  vec3 n  = normalize(cross(p1 - p3, p2 - p4));
   if (dot(n, d) < 0.) n = -n;
   return vec4(n, 0.);
 #elif MODE == 4

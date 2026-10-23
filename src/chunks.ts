@@ -114,7 +114,7 @@ export class ChunkManager {
         Math.max(
           Math.abs(m.userData.ci - ci),
           Math.abs(m.userData.cj - cj),
-        ) >= 2; // target LOD; tick() geomorphs to it
+        ) >= 3; // target LOD; tick() geomorphs to it
     for (const k of want) if (!this.map.has(k)) return; // finish loading before retiring anything
     for (const [k, m] of this.map)
       if (!want.has(k)) {

@@ -157,7 +157,8 @@ const hudText = () => {
       : sky.kind === "precip"
         ? "rain"
         : sky.kind;
-  return `${player.mode.toUpperCase()} · alt ${Math.round(player.alt)} m · ${String(Math.floor(hourOfDay)).padStart(2, "0")}:${String(Math.floor((hourOfDay % 1) * 60)).padStart(2, "0")}${nearestLandmark.n ? " · " + nearestLandmark.n + " " + Math.round(nearestLandmark.d) + " m" : ""} · ${weather}`;
+  const modeLabel = player.mode === "drone" && player.landing ? "LANDING" : player.mode.toUpperCase();
+  return `${modeLabel} · alt ${Math.round(player.alt)} m · ${String(Math.floor(hourOfDay)).padStart(2, "0")}:${String(Math.floor((hourOfDay % 1) * 60)).padStart(2, "0")}${nearestLandmark.n ? " · " + nearestLandmark.n + " " + Math.round(nearestLandmark.d) + " m" : ""} · ${weather}`;
 };
 
 planet.update(player.up, player.alt);

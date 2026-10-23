@@ -252,6 +252,21 @@ if (uAtOn > 0.)
   normal = normalize(abs(det) * normal
          - .06 * (1. - smoothstep(60., 160., dd)) * sign(det) * (dFdx(gn) * r1 + dFdy(gn) * r2));
 }`,
+      )
+      .replace(
+        "#include <emissivemap_fragment>",
+        `#include <emissivemap_fragment>
+if (snowF > .05 && uDayF > .05) {
+  vec3  sv      = normalize((viewMatrix * vec4(uSun, 0.)).xyz);
+  float facing  = clamp(dot(normal, sv), 0., 1.);
+  // broad diffuse glow — sun-lit snow radiates blue-white fill light
+  totalEmissiveRadiance += vec3(.82, .88, 1.) * snowF * facing * .3 * uDayF;
+  // soft specular glint for the reflective sheen
+  vec3  eyeDir  = normalize(vViewPosition);
+  vec3  halfV   = normalize(sv + eyeDir);
+  float spec    = pow(max(dot(normal, halfV), 0.), 12.) * facing;
+  totalEmissiveRadiance += vec3(.92, .96, 1.) * spec * snowF * .55 * uDayF;
+}`,
       );
   };
   return m;
