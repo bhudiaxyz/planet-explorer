@@ -19,6 +19,8 @@ const STYLE = `
   user-select: none; touch-action: none;
 }
 #touch-btns button:active { background: rgba(255,255,255,0.28); }
+/* map button sits above the map overlay so it can dismiss the map */
+#btn-map { z-index: 41; position: relative; }
 #touch-roll {
   position: fixed; right: max(90px, calc(70px + env(safe-area-inset-right))); bottom: max(110px, calc(80px + env(safe-area-inset-bottom)));
   display: flex; flex-direction: column; gap: 14px;

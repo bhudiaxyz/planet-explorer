@@ -77,6 +77,10 @@ export class MapOverlay {
     addEventListener("keydown", e => {
       if (e.code === "Escape" && this.visible) this.toggle();
     });
+
+    // tap outside map (on bg) closes it — primary close path on touch devices
+    this.bg.addEventListener("click", () => { if (this.visible) this.toggle(); });
+    this.bg.addEventListener("touchend", e => { e.stopPropagation(); if (this.visible) this.toggle(); });
   }
 
   toggle() {
