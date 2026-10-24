@@ -215,7 +215,6 @@ export async function bakePoints(
   else
     renderer!.readRenderTargetPixels(rt, 0, 0, texWidth, texHeight, results);
   rt.dispose();
-  _bakeGeo.dispose();
   return results;
 }
 

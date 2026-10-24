@@ -87,9 +87,6 @@ const postFX = new PostFX(renderer, scene, camera);
 postFX.aerial.setCamera(camera.near, camera.far);
 scene.add(scatter.group, sky.light.target);
 player.col = collider;
-// All scene objects are now present — start shader compilation immediately so it
-// overlaps with scouting rather than running sequentially after it.
-const compilePromise = renderer.compileAsync(scene, camera);
 
 // ---- rebuilds (debounced) and context-loss recovery ---------------------------------------------------------------------------------------------
 const mapOverlay = new MapOverlay(renderer, planet, player);
@@ -179,10 +176,9 @@ const hideSplash = () => {
 const enterLabel = isTouchDevice ? "Tap to enter" : "Click to enter";
 await setStep(4, "Compiling shaders");
 showSplash(enterLabel, false);
-await compilePromise;
+await renderer.compileAsync(scene, camera);
 
 await setStep(5, "Ready");
-showSplash(enterLabel);
 splash.addEventListener("click", () => {
   hideSplash();
   if (!isTouchDevice) renderer.domElement.requestPointerLock();
@@ -265,4 +261,8 @@ renderer.setAnimationLoop(() => {
   mapOverlay.tick();
   postFX.render(dt);
 });
+// Frame loop is now running. Wait for one full frame (sky, camera, postFX all
+// updated) before revealing the enter button so the scene is never blank on entry.
+await new Promise<void>(r => requestAnimationFrame(() => r()));
+showSplash(enterLabel);
 })();
