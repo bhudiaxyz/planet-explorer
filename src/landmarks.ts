@@ -372,6 +372,30 @@ export function buildLandmarks(pl: Planet, group: THREE.Group) {
         new THREE.Vector3(0, 0.1, 0), new THREE.Euler(0, 0, 0),
         DARK.clone().offsetHSL(0, -0.4, -0.08));
       g.add(bake(parts));
+      // lava crystal geysers erupting from the crater floor
+      const craterCrystals: THREE.BufferGeometry[] = [];
+      const geyserCount = 4 + (r() * 5 | 0);
+      for (let k = 0; k < geyserCount; k++) {
+        const ga = r() * 6.283, gd = rimR * r() * 0.42;
+        const cgx = Math.cos(ga) * gd, cgz = Math.sin(ga) * gd;
+        const gs = (0.7 + r() * 1.5) * sz;
+        const clump = 2 + (r() * 3 | 0);
+        for (let j = 0; j < clump; j++) {
+          const ja = ga + (j / clump) * 1.8 - 0.9;
+          const jox = Math.cos(ja) * gs * 0.28, joz = Math.sin(ja) * gs * 0.28;
+          const js = gs * (0.5 + r() * 0.6);
+          part(craterCrystals, new THREE.OctahedronGeometry(1, 0),
+            new THREE.Vector3(cgx + jox, ground(cgx, cgz) + js * 1.1, cgz + joz),
+            new THREE.Euler((r() - 0.5) * 0.3, ja, 0.25 + (r() - 0.5) * 0.2),
+            new THREE.Color(1.0, 0.28 + r() * 0.22, 0.04),
+            new THREE.Vector3(0.25 * js, 2.4 * js, 0.25 * js));
+        }
+      }
+      if (craterCrystals.length) {
+        const cm = new THREE.Mesh(mergeGeometries(craterCrystals)!, crystalMat);
+        cm.castShadow = true;
+        g.add(cm);
+      }
     } else if (kind === "arch") {
       // natural stone arch: two pillars bridged by a crown, adapted to terrain slope
       const sz = 0.85 + r() * 0.75;
@@ -409,6 +433,26 @@ export function buildLandmarks(pl: Planet, group: THREE.Group) {
           new THREE.Vector3(ds, ds * 0.6, ds));
       }
       g.add(bake(parts));
+      // glowing crystal clusters at pillar bases — alien geological growth
+      const archCrystals: THREE.BufferGeometry[] = [];
+      const archHue = new THREE.Color(...CurrentPalette.crystals[n % 3]);
+      for (const [px, pz, gy] of [[ax1, az1, gy1], [-ax1, -az1, gy2]] as [number, number, number][]) {
+        const cc = 2 + (r() * 3 | 0);
+        for (let k = 0; k < cc; k++) {
+          const ca = r() * 6.283, cs = (0.25 + r() * 0.35) * sz;
+          const ox = Math.cos(ca) * pw * 0.7, oz = Math.sin(ca) * pw * 0.7;
+          part(archCrystals, new THREE.OctahedronGeometry(1, 0),
+            new THREE.Vector3(px + ox, gy + cs, pz + oz),
+            new THREE.Euler((r() - 0.5) * 0.4, ca, 0.3 + (r() - 0.5) * 0.2),
+            archHue.clone().offsetHSL(0, 0, (r() - 0.5) * 0.12),
+            new THREE.Vector3(0.3 * cs, 1.8 * cs, 0.3 * cs));
+        }
+      }
+      if (archCrystals.length) {
+        const cm = new THREE.Mesh(mergeGeometries(archCrystals)!, crystalMat);
+        cm.castShadow = true;
+        g.add(cm);
+      }
     } else {
       // every island is different: palette (grass / autumn / teal / violet / frost), 2-4 rock tiers, stalactites, trees, optional pond, waterfall,
       // glowing crystals (HDR, picked up by bloom) and orbiting debris (it rotates with the island), plus a small random tilt

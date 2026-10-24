@@ -23,6 +23,9 @@ import {
   sedgeGeo,
   sedgeLow,
   sedgeTiny,
+  crystalGeo,
+  crystalLow,
+  crystalTiny,
 } from "./plantgeo";
 import { rockGeo, rockLow, rockTiny, rockSlabGeo, rockSlabLow, rockSlabTiny, frostRockGeo, frostRockLow, frostRockTiny } from "./rockgeo";
 
@@ -128,6 +131,7 @@ export const PLANTS: PlantSpec[] = [
       tint = uCg * (.85 + h1 * .3)
         * mix(vec3(1.), vec3(1.28, 1.05, .62), sm_(.15, .6, Dv.y) * .75)
         * mix(vec3(1.), vec3(1.4, 1.15, .5), step(.85, h7) * .8);
+      if (h3 > .92) tint = (h2 < .4 ? vec3(.55, .62, .68) : h2 < .7 ? vec3(.48, .28, .12) : vec3(.18, .48, .52)) * (.9 + h1 * .3);
     `,
   }),
   plant({
@@ -333,6 +337,7 @@ export const PLANTS: PlantSpec[] = [
                 : h7 < .9  ? vec3(.4,  .35, .25)
                 :             vec3(.3,  .12, .4);
       tint = mix(vec3(1.), mcol, hm2);
+      sc *= 1. + h3 * 2. * step(.7, h3);
     `,
   }),
   plant({
@@ -428,6 +433,29 @@ export const PLANTS: PlantSpec[] = [
             : h7 < .82 ? vec3(.40, .28, .18)
             :             vec3(.48, .46, .50))
         * 4.2 * (.7 + h2 * .5);
+    `,
+  }),
+  plant({
+    name: "crystals",
+    kind: 14,
+    wind: 0,
+    hardy: true,
+    lean: 0.05,
+    tiers: [
+      tier(crystalGeo,  3.4, RAD.rock,    LOD.rock),
+      tier(crystalLow,  8.5, RAD.rockMid, LOD.rockMid),
+      tier(crystalTiny, 17,  RAD.far,     LOD.far),
+    ],
+    pre: "cf = clusterField(d, 14.);",
+    gate: "if (e < .22 || m >= .35 || h6 <= 1. - (.004 + sm_(.22, .55, e) * .012) * PMUL * (.15 + cf * 2.0)) REJECT;",
+    look: `
+      float s = .35 + h1 * .7;
+      sc = vec3(s * (.18 + h2 * .12), s * (1.2 + h1 * .5), s * (.18 + h2 * .12));
+      tint = (h7 < .35 ? vec3(.15, .75, 1.0)
+            : h7 < .65 ? vec3(.60, .12, 1.0)
+            : h7 < .88 ? vec3(1.0, .35, .08)
+            :             vec3(.18, .90, .55))
+        * (2.8 + h1 * 1.4);
     `,
   }),
 ];

@@ -251,6 +251,7 @@ renderer.setAnimationLoop(() => {
     U.uTime.value,
     camera.position,
     night * (1 - smoothstep(20, 40, player.alt)) * (1 - sky.precipitationAmount),
+    sky.dayF,
   );
   biolumi.update(dt, camera.position);
   shadows.update(dt, player.alt, sky.dayF, sky.sun, camera.position);

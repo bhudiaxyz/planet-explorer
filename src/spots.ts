@@ -131,6 +131,16 @@ export async function findSpots(planet: Planet): Promise<Spot[]> {
       },
       candidates: [],
     },
+    {
+      name: "Crystal Field", icon: "💎",
+      needsNeighbours: false,
+      score: (e, _nbrs, _t, m) => {
+        if (e < 0.25 || e > 0.65 || m >= 0.32) return 0;
+        // score rises with elevation and dryness — same conditions as the crystal scatter gate
+        return (e - 0.25) * 2.5 * (0.32 - m) * 3.0;
+      },
+      candidates: [],
+    },
   ];
 
   const getNeighbors = (dir: THREE.Vector3): number[] => {

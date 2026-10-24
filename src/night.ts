@@ -47,7 +47,9 @@ void main() {
   float b   = smoothstep(.04, .22, e) * (1. - smoothstep(.4, .75, e));
   float ray = n(vec2(az * 40., e * 3. - uT * .5));
   float I   = c * b * (.5 + .7 * ray) * uAmt;
-  vec3  col = mix(vec3(.15, 1., .5), vec3(.6, .25, .9), smoothstep(.2, .6, e));
+  vec3  col = e < 0.15
+    ? mix(vec3(.9, .2, .05), vec3(.15, 1., .5), e / 0.15)
+    : mix(vec3(.15, 1., .5), vec3(.6, .25, .9), smoothstep(.15, .6, e));
   gl_FragColor = vec4(col * I, I);
 }`,
   });
@@ -103,14 +105,15 @@ export class Fireflies {
         ...T,
         uT: { value: 0 },
         uAmt: { value: 0 },
+        uDay: { value: 0 },
         uPx: { value: 140 },
         uCam: { value: new THREE.Vector3() },
       },
       vertexShader: `
 attribute vec4 sd;
-uniform float uT, uAmt, uPx;
+uniform float uT, uAmt, uDay, uPx;
 uniform vec3 uCam;
-varying float vA;
+varying float vA, vDayness;
 ${TERRAIN_GLSL}
 void main() {
   vec3 p = uCam + (mod(sd.xyz * 80. - uCam, 80.) - 40.)
@@ -118,27 +121,31 @@ void main() {
   vec3  d  = normalize(p);
   vec3  w  = d * (uR + e3(d, true) * uAmp + .4 + sd.w * 2.4 + sin(uT * .6 + sd.w * 40.) * .4);
   float ph = .5 + .5 * sin(uT * 2. + sd.w * 6.283);
-  vA = ph * uAmt * (1. - smoothstep(25., 40., distance(w, uCam)));
+  float amt = max(uAmt, uDay * .07);
+  vA = ph * amt * (1. - smoothstep(25., 40., distance(w, uCam)));
+  vDayness = clamp(uDay * 8., 0., 1.);
   vec4 mv = modelViewMatrix * vec4(w, 1.);
-  gl_PointSize = min(uPx * (.6 + .6 * ph) / -mv.z, 64.);
+  gl_PointSize = min(uPx * (.4 + .4 * ph) / -mv.z, 64.);
   gl_Position = projectionMatrix * mv;
 }`,
       fragmentShader: `
-varying float vA;
+varying float vA, vDayness;
 void main() {
   float d = length(gl_PointCoord - .5);
-  gl_FragColor = vec4(.8, 1., .4, smoothstep(.5, 0., d) * vA * 3.);
+  vec3 col = mix(vec3(.8, 1., .4), vec3(.95, .88, .72), vDayness);
+  gl_FragColor = vec4(col, smoothstep(.5, 0., d) * vA * 3.);
 }`,
     });
     this.pts = new THREE.Points(g, this.mat);
     this.pts.frustumCulled = false;
     scene.add(this.pts);
   }
-  update(_deltaTime: number, time: number, cameraPosition: THREE.Vector3, intensity: number) {
+  update(_deltaTime: number, time: number, cameraPosition: THREE.Vector3, intensity: number, dayF = 0) {
     this.mat.uniforms.uT.value = time;
     this.mat.uniforms.uAmt.value = intensity;
+    this.mat.uniforms.uDay.value = dayF;
     this.mat.uniforms.uCam.value.copy(cameraPosition);
-    this.pts.visible = intensity > 0.02;
+    this.pts.visible = intensity > 0.02 || dayF > 0.1;
   }
 }
 const BIO_COUNT = 60;
@@ -161,7 +168,7 @@ ${TERRAIN_GLSL}
 attribute vec4   sd;
 uniform   vec3   uCam;
 uniform   float  uT, uNight;
-varying   float  vPulse, vMoist;
+varying   float  vPulse, vMoist, vWarm;
 void main() {
   vec3  cell  = fract(uCam / 60.0 + sd.xyz - 0.5) * 60.0 - 30.0 + uCam;
   vec3  d     = normalize(cell);
@@ -176,18 +183,20 @@ void main() {
   wpos.z     += cos(uT * 0.35 + sd.z * 6.28) * 0.4;
   vPulse      = fract(sd.w + uT * 0.06);
   vMoist      = moist * ok;
+  vWarm       = 1.0 - abs(d.y);
   vec4 mv     = modelViewMatrix * vec4(wpos, 1.0);
   gl_Position  = projectionMatrix * mv;
   gl_PointSize = min(mix(3.5, 7.0, sd.x) * (1.0 / -mv.z) * 550.0 * uNight * ok, 96.0);
 }`,
       fragmentShader: `
 uniform float uNight;
-varying float vPulse, vMoist;
+varying float vPulse, vMoist, vWarm;
 void main() {
   float r     = length(gl_PointCoord - 0.5) * 2.0;
   if (r > 1.0) discard;
   float pulse = 0.5 + 0.5 * sin(vPulse * 6.28);
-  vec3  col   = mix(vec3(0.08, 0.88, 0.42), vec3(0.15, 0.45, 1.0), vMoist);
+  vec3  coolCol = mix(vec3(0.08, 0.88, 0.42), vec3(0.15, 0.45, 1.0), vMoist);
+  vec3  col   = mix(coolCol, vec3(1.0, 0.55, 0.08), vWarm * 0.65);
   gl_FragColor = vec4(col * 1.4, (1.0 - r * r) * 1.8 * pulse * uNight * vMoist);
 }`,
     });

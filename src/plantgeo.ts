@@ -326,3 +326,46 @@ const tiny = (
 };
 export const shrubTiny = () => tiny(N0, 0.4, 0.75, 0.55, true);
 export const alpineTiny = () => tiny(N0, 0.25, 0.5, 0.3, true);
+
+// Crystal spikes: clusters of elongated octahedra; leaf=true so tint drives the emissive-style HDR color
+export function crystalGeo() {
+  const p: THREE.BufferGeometry[] = [];
+  const r = rng(53);
+  const count = 3 + (r() * 3 | 0);
+  for (let i = 0; i < count; i++) {
+    const a = (i / count) * 6.283 + r() * 0.9;
+    const rad = r() * 0.16;
+    const h = 0.45 + r() * 0.65;
+    add(
+      p,
+      new THREE.OctahedronGeometry(1, 0),
+      new THREE.Matrix4().compose(
+        new THREE.Vector3(Math.cos(a) * rad, h * 0.5, Math.sin(a) * rad),
+        new THREE.Quaternion().setFromEuler(new THREE.Euler((r() - 0.5) * 0.3, a, 0.25 + (r() - 0.5) * 0.2)),
+        new THREE.Vector3(0.12 + r() * 0.05, h, 0.12 + r() * 0.05),
+      ),
+      N0, h * 0.5, false, true,
+    );
+  }
+  return done(p);
+}
+export function crystalLow() {
+  const p: THREE.BufferGeometry[] = [];
+  const r = rng(59);
+  for (let i = 0; i < 2; i++) {
+    const a = i * 2.8 + r() * 0.5;
+    const h = 0.35 + r() * 0.35;
+    add(
+      p,
+      new THREE.OctahedronGeometry(1, 0),
+      new THREE.Matrix4().compose(
+        new THREE.Vector3(Math.cos(a) * 0.08, h * 0.5, Math.sin(a) * 0.08),
+        new THREE.Quaternion().setFromEuler(new THREE.Euler(0, a, 0.2)),
+        new THREE.Vector3(0.14, h, 0.14),
+      ),
+      N0, h * 0.5, false, true,
+    );
+  }
+  return done(p);
+}
+export const crystalTiny = () => tiny(N0, 0.35, 0.14, 0.7, true);
