@@ -1,14 +1,13 @@
 import * as THREE from "three";
 import { U } from "./fx";
 import { CurrentPalette } from "./palette";
-const N = 3500,
-  FW = new THREE.Vector3(),
+const FW = new THREE.Vector3(),
   RR = new THREE.Vector3();
 // Rain/snow computed entirely in the vertex shader: seeds fall and wrap inside a camera-anchored box; the CPU only uploads a few uniforms.
 export class Precip {
   pts: THREE.Points;
   mat: THREE.ShaderMaterial;
-  constructor() {
+  constructor(N = 3500) {
     const sd = new Float32Array(N * 3);
     for (let i = 0; i < sd.length; i++) sd[i] = Math.random();
     const g = new THREE.BufferGeometry()

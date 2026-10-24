@@ -4,7 +4,10 @@ import { S, CFG } from "./config";
 import { CurrentPalette } from "./palette";
 import { Precip } from "./precip";
 import { U } from "./fx";
+import { isTouchDevice } from "./touch";
 const { sky: SKY, atmosphere: ATM, lights: LGT } = CFG;
+const starCount  = isTouchDevice ? 1200 : SKY.starCount;
+const precipCount = isTouchDevice ? 1500 : SKY.precipCount;
 export class Sky {
   sun = new THREE.Vector3(1, 0, 0);
   dayF = 1;
@@ -26,8 +29,8 @@ export class Sky {
   nebulae: THREE.Points;
   precip: THREE.Points;
   precipitation: Precip;
-  lastPrecipPos = new Float32Array(SKY.precipCount * 3);
-  prevPrecipPos = new Float32Array(SKY.precipCount * 3);
+  lastPrecipPos = new Float32Array(precipCount * 3);
+  prevPrecipPos = new Float32Array(precipCount * 3);
   constructor(
     private scene: THREE.Scene,
     private planet: Planet,
@@ -42,8 +45,8 @@ export class Sky {
         fog: false,
       }),
     );
-    const sp = new Float32Array(SKY.starCount * 3), sv = new THREE.Vector3();
-    for (let i = 0; i < SKY.starCount; i++)
+    const sp = new Float32Array(starCount * 3), sv = new THREE.Vector3();
+    for (let i = 0; i < starCount; i++)
       sv.randomDirection().multiplyScalar(18000).toArray(sp, i * 3);
     this.stars = new THREE.Points(
       new THREE.BufferGeometry().setAttribute(
@@ -58,7 +61,7 @@ export class Sky {
         fog: false,
       }),
     );
-    this.precipitation = new Precip();
+    this.precipitation = new Precip(precipCount);
     this.precip = this.precipitation.pts;
     this.moonDisc = new THREE.Mesh(
       new THREE.SphereGeometry(SKY.moonDiscRadius, 16, 12),

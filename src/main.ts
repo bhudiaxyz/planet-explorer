@@ -56,7 +56,7 @@ const scene = new THREE.Scene(),
 // ---- world & systems ---------------------------------------------------------------------------------------------------------------------------
 (async () => {
 const lsTip = document.getElementById("ls-tip")!;
-const STEPS = 5;
+const STEPS = 4;
 const setStep = (n: number, label: string) => {
   lsTip.textContent = `Step ${n} of ${STEPS}: ${label}`;
   return new Promise<void>(r => requestAnimationFrame(() => r()));
@@ -162,10 +162,10 @@ planet.update(player.up, player.alt);
 const splash = document.getElementById("ls")!;
 const splashEnter = document.getElementById("ls-enter")!;
 const splashControls = document.getElementById("ls-controls")!;
-const showSplash = (label: string, compiled = true) => {
+const showSplash = (label: string) => {
   splashEnter.textContent = label;
-  lsTip.style.display = compiled ? "none" : "";
-  splashControls.style.display = compiled ? "" : "none";
+  lsTip.style.display = "none";
+  splashControls.style.display = "";
   splash.classList.add("ready");
   splash.classList.remove("dismissed");
 };
@@ -174,11 +174,12 @@ const hideSplash = () => {
 };
 
 const enterLabel = isTouchDevice ? "Tap to enter" : "Click to enter";
-await setStep(4, "Compiling shaders");
-showSplash(enterLabel, false);
-await renderer.compileAsync(scene, camera);
 
-await setStep(5, "Ready");
+// Skip upfront shader compilation: compileAsync walks every material in the scene
+// (~65+ unique programs after vegetation) and hangs indefinitely on weaker GPUs.
+// Shaders JIT-compile on first draw instead — brief stutter spread across the first
+// second of play, which is far less disruptive than a frozen splash screen.
+await setStep(4, "Ready");
 splash.addEventListener("click", () => {
   hideSplash();
   if (!isTouchDevice) renderer.domElement.requestPointerLock();
