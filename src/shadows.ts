@@ -23,7 +23,8 @@ export class Shadows {
     private mobileScale = false,
     private moon?: THREE.DirectionalLight,
   ) {
-    const { size: rawSize, half } = CFG.shadow;
+    const { size: rawSize } = CFG.shadow;
+    const half = this.mobileScale ? CFG.shadow.half * 0.65 : CFG.shadow.half;
     const size = this.mobileScale ? rawSize >> 1 : rawSize;
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFShadowMap;

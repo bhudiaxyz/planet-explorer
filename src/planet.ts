@@ -7,6 +7,7 @@ import { canBake, bakePoints, Atlas } from "./bake";
 import { ChunkManager } from "./chunks";
 import { smoothstep, frame } from "./utilgeo";
 import { Forest } from "./forest";
+import { isTouchDevice } from "./touch";
 import { CurrentPalette, biomeColors } from "./palette";
 import { buildLandmarks } from "./landmarks";
 import { CloudShell } from "./skyfx";
@@ -320,12 +321,12 @@ void main() {
     this.cloudRadius = this.radius + Math.max(110, S.amplitude * 1.3 + 50);
     U.uCloudR.value = this.cloudRadius; // clouds float above the highest peaks
     const waterMesh = new THREE.Mesh(
-        new THREE.SphereGeometry(this.radius, 64, 48),
+        new THREE.SphereGeometry(this.radius, isTouchDevice ? 32 : 64, isTouchDevice ? 24 : 48),
         this.water,
       ),
       cloudMesh = this.clouds.make(this.cloudRadius),
       atmosphereMesh = new THREE.Mesh(
-        new THREE.SphereGeometry(this.cloudRadius * 1.05, 48, 32),
+        new THREE.SphereGeometry(this.cloudRadius * 1.05, isTouchDevice ? 24 : 48, isTouchDevice ? 16 : 32),
         this.atmosphere,
       );
     cloudMesh.renderOrder = 10;

@@ -209,7 +209,7 @@ export const PLANTS: PlantSpec[] = [
       tier(rockTiny, 17,   RAD.far,     LOD.far),
     ],
     pre: "cf = clusterField(d, 3.);",
-    gate: "if (h6 <= 1. - (.0025 + sl * .016 + sm_(.4, .6, e) * .012) * PMUL * (.18 + cf * 2.2)) REJECT;",
+    gate: "if (h6 <= 1. - (.0016 + sl * .012 + sm_(.4, .6, e) * .009) * PMUL * (.15 + cf * 1.8)) REJECT;",
     look: `
       float s = .3 + h1 * 1.6;
       sc = vec3(s * (.8 + h2 * .6), s * (.45 + h7 * .5), s * (.7 + h1 * .5));
@@ -298,7 +298,7 @@ export const PLANTS: PlantSpec[] = [
       tier(rockSlabTiny, 17,   RAD.far,     LOD.far),
     ],
     pre: "cf = clusterField(d, 8.);",
-    gate: "if (h6 <= 1. - (.003 + sl * .02 + sm_(.25, .5, e) * .014) * PMUL * (.12 + cf * 2.0)) REJECT;",
+    gate: "if (h6 <= 1. - (.002 + sl * .014 + sm_(.25, .5, e) * .010) * PMUL * (.10 + cf * 1.6)) REJECT;",
     look: `
       float s = .2 + h1 * 1.2;
       sc = vec3(s * (1. + h2 * .4), s * (.12 + h7 * .2), s * (.9 + h1 * .3));
@@ -324,7 +324,7 @@ export const PLANTS: PlantSpec[] = [
       tier(frostRockTiny, 17,   RAD.far,     LOD.far),
     ],
     pre: "cf = clusterField(d, 9.);",
-    gate: "if (e < .38 || h6 <= 1. - (.005 + sl * .014 + sm_(.38, .58, e) * .016) * PMUL * (.25 + cf * 1.8)) REJECT;",
+    gate: "if (e < .38 || h6 <= 1. - (.003 + sl * .010 + sm_(.38, .58, e) * .011) * PMUL * (.20 + cf * 1.4)) REJECT;",
     look: `
       float s = .3 + h1 * 1.3;
       sc = vec3(s * (.8 + h2 * .5), s * (.55 + h7 * .6), s * (.75 + h1 * .4));
@@ -442,7 +442,7 @@ export const PLANTS: PlantSpec[] = [
       tier(rockTiny, 34,  RAD.far,     LOD.far),
     ],
     pre: "cf = clusterField(d, 13.);",
-    gate: "if (e < .28 || h6 <= 1. - (.002 + sl * .016 + sm_(.28, .55, e) * .014) * PMUL * (.2 + cf * 1.4)) REJECT;",
+    gate: "if (e < .28 || h6 <= 1. - (.0012 + sl * .010 + sm_(.28, .55, e) * .010) * PMUL * (.16 + cf * 1.1)) REJECT;",
     look: `
       float s = 1.6 + h1 * 3.2;
       sc = vec3(s * (.75 + h2 * .5), s * (.4 + h7 * .45), s * (.65 + h1 * .4));

@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import type { Planet } from "./planet";
 import { frame, smoothstep } from "./utilgeo";
+import { isTouchDevice } from "./touch";
 import { T, TERRAIN_GLSL } from "./gpu";
 import { makeRT, draw, QUAD_VS, readRT } from "./bake";
 import { U, TINT_GLSL, IGN } from "./fx";
@@ -39,6 +40,7 @@ vInnerF = 1.;
 ${lookGLSL()}
     float dist = length(d * (uR + D) - cameraPosition);
     vOuterF = 1. - smoothstep(TO_FULL, TO_GONE, dist);
+    vOuterF = min(vOuterF, smoothstep(uK * CELLSZ, uK * CELLSZ - 8., length(aCell) * CELLSZ));
     if (vOuterF <= 0.) kill = true;
     vInnerF = smoothstep(TI_GONE, TI_FULL, dist);
     if (vInnerF <= 0.) kill = true;
@@ -272,7 +274,7 @@ export class Scatter {
     if (this.dirty) {
       this.layers.forEach((l) => (l.lastFace = -1));
       this.dirty = false;
-      budget = this.layers.length; // flush all stale layers in one frame on scene reset
+      budget = isTouchDevice ? 20 : this.layers.length; // mobile: spread flush over ~2 frames
     }
     if (alt >= 255) return;
     const n = this.layers.length;

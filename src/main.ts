@@ -180,6 +180,7 @@ const enterLabel = isTouchDevice ? "Tap to enter" : "Click to enter";
 // Shaders JIT-compile on first draw instead — brief stutter spread across the first
 // second of play, which is far less disruptive than a frozen splash screen.
 await setStep(4, "Ready");
+showSplash(enterLabel); // show enter button immediately; splash stays up while shaders warm
 splash.addEventListener("click", () => {
   hideSplash();
   if (!isTouchDevice) renderer.domElement.requestPointerLock();
@@ -263,8 +264,4 @@ renderer.setAnimationLoop(() => {
   mapOverlay.tick();
   postFX.render(dt);
 });
-// Frame loop is now running. Wait for one full frame (sky, camera, postFX all
-// updated) before revealing the enter button so the scene is never blank on entry.
-await new Promise<void>(r => requestAnimationFrame(() => r()));
-showSplash(enterLabel);
 })();
