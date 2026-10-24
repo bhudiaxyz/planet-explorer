@@ -391,13 +391,13 @@ export class Forest {
           dy = lists.dir[k * 3 + 1],
           dz = lists.dir[k * 3 + 2];
         if (dx * dir.x + dy * dir.y + dz * dir.z < thr) continue;
-        const d = this.scratchD.set(dx, dy, dz),
-          r = (base + 0.05) * lists.scale[k] * lists.scaleWidth[k];
+        this.scratchD.set(dx, dy, dz);
+        const r = (base + 0.05) * lists.scale[k] * lists.scaleWidth[k];
         this.scratchAx
-          .crossVectors(d, Math.abs(dy) < 0.99 ? UP : this.scratchUp)
+          .crossVectors(this.scratchD, Math.abs(dy) < 0.99 ? UP : this.scratchUp)
           .normalize();
         out.push({
-          d,
+          d: this.scratchD.clone(),
           ax: this.scratchAx.clone(),
           rx: r,
           rz: r,
