@@ -37,8 +37,8 @@ export class PostFX {
     this.composer = new EffectComposer(renderer, rt);
     this.bloom = new UnrealBloomPass(
       new THREE.Vector2(innerWidth / 2, innerHeight / 2),
-      0.45,
-      0.5,
+      isTouchDevice ? 0.3 : 0.45,
+      isTouchDevice ? 0.35 : 0.5,
       0.75,
     );
     const clean = new ShaderPass({

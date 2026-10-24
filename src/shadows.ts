@@ -11,6 +11,7 @@ export class Shadows {
   private on = false;
   private timer = 0;
   private hz: number = CFG.shadow.hz;
+  private half: number = CFG.shadow.half;
   private strength = 0;
   private moonOn = false;
   private moonStrength = 0;
@@ -25,7 +26,8 @@ export class Shadows {
     private moon?: THREE.DirectionalLight,
   ) {
     const { size: rawSize } = CFG.shadow;
-    const half = this.mobileScale ? CFG.shadow.half * 0.65 : CFG.shadow.half;
+    this.half = this.mobileScale ? CFG.shadow.half * 0.65 : CFG.shadow.half;
+    const half = this.half;
     const size = this.mobileScale ? rawSize >> 1 : rawSize;
     this.hz = this.mobileScale ? 20 : CFG.shadow.hz;
     renderer.shadowMap.enabled = true;
@@ -72,7 +74,7 @@ export class Shadows {
     const active = this.on && dayF > 0.05;
     this.strength += ((active ? 1 : 0) - this.strength) * Math.min(1, dt * 3);
     this.light.shadow.intensity = this.strength;
-    const { half, size } = CFG.shadow, hz = this.hz,
+    const half = this.half, { size } = CFG.shadow, hz = this.hz,
       tex = (2 * half) / size; // metres per shadow texel
     if (active) {
       this.right.crossVectors(sun, Math.abs(sun.y) < 0.9 ? Y : X).normalize();
