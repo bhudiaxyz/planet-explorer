@@ -381,7 +381,7 @@ export function buildLandmarks(pl: Planet, group: THREE.Group) {
       const ax1 = Math.cos(archYaw) * half, az1 = Math.sin(archYaw) * half;
       const gy1 = ground(ax1, az1), gy2 = ground(-ax1, -az1);
       const ph = (7 + r() * 5) * sz;
-      const topY = Math.max(gy1, gy2) + ph;
+      const topY = Math.max(0, gy1, gy2) + ph;
       for (const [px, pz, gy] of [[ax1, az1, gy1], [-ax1, -az1, gy2]] as [number, number, number][]) {
         const pillarH = topY - gy;
         part(parts, new THREE.BoxGeometry(pw, pillarH, pw * 1.15),
@@ -390,9 +390,9 @@ export function buildLandmarks(pl: Planet, group: THREE.Group) {
         obs.push({ d: wd(px, pz), ax: wax(archYaw), rx: pw * 0.65, rz: pw * 0.65, H: Infinity, mode: 0 });
       }
       // crown span
-      part(parts, new THREE.BoxGeometry(half * 2.2, pw * 0.8, pw * 1.05),
-        new THREE.Vector3(0, topY + pw * 0.35, 0),
-        new THREE.Euler(0, archYaw, (r() - 0.5) * 0.03),
+      part(parts, new THREE.BoxGeometry(half * 2.2, pw * 0.9, pw * 1.05),
+        new THREE.Vector3(0, topY, 0),
+        new THREE.Euler(0, archYaw, 0),
         DARK.clone().offsetHSL(0, 0, 0.08));
       // keystone
       part(parts, new THREE.BoxGeometry(pw * 0.9, pw * 0.75, pw * 0.9),

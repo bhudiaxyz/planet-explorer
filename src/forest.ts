@@ -95,6 +95,7 @@ export class Forest {
   private scratchDir = new THREE.Vector3();
   private scratchColor = new THREE.Color();
   private scratchD = new THREE.Vector3();
+  private tierCounts = [0, 0];
   private scratchAx = new THREE.Vector3();
   private scratchUp = new THREE.Vector3(1, 0, 0);
   private leafColors: THREE.Color[] = [];
@@ -420,7 +421,7 @@ export class Forest {
     // animate nearStrength toward nearMode so hi/mid tiers fade in/out over ~0.4 s
     const target = this.nearMode ? 1 : 0;
     this.nearStrength += (target - this.nearStrength) * Math.min(1, dt * CFG.trees.nearFadeSpeed);
-    const onlyCrossfading = cam.distanceTo(this.last) < 6;
+    const onlyCrossfading = cam.distanceToSquared(this.last) < 36;
     if (onlyCrossfading && Math.abs(this.nearStrength - target) < 0.005) return;
     this.last.copy(cam);
     const camDirX = cam.x / camLength,
@@ -433,7 +434,8 @@ export class Forest {
       midNearThreshold = distanceToCosAngle(H0 - 15),
       midFarThreshold = distanceToCosAngle(M1 + 15);
     for (const lists of this.speciesLists) {
-      const tierCounts = [0, 0],
+      this.tierCounts[0] = this.tierCounts[1] = 0;
+      const tierCounts = this.tierCounts,
         matrixArrays = lists.matrixArrays,
         colorArrays = lists.colorArrays,
         exactMatrices = lists.exM;

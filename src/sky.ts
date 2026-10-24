@@ -229,10 +229,12 @@ void main() {
     this.ambientLight.intensity = LGT.ambientBase + LGT.ambientDayMul * this.dayF * (1 - this.space);
     // bodies
     const starOp = (1 - this.dayF * (1 - this.space)) * (1 - this.cloud * 0.7);
-    this.stars.rotation.y = S.timeOfDay * Math.PI * 2;
     (this.stars.material as THREE.PointsMaterial).opacity = starOp;
     this.stars.visible = starOp > 0.01;
-    this.nebulae.rotation.y = S.timeOfDay * Math.PI * 2;
+    if (starOp > 0.01) {
+      this.stars.rotation.y = S.timeOfDay * Math.PI * 2;
+      this.nebulae.rotation.y = S.timeOfDay * Math.PI * 2;
+    }
     (this.nebulae.material as THREE.ShaderMaterial).uniforms.uOpacity.value = starOp;
     this.nebulae.visible = starOp > 0.01;
     this.disc.position

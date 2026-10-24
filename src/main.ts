@@ -239,7 +239,7 @@ renderer.setAnimationLoop(() => {
   footprints.update(dt);
   const night = (1 - sky.dayF) * (1 - sky.space) * (1 - sky.cloud);
   U.uNight.value = night;
-  galacticBand.mesh.rotation.y = S.timeOfDay * Math.PI * 2;
+  if (night > 0.01) galacticBand.mesh.rotation.y = S.timeOfDay * Math.PI * 2;
   aurora.update(
     camera.position,
     player.up,
