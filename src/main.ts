@@ -19,8 +19,8 @@ import { S } from "./config";
 import { isTouchDevice, setupTouch, setGuiToggle, setMapToggle } from "./touch";
 import { MapOverlay } from "./map";
 
-// lower default resolution and render scale on mobile/tablet to stay within GPU budget
-if (isTouchDevice) { S.resolution = 128; S.renderScale = 0.75; }
+// lower default resolution, render scale, and noise quality on mobile/tablet to stay within GPU/CPU budget
+if (isTouchDevice) { S.resolution = 128; S.renderScale = 0.75; S.octaves = 4; }
 
 // word-based seed: hash string → number for noise; URL stores the word
 export let currentSeedWord = genSeedWord();
@@ -82,7 +82,7 @@ const aurora = new Aurora(scene);
 const fireflies = new Fireflies(scene);
 const galacticBand = new GalacticBand(scene);
 const biolumi = new Bioluminescence(scene);
-const footprints = new Footprints(player, planet);
+const footprints = isTouchDevice ? null : new Footprints(player, planet);
 const postFX = new PostFX(renderer, scene, camera);
 postFX.aerial.setCamera(camera.near, camera.far);
 scene.add(scatter.group, sky.light.target);
@@ -238,7 +238,7 @@ renderer.setAnimationLoop(() => {
   planet.tick(dt);
   planet.forest.update(camera.position);
   scatter.update(player.up, player.alt, dt);
-  footprints.update(dt);
+  footprints?.update(dt);
   const night = (1 - sky.dayF) * (1 - sky.space) * (1 - sky.cloud);
   U.uNight.value = night;
   if (night > 0.01) galacticBand.mesh.rotation.y = S.timeOfDay * Math.PI * 2;

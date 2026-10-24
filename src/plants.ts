@@ -49,6 +49,7 @@ export interface Tier {
   sw: number;
   sh: number;
   near: boolean;
+  far: boolean;
 }
 export interface PlantSpec {
   name: string;
@@ -92,6 +93,7 @@ const tier = (
   sw,
   sh,
   near: lod === LOD.near,
+  far: lod === LOD.far,
 });
 type Def = Pick<PlantSpec, "name" | "kind" | "tiers" | "look" | "gate"> &
   Partial<PlantSpec>;

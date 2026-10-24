@@ -256,6 +256,7 @@ export class Scatter {
   constructor(private pl: Planet) {
     for (const spec of PLANTS)
       for (const tier of spec.tiers) {
+        if (isTouchDevice && tier.far) continue;
         const l = new Layer(spec, tier);
         if (spec.collide && tier.near) {
           l.collide = true;
@@ -270,7 +271,7 @@ export class Scatter {
   update(playerDirection: THREE.Vector3, alt: number, dt = 0.016) {
     U.uVeg.value = 1 - smoothstep(CFG.vegetation.altFadeStart, CFG.vegetation.altFadeEnd, alt);
     this.group.visible = alt < CFG.vegetation.altCullAbove;
-    let budget = Math.max(2, Math.round(4 * dt * 60));
+    let budget = isTouchDevice ? Math.max(2, Math.round(2 * dt * 60)) : Math.max(2, Math.round(4 * dt * 60));
     if (this.dirty) {
       this.layers.forEach((l) => (l.lastFace = -1));
       this.dirty = false;

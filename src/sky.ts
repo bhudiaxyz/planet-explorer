@@ -6,8 +6,9 @@ import { Precip } from "./precip";
 import { U } from "./fx";
 import { isTouchDevice } from "./touch";
 const { sky: SKY, atmosphere: ATM, lights: LGT } = CFG;
-const starCount  = isTouchDevice ? 1200 : SKY.starCount;
+const starCount   = isTouchDevice ? 1200 : SKY.starCount;
 const precipCount = isTouchDevice ? 1500 : SKY.precipCount;
+const nebulaCount = isTouchDevice ? 7 : SKY.nebulaCount;
 export class Sky {
   sun = new THREE.Vector3(1, 0, 0);
   dayF = 1;
@@ -71,7 +72,7 @@ export class Sky {
       }),
     );
     // nebula patches at fixed random directions
-    const NC = SKY.nebulaCount;
+    const NC = nebulaCount;
     const np = new Float32Array(NC * 3);
     const nc = new Float32Array(NC * 3); // hue tint per patch
     const ns = new Float32Array(NC);     // size per patch
