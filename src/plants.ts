@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { CFG } from "./config";
+import { isTouchDevice } from "./touch";
 import {
   grassGeo,
   shrubGeo,
@@ -67,7 +68,13 @@ export interface PlantSpec {
   tiers: Tier[];
 }
 const LOD = CFG.plantLod,
-  RAD = CFG.plantRadius;
+  _R = CFG.plantRadius,
+  _m = isTouchDevice ? 0.65 : 1,
+  RAD = {
+    near: _R.near * _m, mid: _R.mid * _m, far: _R.far * _m,
+    flower: _R.flower * _m, mush: _R.mush * _m, shrub: _R.shrub * _m,
+    shrubMid: _R.shrubMid * _m, rock: _R.rock * _m, rockMid: _R.rockMid * _m,
+  };
 // tier radius → instance-disc K; PMUL = (cell/0.85)² converts per-0.85m-cell probabilities to this tier's cell area
 const tier = (
   geo: () => THREE.BufferGeometry,
@@ -143,15 +150,19 @@ export const PLANTS: PlantSpec[] = [
     pre: "cf = clusterField(d, 1.); if (h5 >= .04 * PMUL * cf * 5.) REJECT;",
     gate: "if (e >= .38 || sl >= .5 || m < -.2 || forestMask(d, m) > .6) REJECT;",
     look: `
-      sc = vec3(.8 + h1 * .6);
+      sc = vec3(.55 + h2 * .8, .55 + h1 * 1.1, .55 + h2 * .8);
+      sc *= 1. + step(.88, h3) * .6;
       float hm = step(.4, min(vColor.r, min(vColor.g, vColor.b)));
-      int pk = int(h3 * 6.);
-      vec3 fcol = pk == 0 ? vec3(.9, .9, .88)
-        : pk == 1 ? vec3(.9, .62, .05)
+      int pk = int(h3 * 9.);
+      vec3 fcol = pk == 0 ? vec3(.9,  .9,  .88)
+        : pk == 1 ? vec3(.9,  .62, .05)
         : pk == 2 ? vec3(.28, .12, .55)
         : pk == 3 ? vec3(.85, .25, .4)
-        : pk == 4 ? vec3(.9, .28, .04)
-        :           vec3(.12, .25, .8);
+        : pk == 4 ? vec3(.9,  .28, .04)
+        : pk == 5 ? vec3(.12, .25, .8)
+        : pk == 6 ? vec3(.88, .78, .06)
+        : pk == 7 ? vec3(.06, .58, .28)
+        :           vec3(.9,  .45, .55);
       tint = mix(vec3(1.), fcol, hm);
     `,
   }),
@@ -170,7 +181,9 @@ export const PLANTS: PlantSpec[] = [
     pre: "cf = clusterField(d, 2.); if (h6 >= .007 * PMUL * cf * 3.5) REJECT;",
     gate: "if (e >= .3 || sl >= .6 || m <= -.05) REJECT;",
     look: `
-      sc = vec3(.8 + h2 * 1.1) * vec3(1., .8 + h1 * .5, 1.);
+      float sw = .45 + h2 * 1.4;
+      sc = vec3(sw, sw * (.7 + h1 * .8), sw);
+      sc *= 1. + step(.9, h1) * .55;
       tint = (h7 < .2  ? vec3(.05, .2,  .04)
             : h7 < .4  ? vec3(.12, .2,  .05)
             : h7 < .58 ? vec3(.04, .18, .14)
@@ -178,7 +191,7 @@ export const PLANTS: PlantSpec[] = [
             : h7 < .86 ? vec3(.2,  .07, .04)
             : h7 < .94 ? vec3(.3,  .2,  .04)
             :             vec3(.45, .22, .3))
-        * (.75 + h2 * .5);
+        * (.65 + h2 * .7);
     `,
   }),
   plant({
@@ -223,12 +236,12 @@ export const PLANTS: PlantSpec[] = [
     pre: "cf = clusterField(d, 4.); if (h6 >= .024 * PMUL * cf * 3.5) REJECT;",
     gate: "if (e < .26 || sl >= .8) REJECT;",
     look: `
-      sc = vec3(.6 + h2 * .7);
+      sc = vec3(.38 + h2 * 1.0, .38 + h1 * 1.2, .38 + h2 * 1.0);
       tint = (h7 < .3  ? vec3(.1,  .13, .07)
             : h7 < .55 ? vec3(.16, .14, .08)
             : h7 < .8  ? vec3(.12, .1,  .14)
             :             vec3(.2,  .18, .15))
-        * (.8 + h2 * .4);
+        * (.7 + h2 * .6);
     `,
   }),
   plant({
@@ -244,8 +257,9 @@ export const PLANTS: PlantSpec[] = [
     pre: "cf = clusterField(d, 5.); if (h6 >= .12 * PMUL * cf * 3.) REJECT;",
     gate: "if (e < -.03 || e >= .025 || sl >= .35 || m < -.25) REJECT;",
     look: `
-      sc = vec3(.8 + h1 * .7, .8 + h2 * .9, .8 + h1 * .7);
-      tint = vec3(.85 + h2 * .3);
+      sc = vec3(.6 + h2 * .8, .55 + h1 * 1.1, .6 + h2 * .8);
+      sc.y *= 1. + step(.82, h3) * 1.0;
+      tint = vec3(.75 + h2 * .5);
     `,
   }),
   plant({
@@ -261,12 +275,13 @@ export const PLANTS: PlantSpec[] = [
     pre: "m0 = pn(d * uFreq * 2.2 + vec3(30., 0., 0.), 1); fo = treeDensity(d, m0); if (h6 >= .05 * PMUL * (.08 + fo * 2.4)) REJECT;",
     gate: "if (m <= 0. || e >= .44 || sl >= .7) REJECT;",
     look: `
-      sc = vec3(.9 + h2 * .9, .8 + h1 * .6, .9 + h2 * .9);
+      sc = vec3(.6 + h2 * 1.1, .55 + h1 * 1.1, .6 + h2 * 1.1);
+      sc *= 1. + step(.87, h1) * .5;
       tint = (h7 < .3  ? vec3(.04, .17, .05)
             : h7 < .6  ? vec3(.08, .22, .05)
             : h7 < .85 ? vec3(.03, .14, .1)
             :             vec3(.14, .2,  .04))
-        * (.8 + h2 * .4);
+        * (.7 + h2 * .6);
     `,
   }),
   plant({
@@ -329,15 +344,17 @@ export const PLANTS: PlantSpec[] = [
     pre: "m0 = pn(d * uFreq * 2.2 + vec3(30., 0., 0.), 1); fo = treeDensity(d, m0); cf = clusterField(d, 7.); if (h6 >= .035 * PMUL * fo * (.2 + cf * 3.)) REJECT;",
     gate: "if (m <= .12 || e >= .28 || sl >= .5) REJECT;",
     look: `
-      sc = vec3(.7 + h1 * .8);
-      float hm2 = step(.4, min(vColor.r, min(vColor.g, vColor.b)));
-      vec3 mcol = h7 < .3  ? vec3(.5,  .05, .04)
-                : h7 < .55 ? vec3(.25, .12, .06)
-                : h7 < .75 ? vec3(.5,  .2,  .04)
-                : h7 < .9  ? vec3(.4,  .35, .25)
-                :             vec3(.3,  .12, .4);
-      tint = mix(vec3(1.), mcol, hm2);
+      sc = vec3(.45 + h2 * .8, .55 + h1 * 1.1, .45 + h2 * .8);
       sc *= 1. + h3 * 2. * step(.7, h3);
+      float hm2 = step(.4, min(vColor.r, min(vColor.g, vColor.b)));
+      vec3 mcol = h7 < .18 ? vec3(.5,  .05, .04)
+                : h7 < .36 ? vec3(.25, .12, .06)
+                : h7 < .52 ? vec3(.5,  .2,  .04)
+                : h7 < .66 ? vec3(.4,  .35, .25)
+                : h7 < .80 ? vec3(.3,  .12, .4)
+                : h7 < .91 ? vec3(.08, .32, .18)
+                :             vec3(.6,  .48, .08);
+      tint = mix(vec3(1.), mcol, hm2);
     `,
   }),
   plant({
@@ -356,12 +373,12 @@ export const PLANTS: PlantSpec[] = [
     pre: "cf = clusterField(d, 10.); if (h6 >= .018 * PMUL * cf * 3.) REJECT;",
     gate: "if (e >= .18 || sl >= .6 || m >= .2) REJECT;",
     look: `
-      float s = .7 + h1 * .8;
-      sc = vec3(s * (.9 + h2 * .3), s * (1. + h7 * .4), s * (.9 + h2 * .3));
+      float sw = .45 + h2 * 1.1;
+      sc = vec3(sw * (.8 + h3 * .4), sw * (1.1 + h1 * .9), sw * (.8 + h3 * .4));
       tint = (h7 < .4  ? vec3(.18, .35, .12)
             : h7 < .75 ? vec3(.14, .28, .10)
             :             vec3(.22, .32, .08))
-        * (.8 + h2 * .4);
+        * (.7 + h2 * .6);
     `,
   }),
   plant({
@@ -378,13 +395,13 @@ export const PLANTS: PlantSpec[] = [
     pre: "cf = clusterField(d, 11.); if (h6 >= .014 * PMUL * cf * 3.5) REJECT;",
     gate: "if (e < .08 || sl >= .75 || m >= .25) REJECT;",
     look: `
-      float s = .5 + h1 * .9;
-      sc = vec3(s * (.8 + h2 * .5), s * (.7 + h7 * .5), s * (.8 + h2 * .5));
+      float s = .3 + h1 * 1.4;
+      sc = vec3(s * (.7 + h2 * .7), s * (.65 + h3 * .7), s * (.7 + h2 * .7));
       tint = (h7 < .35 ? vec3(.22, .17, .11)
             : h7 < .65 ? vec3(.18, .14, .09)
             : h7 < .88 ? vec3(.28, .20, .12)
             :             vec3(.16, .13, .10))
-        * (.75 + h2 * .45);
+        * (.7 + h2 * .6);
     `,
   }),
   plant({
@@ -401,12 +418,13 @@ export const PLANTS: PlantSpec[] = [
     pre: "cf = clusterField(d, 12.); if (h6 >= .08 * PMUL * cf * 3.) REJECT;",
     gate: "if (e < .01 || e >= .06 || sl >= .4 || m < 0.) REJECT;",
     look: `
-      sc = vec3(.8 + h1 * .5, .9 + h2 * .7, .8 + h1 * .5);
+      sc = vec3(.6 + h2 * .7, .65 + h1 * 1.1, .6 + h2 * .7);
+      sc.y *= 1. + step(.85, h3) * .9;
       tint = (h7 < .35 ? vec3(.52, .48, .20)
             : h7 < .65 ? vec3(.38, .45, .16)
             : h7 < .88 ? vec3(.60, .52, .22)
             :             vec3(.42, .38, .14))
-        * (.8 + h2 * .4);
+        * (.7 + h2 * .6);
     `,
   }),
   plant({

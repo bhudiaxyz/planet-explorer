@@ -195,18 +195,18 @@ export class Forest {
     const lean = speciesIndex === SP.palm ? 0.3 : 0.14;
     return {
       scale:
-        (0.75 + rand() * 0.7) *
+        (0.55 + rand() * 1.1) *
         (1 - smoothstep(0.3, 0.55, elevation) * 0.35),
       yaw: rand() * 6.28,
       widthScale:
-        (0.85 + 0.35 * rand()) *
+        (0.65 + 0.7 * rand()) *
         (speciesIndex === SP.cypress
           ? 0.8
           : speciesIndex === SP.acacia || speciesIndex === SP.willow || speciesIndex === SP.mangrove
             ? 1.2
             : 1),
       heightScale:
-        (0.85 + 0.45 * rand()) * (speciesIndex === SP.cypress ? 1.15 : speciesIndex === SP.mangrove ? 0.9 : 1),
+        (0.65 + 0.8 * rand()) * (speciesIndex === SP.cypress ? 1.15 : speciesIndex === SP.mangrove ? 0.9 : 1),
       tiltX: (rand() - 0.5) * lean,
       tiltZ: (rand() - 0.5) * lean,
       color: [c.r, c.g, c.b],

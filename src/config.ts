@@ -17,14 +17,14 @@ export const CFG = {
   // ground-cover tiers: [full-size until, gone beyond, inner gone below, inner full above]  (see vegetation.ts for the lifecycle rules)
   plantLod: {
     // small ground cover (grass, flowers, ferns, reeds, sedge, mushrooms)
-    near:    [28, 52,  0,  0.5],
-    mid:     [60, 100, 8,  24],
+    near:    [42, 62,  0,  0.5],
+    mid:     [76, 112, 8,  30],
     far:     [155, 200, 42, 64],
-    flower:  [40, 64,  0,  0.5],
-    mush:    [20, 44,  0,  0.5],
+    flower:  [52, 74,  0,  0.5],
+    mush:    [32, 54,  0,  0.5],
     // medium shrub-height objects (shrubs, alpine scrub, cactus, dead scrub)
-    shrub:   [42, 80,  0,  0.5],
-    shrubMid:[88, 150, 14, 36],
+    shrub:   [56, 90,  0,  0.5],
+    shrubMid:[102, 158, 18, 42],
     // large rocks, slabs, frost rocks, boulders
     rock:    [55, 110, 0,  0.5],
     rockMid: [120, 200, 20, 44],
