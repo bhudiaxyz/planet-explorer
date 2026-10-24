@@ -192,7 +192,7 @@ export class Player {
         this.forward.crossVectors(up, AXIS_X);
       this.forward.normalize();
       const right = scratchRight.crossVectors(this.forward, up),
-        isUnderwater = this.planet.radiusAt(this.dir) < planetRadius - 0.5;
+        isUnderwater = this.groundRadius < planetRadius - 0.5;
       if (moveAxis || strafeAxis) {
         scratchStep
           .set(0, 0, 0)
@@ -304,7 +304,8 @@ export class Player {
         flyForward = camera.getWorldDirection(scratchForward),
         flyRight = scratchRight.setFromMatrixColumn(camera.matrixWorld, 0),
         flyUp = scratchUp.copy(flyPos).normalize();
-      const flyAltitude = flyPos.length() - this.planet.radiusAt(flyUp),
+      const terrainRFly = this.planet.radiusAt(flyUp),
+        flyAltitude = flyPos.length() - terrainRFly,
         flySpeed =
           Math.max(20, flyAltitude * 1.5) * (sprint ? 4 : 1);
       scratchMove
@@ -321,11 +322,10 @@ export class Player {
         (this.isKeyDown("KeyE") + (this.touchRollRight ? 1 : 0) - this.isKeyDown("KeyQ") - (this.touchRollLeft ? 1 : 0)) * dt * 1.2,
       );
       flyUp.copy(flyPos).normalize();
-      const minRadius = this.planet.radiusAt(flyUp) + 3;
-      if (flyPos.length() < minRadius) flyPos.setLength(minRadius);
+      if (flyPos.length() < terrainRFly + 3) flyPos.setLength(terrainRFly + 3);
       camera.position.copy(flyPos);
       this.up.copy(flyUp);
-      this.alt = flyPos.length() - this.planet.radiusAt(flyUp);
+      this.alt = flyPos.length() - terrainRFly;
     }
   }
 }

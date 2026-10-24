@@ -320,12 +320,12 @@ void main() {
     this.cloudRadius = this.radius + Math.max(110, S.amplitude * 1.3 + 50);
     U.uCloudR.value = this.cloudRadius; // clouds float above the highest peaks
     const waterMesh = new THREE.Mesh(
-        new THREE.SphereGeometry(this.radius, 96, 64),
+        new THREE.SphereGeometry(this.radius, 64, 48),
         this.water,
       ),
       cloudMesh = this.clouds.make(this.cloudRadius),
       atmosphereMesh = new THREE.Mesh(
-        new THREE.SphereGeometry(this.cloudRadius * 1.05, 96, 64),
+        new THREE.SphereGeometry(this.cloudRadius * 1.05, 48, 32),
         this.atmosphere,
       );
     cloudMesh.renderOrder = 10;

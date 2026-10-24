@@ -282,10 +282,10 @@ export class Forest {
         tp = 1 - 1.1 * dy * dy - 1.2 * Math.max(e, 0);
       if (
         e < 0.03 ||
-        e > 0.55 ||
+        e > 0.62 ||
         tp < S.snowline + 0.02 ||
         sampleData[k * 4 + 3] > 0.6 ||
-        rand() > (dens + 0.008) * (1 - smoothstep(0.08, 0.42, e))
+        rand() > (dens + 0.008) * (1 - smoothstep(0.08, 0.50, e))
       )
         continue;
       const x = dirs[k * 3] * planetRadius,

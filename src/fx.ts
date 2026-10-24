@@ -421,6 +421,11 @@ transformed += normalize(position) * ripple;
     diffuseColor.a   = mix(diffuseColor.a,   .9,                 shore * .6);
   }
 
+  // icy tint near poles — abs(nW.y) ≈ 1 at poles, 0 at equator
+  float icy = smoothstep(0.45, 0.78, abs(nW.y));
+  diffuseColor.rgb = mix(diffuseColor.rgb, vec3(.72, .86, .94), icy * .65);
+  diffuseColor.a   = mix(diffuseColor.a,   .9,                   icy * .55);
+
   // sky Fresnel
   float fr = pow(1. - clamp(dot(normal, normalize(vViewPosition)), 0., 1.), 4.);
   diffuseColor.rgb = mix(diffuseColor.rgb, uSky * (.55 + .5 * uDayF), fr * .6);

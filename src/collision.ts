@@ -86,7 +86,7 @@ export class Collider {
             (bakeSnapshot.cellJ + y - K + h2 - 0.5) * cell,
           );
         this.scratchD.copy(this.obstaclePos).normalize();
-        if (this.scratchD.distanceTo(dir) * planetRadius > 18) continue;
+        if (this.scratchD.distanceToSquared(dir) * planetRadius * planetRadius > 324) continue;
         this.tangent1
           .crossVectors(this.scratchD, Math.abs(this.scratchD.y) < 0.99 ? Y : X)
           .normalize();

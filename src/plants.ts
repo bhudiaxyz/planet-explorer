@@ -220,7 +220,7 @@ export const PLANTS: PlantSpec[] = [
       tier(alpineLow,  8.5,  RAD.shrubMid, LOD.shrubMid),
       tier(alpineTiny, 17,   RAD.far,      LOD.far, 1.8, 1.8),
     ],
-    pre: "cf = clusterField(d, 4.); if (h6 >= .016 * PMUL * cf * 3.5) REJECT;",
+    pre: "cf = clusterField(d, 4.); if (h6 >= .024 * PMUL * cf * 3.5) REJECT;",
     gate: "if (e < .26 || sl >= .8) REJECT;",
     look: `
       sc = vec3(.6 + h2 * .7);
@@ -259,7 +259,7 @@ export const PLANTS: PlantSpec[] = [
       tier(fernTiny, 17, RAD.far, LOD.far, 1.4, 1.2),
     ],
     pre: "m0 = pn(d * uFreq * 2.2 + vec3(30., 0., 0.), 1); fo = treeDensity(d, m0); if (h6 >= .05 * PMUL * (.08 + fo * 2.4)) REJECT;",
-    gate: "if (m <= 0. || e >= .32 || sl >= .7) REJECT;",
+    gate: "if (m <= 0. || e >= .44 || sl >= .7) REJECT;",
     look: `
       sc = vec3(.9 + h2 * .9, .8 + h1 * .6, .9 + h2 * .9);
       tint = (h7 < .3  ? vec3(.04, .17, .05)
