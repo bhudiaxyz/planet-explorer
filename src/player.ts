@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { Planet } from "./planet";
-import { S } from "./settings";
+import { S } from "./config";
 import { rng } from "./noise";
 import type { Collider } from "./collision";
 import { isTouchDevice } from "./touch";

@@ -2,7 +2,7 @@ import * as THREE from "three";
 import type { Planet } from "./planet";
 import { LANDMARK_ICON, LANDMARK_NAMES } from "./landmarks";
 import { rng } from "./noise";
-import { S } from "./settings";
+import { S } from "./config";
 import { treeDensityCPU } from "./treeutil";
 
 export type Spot = { name: string; icon: string; dir: THREE.Vector3; group?: string };
@@ -150,8 +150,10 @@ export async function findSpots(planet: Planet): Promise<Spot[]> {
   };
 
   let unsatisfied = features.length;
+  let lastYield = performance.now();
   for (let i = 0; i < SCAN && unsatisfied > 0; i++) {
-    if (i % 200 === 0) await yield_();
+    const now = performance.now();
+    if (now - lastYield >= 8) { await yield_(); lastYield = performance.now(); }
     tmp.set(rand() * 2 - 1, rand() * 2 - 1, rand() * 2 - 1);
     if (tmp.lengthSq() > 1 || tmp.lengthSq() < 0.01) continue;
     tmp.normalize();
@@ -186,8 +188,10 @@ export async function findSpots(planet: Planet): Promise<Spot[]> {
   // Fill any feature short of 3 candidates — tight rescan then guaranteed clone fallback
   for (const f of features) {
     if (f.candidates.length >= 3) continue;
+    let rescanYield = performance.now();
     for (let i = 0; i < 3000 && f.candidates.length < 3; i++) {
-      if (i % 200 === 0) await yield_();
+      const now = performance.now();
+      if (now - rescanYield >= 8) { await yield_(); rescanYield = performance.now(); }
       tmp.set(rand() * 2 - 1, rand() * 2 - 1, rand() * 2 - 1);
       if (tmp.lengthSq() > 1 || tmp.lengthSq() < 0.01) continue;
       tmp.normalize();

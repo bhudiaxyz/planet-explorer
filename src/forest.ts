@@ -3,8 +3,7 @@ import type { Planet } from "./planet";
 import { smoothstep } from "./utilgeo";
 import { treeDensityCPU } from "./treeutil"; // shared with spots.ts
 import { rng } from "./noise";
-import { S } from "./settings";
-import { CFG } from "./config";
+import { S, CFG } from "./config";
 import { treeGeos, lowGeos, treeMats, getLeafColors } from "./trees";
 import { canBake, bakePoints } from "./bake";
 import { isTouchDevice } from "./touch";
@@ -223,10 +222,14 @@ export class Forest {
       max = Math.floor(
         CFG.forest.count * (isTouchDevice ? 0.45 : 1) * S.forest * (planetRadius / 700) ** 2,
       ),
-      rand = rng(S.seed + 7),
-      highDetailGeos = await new Promise<ReturnType<typeof treeGeos>>(r => setTimeout(() => r(treeGeos(S.seed, 1)), 0)),
-      midDetailGeos = treeGeos(S.seed, 0.5),
-      lowDetailGeos = lowGeos(S.seed);
+      rand = rng(S.seed + 7);
+    // Kick off all three geometry builds immediately (each via setTimeout so they run in separate
+    // macrotasks) — they overlap with the GPU bake readback awaits below, cutting wall-clock time.
+    const geosPromise = Promise.all([
+      new Promise<ReturnType<typeof treeGeos>>(r => setTimeout(() => r(treeGeos(S.seed, 1)), 0)),
+      new Promise<ReturnType<typeof treeGeos>>(r => setTimeout(() => r(treeGeos(S.seed, 0.5)), 0)),
+      new Promise<ReturnType<typeof lowGeos>>(r => setTimeout(() => r(lowGeos(S.seed)), 0)),
+    ]);
     const tries = Math.min(max * CFG.forest.tries, 200000),
       candidateDirs = new Float32Array(tries * 3),
       d = new THREE.Vector3();
@@ -237,11 +240,11 @@ export class Forest {
       if (l > 1 || l < 0.01) continue;
       d.normalize().toArray(candidateDirs, n++ * 3);
     }
-    const dirs = candidateDirs.subarray(0, n * 3),
-      [sampleData, stand] = await Promise.all([
-        this.sample(dirs, 1),
-        this.sample(dirs, 5),
-      ]);
+    const dirs = candidateDirs.subarray(0, n * 3);
+    const [[highDetailGeos, midDetailGeos, lowDetailGeos], [sampleData, stand]] = await Promise.all([
+      geosPromise,
+      Promise.all([this.sample(dirs, 1), this.sample(dirs, 5)]),
+    ]);
     // minimum spacing via a 3-D hash grid (cell = spacing), so dense stands never stack trunks
     const minSpacing = CFG.forest.minSpacing,
       grid = new Map<number, number[]>(),
@@ -413,10 +416,10 @@ export class Forest {
     const planetRadius = this.pl.radius,
       camLength = cam.length(),
       altitude = camLength - planetRadius;
-    if (this.nearMode ? altitude > 420 : altitude < 380) this.nearMode = altitude < 400;
+    if (this.nearMode ? altitude > CFG.trees.nearLeaveAlt : altitude < CFG.trees.nearEnterAlt) this.nearMode = altitude < CFG.trees.nearHysteresisAlt;
     // animate nearStrength toward nearMode so hi/mid tiers fade in/out over ~0.4 s
     const target = this.nearMode ? 1 : 0;
-    this.nearStrength += (target - this.nearStrength) * Math.min(1, dt * 2.5);
+    this.nearStrength += (target - this.nearStrength) * Math.min(1, dt * CFG.trees.nearFadeSpeed);
     const onlyCrossfading = cam.distanceTo(this.last) < 6;
     if (onlyCrossfading && Math.abs(this.nearStrength - target) < 0.005) return;
     this.last.copy(cam);

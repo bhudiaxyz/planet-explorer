@@ -15,7 +15,7 @@ import { setRenderer } from "./bake";
 import { U } from "./fx";
 import { smoothstep } from "./utilgeo";
 import { genSeedWord, hashSeedWord } from "./util";
-import { S } from "./settings";
+import { S } from "./config";
 import { isTouchDevice, setupTouch, setGuiToggle, setMapToggle } from "./touch";
 import { MapOverlay } from "./map";
 
@@ -56,7 +56,7 @@ const scene = new THREE.Scene(),
 // ---- world & systems ---------------------------------------------------------------------------------------------------------------------------
 (async () => {
 const lsTip = document.getElementById("ls-tip")!;
-const STEPS = 10;
+const STEPS = 5;
 const setStep = (n: number, label: string) => {
   lsTip.textContent = `Step ${n} of ${STEPS}: ${label}`;
   return new Promise<void>(r => requestAnimationFrame(() => r()));
@@ -67,33 +67,22 @@ const planet = new Planet(scene);
 await planet.build();
 pushSeedUrl(currentSeedWord);
 
-await setStep(2, "Spawning player");
+// Start scouting immediately — only needs planet, not scatter or other systems
+const spotsPromise = findSpots(planet);
+
+await setStep(2, "Setting up world");
 const player = new Player(camera, planet, renderer.domElement);
 player.spawn();
-
-await setStep(3, "Preparing sky");
 const sky = new Sky(scene, planet);
 const skyDome = new SkyDome(scene);
-
-await setStep(4, "Scattering vegetation");
 const scatter = new Scatter(planet);
 const collider = new Collider(planet, scatter);
 const shadows = new Shadows(renderer, sky.light, isTouchDevice, sky.moon);
-// Start scouting in background after scatter — treeDensityCPU reads planet.noise2, not scatter meshes
-const spotsPromise = findSpots(planet);
-
-await setStep(5, "Preparing night sky");
 const aurora = new Aurora(scene);
 const fireflies = new Fireflies(scene);
 const galacticBand = new GalacticBand(scene);
-
-await setStep(6, "Preparing bioluminescence");
 const biolumi = new Bioluminescence(scene);
-
-await setStep(7, "Preparing footprints");
 const footprints = new Footprints(player, planet);
-
-await setStep(8, "Preparing post-processing");
 const postFX = new PostFX(renderer, scene, camera);
 postFX.aerial.setCamera(camera.near, camera.far);
 scene.add(scatter.group, sky.light.target);
@@ -121,7 +110,7 @@ renderer.domElement.addEventListener("webglcontextrestored", () =>
   rebuild(false),
 );
 
-await setStep(9, "Scouting locations");
+await setStep(3, "Scouting locations");
 const spots = await spotsPromise;
 mapOverlay.setSpots(spots);
 
@@ -183,10 +172,14 @@ const showSplash = (label: string, compiled = true) => {
 const hideSplash = () => {
   splash.classList.add("dismissed");
 };
+
 const enterLabel = isTouchDevice ? "Tap to enter" : "Click to enter";
-await setStep(10, "Compiling shaders");
+await setStep(4, "Compiling shaders");
 showSplash(enterLabel, false);
-renderer.compileAsync(scene, camera).then(() => showSplash(enterLabel));
+await renderer.compileAsync(scene, camera);
+
+await setStep(5, "Ready");
+showSplash(enterLabel);
 splash.addEventListener("click", () => {
   hideSplash();
   if (!isTouchDevice) renderer.domElement.requestPointerLock();

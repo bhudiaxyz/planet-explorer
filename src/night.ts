@@ -178,7 +178,7 @@ void main() {
   vMoist      = moist * ok;
   vec4 mv     = modelViewMatrix * vec4(wpos, 1.0);
   gl_Position  = projectionMatrix * mv;
-  gl_PointSize = min(mix(2.5, 5.0, sd.x) * (1.0 / -mv.z) * 350.0 * uNight * ok, 64.0);
+  gl_PointSize = min(mix(3.5, 7.0, sd.x) * (1.0 / -mv.z) * 550.0 * uNight * ok, 96.0);
 }`,
       fragmentShader: `
 uniform float uNight;
@@ -188,7 +188,7 @@ void main() {
   if (r > 1.0) discard;
   float pulse = 0.5 + 0.5 * sin(vPulse * 6.28);
   vec3  col   = mix(vec3(0.08, 0.88, 0.42), vec3(0.15, 0.45, 1.0), vMoist);
-  gl_FragColor = vec4(col, (1.0 - r * r) * pulse * uNight * vMoist);
+  gl_FragColor = vec4(col * 1.4, (1.0 - r * r) * 1.8 * pulse * uNight * vMoist);
 }`,
     });
     this.pts = new THREE.Points(geo, this.mat);

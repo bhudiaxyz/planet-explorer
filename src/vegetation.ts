@@ -4,6 +4,7 @@ import { frame, smoothstep } from "./utilgeo";
 import { T, TERRAIN_GLSL } from "./gpu";
 import { makeRT, draw, QUAD_VS, readRT } from "./bake";
 import { U, TINT_GLSL, IGN } from "./fx";
+import { CFG } from "./config";
 import {
   PLANTS,
   type PlantSpec,
@@ -265,8 +266,8 @@ export class Scatter {
   /** Invalidate all layer placement caches — call when palette changes to rebake vertex colours. */
   rebuild() { this.dirty = true; }
   update(playerDirection: THREE.Vector3, alt: number, dt = 0.016) {
-    U.uVeg.value = 1 - smoothstep(150, 250, alt);
-    this.group.visible = alt < 255;
+    U.uVeg.value = 1 - smoothstep(CFG.vegetation.altFadeStart, CFG.vegetation.altFadeEnd, alt);
+    this.group.visible = alt < CFG.vegetation.altCullAbove;
     let budget = Math.max(2, Math.round(4 * dt * 60));
     if (this.dirty) {
       this.layers.forEach((l) => (l.lastFace = -1));

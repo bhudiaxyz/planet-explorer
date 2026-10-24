@@ -1,5 +1,5 @@
 import GUI from "lil-gui";
-import { S, WEATHER_TYPE, type Settings } from "./settings";
+import { S, WEATHER_TYPE, type Settings } from "./config";
 import { pushSeedUrl, currentSeedWord } from "./main";
 import { genSeedWord } from "./util";
 import { isTouchDevice } from "./touch";

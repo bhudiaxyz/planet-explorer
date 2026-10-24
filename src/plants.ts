@@ -159,9 +159,9 @@ export const PLANTS: PlantSpec[] = [
     lean: 0.35,
     disp: true, // thickets
     tiers: [
-      tier(shrubGeo, 4.25, RAD.near, LOD.near),
-      tier(shrubLow, 8.5, RAD.mid, LOD.mid),
-      tier(shrubTiny, 17, RAD.far, LOD.far, 1.9, 1.9),
+      tier(shrubGeo,  4.25, RAD.shrub,    LOD.shrub),
+      tier(shrubLow,  8.5,  RAD.shrubMid, LOD.shrubMid),
+      tier(shrubTiny, 17,   RAD.far,      LOD.far, 1.9, 1.9),
     ],
     pre: "cf = clusterField(d, 2.); if (h6 >= .009 * PMUL * cf * 4.) REJECT;",
     gate: "if (e >= .3 || sl >= .6 || m <= -.05) REJECT;",
@@ -187,9 +187,9 @@ export const PLANTS: PlantSpec[] = [
     disp: true,
     moss: true, // boulder fields
     tiers: [
-      tier(rockGeo, 4.25, RAD.near, LOD.near),
-      tier(rockLow, 8.5, RAD.mid, LOD.mid),
-      tier(rockTiny, 17, RAD.far, LOD.far),
+      tier(rockGeo,  4.25, RAD.rock,    LOD.rock),
+      tier(rockLow,  8.5,  RAD.rockMid, LOD.rockMid),
+      tier(rockTiny, 17,   RAD.far,     LOD.far),
     ],
     pre: "cf = clusterField(d, 3.);",
     gate: "if (h6 <= 1. - (.003 + sl * .02 + sm_(.4, .6, e) * .015) * PMUL * (.2 + cf * 2.6)) REJECT;",
@@ -212,9 +212,9 @@ export const PLANTS: PlantSpec[] = [
     lean: 0.35,
     disp: true,
     tiers: [
-      tier(alpineGeo, 4.25, RAD.near, LOD.near),
-      tier(alpineLow, 8.5, RAD.mid, LOD.mid),
-      tier(alpineTiny, 17, RAD.far, LOD.far, 1.8, 1.8),
+      tier(alpineGeo,  4.25, RAD.shrub,    LOD.shrub),
+      tier(alpineLow,  8.5,  RAD.shrubMid, LOD.shrubMid),
+      tier(alpineTiny, 17,   RAD.far,      LOD.far, 1.8, 1.8),
     ],
     pre: "cf = clusterField(d, 4.); if (h6 >= .02 * PMUL * cf * 4.) REJECT;",
     gate: "if (e < .26 || sl >= .8) REJECT;",
@@ -274,9 +274,9 @@ export const PLANTS: PlantSpec[] = [
     lean: 0.35,
     disp: true,
     tiers: [
-      tier(rockSlabGeo, 4.25, RAD.near, LOD.near),
-      tier(rockSlabLow, 8.5, RAD.mid, LOD.mid),
-      tier(rockSlabTiny, 17, RAD.far, LOD.far),
+      tier(rockSlabGeo,  4.25, RAD.rock,    LOD.rock),
+      tier(rockSlabLow,  8.5,  RAD.rockMid, LOD.rockMid),
+      tier(rockSlabTiny, 17,   RAD.far,     LOD.far),
     ],
     pre: "cf = clusterField(d, 8.);",
     gate: "if (h6 <= 1. - (.004 + sl * .025 + sm_(.25, .5, e) * .018) * PMUL * (.15 + cf * 2.4)) REJECT;",
@@ -300,9 +300,9 @@ export const PLANTS: PlantSpec[] = [
     lean: 0.2,
     disp: true,
     tiers: [
-      tier(frostRockGeo, 4.25, RAD.near, LOD.near),
-      tier(frostRockLow, 8.5, RAD.mid, LOD.mid),
-      tier(frostRockTiny, 17, RAD.far, LOD.far),
+      tier(frostRockGeo,  4.25, RAD.rock,    LOD.rock),
+      tier(frostRockLow,  8.5,  RAD.rockMid, LOD.rockMid),
+      tier(frostRockTiny, 17,   RAD.far,     LOD.far),
     ],
     pre: "cf = clusterField(d, 9.);",
     gate: "if (e < .38 || h6 <= 1. - (.006 + sl * .018 + sm_(.38, .58, e) * .02) * PMUL * (.3 + cf * 2.2)) REJECT;",
@@ -344,12 +344,12 @@ export const PLANTS: PlantSpec[] = [
     lean: 0.08,
     disp: true,
     tiers: [
-      tier(cactusGeo, 3.4, RAD.near, LOD.near),
-      tier(cactusLow, 6.8, RAD.mid, LOD.mid, 1.0, 2.0),
-      tier(cactusTiny, 17, RAD.far, LOD.far, 1.6, 2.2),
+      tier(cactusGeo,  3.4, RAD.shrub,    LOD.shrub),
+      tier(cactusLow,  6.8, RAD.shrubMid, LOD.shrubMid, 1.0, 2.0),
+      tier(cactusTiny, 17,  RAD.far,      LOD.far, 1.6, 2.2),
     ],
     pre: "cf = clusterField(d, 10.); if (h6 >= .018 * PMUL * cf * 3.) REJECT;",
-    gate: "if (e >= .15 || sl >= .6 || m >= -.1) REJECT;",
+    gate: "if (e >= .18 || sl >= .6 || m >= .2) REJECT;",
     look: `
       float s = .7 + h1 * .8;
       sc = vec3(s * (.9 + h2 * .3), s * (1. + h7 * .4), s * (.9 + h2 * .3));
@@ -366,12 +366,12 @@ export const PLANTS: PlantSpec[] = [
     hardy: true,
     lean: 0.25,
     tiers: [
-      tier(deadScrubGeo, 3.4, RAD.near, LOD.near),
-      tier(deadScrubLow, 8.5, RAD.mid, LOD.mid, 1.6, 1.6),
-      tier(deadScrubTiny, 17, RAD.far, LOD.far, 1.5, 1.5),
+      tier(deadScrubGeo,  3.4, RAD.shrub,    LOD.shrub),
+      tier(deadScrubLow,  8.5, RAD.shrubMid, LOD.shrubMid, 1.6, 1.6),
+      tier(deadScrubTiny, 17,  RAD.far,      LOD.far, 1.5, 1.5),
     ],
     pre: "cf = clusterField(d, 11.); if (h6 >= .014 * PMUL * cf * 3.5) REJECT;",
-    gate: "if (e < .1 || sl >= .75 || m >= .05) REJECT;",
+    gate: "if (e < .08 || sl >= .75 || m >= .25) REJECT;",
     look: `
       float s = .5 + h1 * .9;
       sc = vec3(s * (.8 + h2 * .5), s * (.7 + h7 * .5), s * (.8 + h2 * .5));
@@ -402,6 +402,32 @@ export const PLANTS: PlantSpec[] = [
             : h7 < .88 ? vec3(.60, .52, .22)
             :             vec3(.42, .38, .14))
         * (.8 + h2 * .4);
+    `,
+  }),
+  plant({
+    name: "boulders",
+    kind: 13,
+    wind: 0,
+    hardy: true,
+    collide: true,
+    lean: 0.12,
+    disp: true,
+    moss: true,
+    tiers: [
+      tier(rockGeo,  8.5, RAD.rock,    LOD.rock),
+      tier(rockLow,  17,  RAD.rockMid, LOD.rockMid),
+      tier(rockTiny, 34,  RAD.far,     LOD.far),
+    ],
+    pre: "cf = clusterField(d, 13.);",
+    gate: "if (e < .28 || h6 <= 1. - (.002 + sl * .016 + sm_(.28, .55, e) * .014) * PMUL * (.2 + cf * 1.4)) REJECT;",
+    look: `
+      float s = 1.6 + h1 * 3.2;
+      sc = vec3(s * (.75 + h2 * .5), s * (.4 + h7 * .45), s * (.65 + h1 * .4));
+      tint = (h7 < .3  ? vec3(.32, .30, .28)
+            : h7 < .6  ? vec3(.22, .20, .24)
+            : h7 < .82 ? vec3(.40, .28, .18)
+            :             vec3(.48, .46, .50))
+        * 4.2 * (.7 + h2 * .5);
     `,
   }),
 ];

@@ -1,7 +1,6 @@
 import * as THREE from "three";
 import { T, TERRAIN_GLSL, BIOME_GLSL } from "./gpu";
-import { S } from "./settings";
-import { CFG } from "./config";
+import { S, CFG } from "./config";
 const CELL = CFG.chunk.cell.toFixed(2);
 // GPU "compute" via render-to-texture: the terrain function is evaluated on the GPU once (rebuild / chunk load / lattice move), never per frame.
 let renderer: THREE.WebGLRenderer | null = null;
@@ -155,6 +154,40 @@ void main() {
   gl_PointSize = 1.;
   gl_Position  = vec4(x / uW * 2. - 1., y / uH * 2. - 1., 0., 1.);
 }`;
+// Bake material cache keyed by mode — avoids GPU shader recompilation on every world rebuild.
+// uW/uH are stored by reference so they can be updated between calls without touching the material.
+type BakeEntry = { mat: THREE.ShaderMaterial; uW: { value: number }; uH: { value: number } };
+const _bakeMats = new Map<number, BakeEntry>();
+function getBakeMat(mode: number, texWidth: number, texHeight: number): THREE.ShaderMaterial {
+  let e = _bakeMats.get(mode);
+  if (!e) {
+    const uW = { value: texWidth }, uH = { value: texHeight };
+    e = {
+      uW, uH,
+      mat: new THREE.ShaderMaterial({
+        defines: { MODE: mode },
+        depthTest: false,
+        depthWrite: false,
+        uniforms: { ...T, uW, uH, uRes: { value: S.resolution }, uStep: { value: 1.57 / S.resolution } },
+        vertexShader: PV,
+        fragmentShader: `varying vec4 vO;\nvoid main(){gl_FragColor=vO;}`,
+      }),
+    };
+    _bakeMats.set(mode, e);
+  } else {
+    e.uW.value = texWidth;
+    e.uH.value = texHeight;
+  }
+  return e.mat;
+}
+
+// Singleton scene/mesh/geo reused across all bakePoints calls — avoids repeated JS object construction and GC pressure.
+const _bakeGeo = new THREE.BufferGeometry();
+const _bakeMesh = new THREE.Points(_bakeGeo, undefined as any);
+_bakeMesh.frustumCulled = false;
+const _bakePointScene = new THREE.Scene();
+_bakePointScene.add(_bakeMesh);
+
 // Bulk point sampling with read-back. 0: base (elev, moisture) · 1: tree candidates (elev, moisture, tree density, slope) · 2: coarse-mesh radius · 3: base analytic normals · 4: base biome colours · 5: forest stand noise
 export async function bakePoints(
   dirs: Float32Array,
@@ -165,38 +198,16 @@ export async function bakePoints(
     texWidth = 2048,
     texHeight = Math.max(1, Math.ceil(pointCount / texWidth)),
     rt = makeRT(texWidth, texHeight);
-  const bakeMat = new THREE.ShaderMaterial({
-    defines: { MODE: mode },
-    depthTest: false,
-    depthWrite: false,
-    uniforms: {
-      ...T,
-      uW: { value: texWidth },
-      uH: { value: texHeight },
-      uRes: { value: S.resolution },
-      uStep: { value: 1.57 / S.resolution },
-    },
-    vertexShader: PV,
-    fragmentShader: `
-varying vec4 vO;
-
-void main() {
-  gl_FragColor = vO;
-}`,
-  });
-  const pointsGeo = new THREE.BufferGeometry().setAttribute(
-    "position",
-    new THREE.BufferAttribute(dirs, 3),
-  );
+  _bakeGeo.setAttribute("position", new THREE.BufferAttribute(dirs, 3));
   if (extra) {
-    pointsGeo.setAttribute("nrm", new THREE.BufferAttribute(extra.nrm, 3));
-    pointsGeo.setAttribute("em", new THREE.BufferAttribute(extra.em, 2));
+    _bakeGeo.setAttribute("nrm", new THREE.BufferAttribute(extra.nrm, 3));
+    _bakeGeo.setAttribute("em",  new THREE.BufferAttribute(extra.em,  2));
+  } else {
+    _bakeGeo.deleteAttribute("nrm");
+    _bakeGeo.deleteAttribute("em");
   }
-  const pointsMesh = new THREE.Points(pointsGeo, bakeMat),
-    bakeScene = new THREE.Scene();
-  pointsMesh.frustumCulled = false;
-  bakeScene.add(pointsMesh);
-  renderToTarget(rt, bakeScene);
+  _bakeMesh.material = getBakeMat(mode, texWidth, texHeight);
+  renderToTarget(rt, _bakePointScene);
   const results = new Float32Array(texWidth * texHeight * 4);
   const r: any = renderer!;
   if (typeof r.readRenderTargetPixelsAsync === "function")
@@ -204,8 +215,7 @@ void main() {
   else
     renderer!.readRenderTargetPixels(rt, 0, 0, texWidth, texHeight, results);
   rt.dispose();
-  bakeMat.dispose();
-  pointsGeo.dispose();
+  _bakeGeo.dispose();
   return results;
 }
 

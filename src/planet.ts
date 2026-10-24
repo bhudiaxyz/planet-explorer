@@ -1,11 +1,10 @@
 import * as THREE from "three";
 import { Noise3 } from "./noise";
-import { S } from "./settings";
+import { S, CFG } from "./config";
 import { U, terrainMat, waterFx } from "./fx";
 import { syncTerrain } from "./gpu";
 import { canBake, bakePoints, Atlas } from "./bake";
 import { ChunkManager } from "./chunks";
-import { CFG } from "./config";
 import { smoothstep, frame } from "./utilgeo";
 import { Forest } from "./forest";
 import { CurrentPalette, biomeColors } from "./palette";
@@ -21,7 +20,7 @@ export class Planet {
   noise2 = new Noise3(2);
   atlas?: Atlas;
   clouds = new CloudShell();
-  cloudRadius = S.radius + 120;
+  cloudRadius = S.radius + CFG.atmosphere.cloudRadiusOffset;
   forest = new Forest(this);
   landmarks: ReturnType<typeof buildLandmarks> = { list: [], obs: [], tick: () => {} };
   chunks = new ChunkManager(this.group, () => this.radius);
@@ -57,9 +56,9 @@ void main() {
   water = new THREE.MeshStandardMaterial({
     color: biomeColors.water,
     transparent: true,
-    opacity: 0.74,
-    roughness: 0.2,
-    metalness: 0.1,
+    opacity: CFG.ocean.opacity,
+    roughness: CFG.ocean.roughness,
+    metalness: CFG.ocean.metalness,
   });
   private base?: {
     N: number;

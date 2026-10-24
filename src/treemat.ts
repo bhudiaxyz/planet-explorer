@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { wind, U, IGN, TINT_GLSL } from "./fx";
-import { S } from "./settings";
+import { S, CFG } from "./config";
 import { T as TU } from "./gpu";
 
 // Three tree tiers (0 detailed · 1 medium · 2 low-poly) cross-fade with strictly complementary screen-door dither over uLod = (H0,H1,M0,M1) metres:
@@ -12,7 +12,7 @@ function treeMat(tier: number) {
       vertexColors: true,
       roughness: 0.85,
     }),
-    m = tier === 2 ? mat : wind(mat, 0.002 * S.windSway),
+    m = tier === 2 ? mat : wind(mat, CFG.trees.windFactor * S.windSway),
     base = tier === 2 ? null : (m.onBeforeCompile as any);
   const keep =
     tier === 0

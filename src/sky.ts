@@ -1,10 +1,10 @@
 import * as THREE from "three";
 import { Planet, smoothstep } from "./planet";
-import { S } from "./settings";
+import { S, CFG } from "./config";
 import { CurrentPalette } from "./palette";
 import { Precip } from "./precip";
 import { U } from "./fx";
-const PRECIP_COUNT = 3500;
+const { sky: SKY, atmosphere: ATM, lights: LGT } = CFG;
 export class Sky {
   sun = new THREE.Vector3(1, 0, 0);
   dayF = 1;
@@ -15,8 +15,8 @@ export class Sky {
   kind = "clear";
   timer = 0;
   snow = false;
-  light = new THREE.DirectionalLight(0xffffff, 3);
-  moon = new THREE.DirectionalLight(CurrentPalette.moonLight, 0.12);
+  light = new THREE.DirectionalLight(0xffffff, LGT.sunIntensity);
+  moon = new THREE.DirectionalLight(CurrentPalette.moonLight, LGT.moonIntensity);
   ambientLight = new THREE.AmbientLight(CurrentPalette.ambientLight, 0.3);
   bg = new THREE.Color();
   scratchColor = new THREE.Color();
@@ -26,24 +26,24 @@ export class Sky {
   nebulae: THREE.Points;
   precip: THREE.Points;
   precipitation: Precip;
-  lastPrecipPos = new Float32Array(PRECIP_COUNT * 3);
-  prevPrecipPos = new Float32Array(PRECIP_COUNT * 3);
+  lastPrecipPos = new Float32Array(SKY.precipCount * 3);
+  prevPrecipPos = new Float32Array(SKY.precipCount * 3);
   constructor(
     private scene: THREE.Scene,
     private planet: Planet,
   ) {
     scene.add(this.light, this.moon, this.ambientLight);
-    scene.fog = new THREE.FogExp2(0, 0.001);
+    scene.fog = new THREE.FogExp2(0, SKY.fogDensityBase);
     scene.background = this.bg;
     this.disc = new THREE.Mesh(
-      new THREE.SphereGeometry(450, 16, 12),
+      new THREE.SphereGeometry(SKY.sunDiscRadius, 16, 12),
       new THREE.MeshBasicMaterial({
         color: new THREE.Color().setRGB(8, 7, 5.5),
         fog: false,
       }),
     );
-    const sp = new Float32Array(7500), sv = new THREE.Vector3();
-    for (let i = 0; i < 2500; i++)
+    const sp = new Float32Array(SKY.starCount * 3), sv = new THREE.Vector3();
+    for (let i = 0; i < SKY.starCount; i++)
       sv.randomDirection().multiplyScalar(18000).toArray(sp, i * 3);
     this.stars = new THREE.Points(
       new THREE.BufferGeometry().setAttribute(
@@ -51,7 +51,7 @@ export class Sky {
         new THREE.BufferAttribute(sp, 3),
       ),
       new THREE.PointsMaterial({
-        size: 1.6,
+        size: SKY.starSize,
         sizeAttenuation: false,
         transparent: true,
         depthWrite: false,
@@ -61,17 +61,17 @@ export class Sky {
     this.precipitation = new Precip();
     this.precip = this.precipitation.pts;
     this.moonDisc = new THREE.Mesh(
-      new THREE.SphereGeometry(300, 16, 12),
+      new THREE.SphereGeometry(SKY.moonDiscRadius, 16, 12),
       new THREE.MeshBasicMaterial({
         color: new THREE.Color().setRGB(1.6, 1.7, 2),
         fog: false,
       }),
     );
-    // ~14 nebula patches at fixed random directions, large soft gaussian blobs
-    const NEBULA_COUNT = 14;
-    const np = new Float32Array(NEBULA_COUNT * 3);
-    const nc = new Float32Array(NEBULA_COUNT * 3); // hue tint per patch
-    const ns = new Float32Array(NEBULA_COUNT);     // size per patch
+    // nebula patches at fixed random directions
+    const NC = SKY.nebulaCount;
+    const np = new Float32Array(NC * 3);
+    const nc = new Float32Array(NC * 3); // hue tint per patch
+    const ns = new Float32Array(NC);     // size per patch
     const NEBULA_HUES = [
       [0.6, 0.3, 1.0], [0.2, 0.5, 0.9], [1.0, 0.4, 0.3],
       [0.3, 0.8, 0.6], [0.9, 0.6, 0.2], [0.5, 0.3, 0.9],
@@ -79,13 +79,14 @@ export class Sky {
       [1.0, 0.7, 0.3], [0.3, 0.4, 0.8], [0.7, 0.2, 0.6],
       [0.2, 0.9, 0.7], [0.6, 0.5, 0.2],
     ];
-    for (let i = 0; i < NEBULA_COUNT; i++) {
+    for (let i = 0; i < NC; i++) {
       new THREE.Vector3().randomDirection().multiplyScalar(17500).toArray(np, i * 3);
       nc[i * 3] = NEBULA_HUES[i][0];
       nc[i * 3 + 1] = NEBULA_HUES[i][1];
       nc[i * 3 + 2] = NEBULA_HUES[i][2];
-      ns[i] = 800 + Math.random() * 1200; // world-space radius 800–2000
+      ns[i] = 800 + Math.random() * 1200;
     }
+    const nebulaOpacity = SKY.nebulaOpacity;
     this.nebulae = new THREE.Points(
       new THREE.BufferGeometry()
         .setAttribute("position", new THREE.BufferAttribute(np, 3))
@@ -112,7 +113,7 @@ uniform float uOpacity;
 varying vec3 vCol;
 void main() {
   float d = length(gl_PointCoord - 0.5) * 2.0;
-  float a = exp(-d * d * 3.5) * uOpacity * 0.18;
+  float a = exp(-d * d * 3.5) * uOpacity * ${nebulaOpacity.toFixed(2)};
   gl_FragColor = vec4(vCol * a, a);
 }`,
       }),
@@ -144,7 +145,7 @@ void main() {
 }`,
     });
     const dawnMesh = new THREE.Mesh(
-      new THREE.SphereGeometry(980, 32, 12),
+      new THREE.SphereGeometry(SKY.dawnSphereRadius, 32, 12),
       dawnMat,
     );
     dawnMesh.renderOrder = 2;
@@ -163,7 +164,7 @@ void main() {
     if (!Number.isFinite(alt) || !Number.isFinite(temp)) return;
     const planetRadius = this.planet.radius,
       dayAngle = S.timeOfDay * Math.PI * 2,
-      tilt = 0.41;
+      tilt = ATM.tilt;
     S.timeOfDay = (S.timeOfDay + dt / S.dayLength) % 1;
     this.sun.set(
       Math.cos(dayAngle),
@@ -171,8 +172,8 @@ void main() {
       Math.sin(dayAngle) * Math.sin(tilt),
     );
     const sunElevation = this.sun.dot(up);
-    this.dayF = smoothstep(-0.12, 0.25, sunElevation);
-    this.space = smoothstep(planetRadius * 0.08, planetRadius * 0.5, alt);
+    this.dayF = smoothstep(ATM.dayFadeLow, ATM.dayFadeHigh, sunElevation);
+    this.space = smoothstep(planetRadius * ATM.spaceStartFraction, planetRadius * ATM.spaceEndFraction, alt);
     // weather
     if (S.weather === "auto") {
       if ((this.timer -= dt) < 0) {
@@ -212,7 +213,7 @@ void main() {
       .multiplyScalar(1 - this.space);
     const fog = this.scene.fog as THREE.FogExp2;
     fog.color.copy(this.bg);
-    fog.density = (0.0009 + this.fogWeight * 0.012) * (1 - this.space);
+    fog.density = (SKY.fogDensityBase + this.fogWeight * SKY.fogDensityPrecip) * (1 - this.space);
     // lights
     this.light.position.copy(this.sun).multiplyScalar(planetRadius * 6);
     this.moon.position.copy(this.sun).multiplyScalar(-planetRadius * 6);
@@ -222,11 +223,10 @@ void main() {
         this.scratchColor.set(CurrentPalette.sunsetLight),
         Math.exp(-((sunElevation / 0.15) ** 2)) * 0.8,
       );
-    this.light.intensity = 3 * (1 - 0.55 * this.cloud);
+    this.light.intensity = LGT.sunIntensity * (1 - LGT.sunCloudDim * this.cloud);
     this.moon.color.set(CurrentPalette.moonLight);
     this.ambientLight.color.set(CurrentPalette.ambientLight);
-    this.ambientLight.intensity =
-      0.12 + 0.25 * this.dayF * (1 - this.space);
+    this.ambientLight.intensity = LGT.ambientBase + LGT.ambientDayMul * this.dayF * (1 - this.space);
     // bodies
     const starOp = (1 - this.dayF * (1 - this.space)) * (1 - this.cloud * 0.7);
     this.stars.rotation.y = S.timeOfDay * Math.PI * 2;

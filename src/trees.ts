@@ -18,11 +18,11 @@ function pine(r: () => number, q: number) {
     new THREE.Color(CurrentPalette.treeBark[0]),
     hq ? 6 : 5,
   );
-  const n = hq ? 6 : 4;
+  const n = hq ? 8 : 4; // extra whorls at HQ for a denser layered silhouette
   for (let i = 0; i < n; i++) {
-    const ch = h * (hq ? 0.3 : 0.38),
-      rad = 3.4 * (1 - (i / n) * 0.82) * (0.9 + 0.2 * r()),
-      y = h * (0.2 + (hq ? 0.14 : 0.2) * i);
+    const ch = h * (hq ? 0.28 : 0.38),
+      rad = 3.4 * (1 - (i / n) * 0.84) * (0.9 + 0.2 * r()),
+      y = h * (0.15 + (hq ? 0.11 : 0.2) * i);
     add(
       p,
       new THREE.ConeGeometry(rad, ch, hq ? 9 : 6),
@@ -62,10 +62,17 @@ function oak(r: () => number, q: number) {
             .multiplyScalar(2.4 + r() * 1.5),
         );
     cyl(p, b, tip, 0.3, 0.1, bark);
-    blob(p, tip.add(new THREE.Vector3(0, 0.8, 0)), 2.2 + r() * 0.9, N0, 0.8, det);
+    blob(p, tip.clone().add(new THREE.Vector3(0, 0.8, 0)), 2.2 + r() * 0.9, N0, 0.8, det);
+    // secondary sub-clusters at HQ for denser, more naturalistic crown
+    if (hq) {
+      const a2 = a + 0.6 + r() * 0.4,
+        d2 = tip.clone().add(new THREE.Vector3(Math.cos(a2) * (1.0 + r() * 0.5), 0.4 + r() * 0.3, Math.sin(a2) * (1.0 + r() * 0.5)));
+      blob(p, d2, 1.3 + r() * 0.5, N0, 0.85, det);
+    }
   }
   blob(p, new THREE.Vector3(0, h + 1.6, 0), 3.3, N0, 0.8, det);
   blob(p, new THREE.Vector3(0, h + 0.2, 0), 2.6, N0, 0.8, det);
+  if (hq) blob(p, new THREE.Vector3((r() - 0.5) * 2, h + 0.8, (r() - 0.5) * 2), 2.0, N0, 0.75, det);
   return done(p);
 }
 function birch(r: () => number, q: number) {
@@ -82,19 +89,28 @@ function birch(r: () => number, q: number) {
     0.09,
     bark,
   );
-  const nb = hq ? 4 : 2;
+  const nb = hq ? 5 : 2;
   for (let k = 0; k < nb; k++) {
     const a = k * (6.4 / nb) + r(),
-      b = new THREE.Vector3(0, h * (0.5 + 0.4 * r()), 0),
+      b = new THREE.Vector3(0, h * (0.45 + 0.45 * r()), 0),
       tip = b
         .clone()
         .add(
-          new THREE.Vector3(Math.cos(a), 0.8, Math.sin(a)).normalize().multiplyScalar(1.8),
+          new THREE.Vector3(Math.cos(a), 0.8, Math.sin(a)).normalize().multiplyScalar(1.8 + r() * 0.6),
         );
     cyl(p, b, tip, 0.12, 0.04, bark);
     blob(p, tip, 1.3 + r() * 0.6, N0, 0.9, det);
+    // mid-crown spray at HQ: secondary branch cluster fills the inner canopy
+    if (hq && r() > 0.3) {
+      const a2 = a + 0.4,
+        b2 = new THREE.Vector3(0, h * (0.55 + 0.3 * r()), 0),
+        tip2 = b2.clone().add(new THREE.Vector3(Math.cos(a2), 0.6, Math.sin(a2)).normalize().multiplyScalar(1.2 + r() * 0.4));
+      cyl(p, b2, tip2, 0.08, 0.03, bark);
+      blob(p, tip2, 1.0 + r() * 0.4, N0, 0.95, det);
+    }
   }
   blob(p, new THREE.Vector3(0, h + 0.5, 0), 1.9, N0, 1.1, det);
+  if (hq) blob(p, new THREE.Vector3((r() - 0.5) * 0.8, h + 0.0, (r() - 0.5) * 0.8), 1.5, N0, 1.0, det);
   return done(p);
 }
 function palm(r: () => number, q: number) {

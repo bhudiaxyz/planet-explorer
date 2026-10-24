@@ -1,6 +1,5 @@
 import * as THREE from "three";
-import { S } from "./settings";
-import { CFG } from "./config";
+import { S, CFG } from "./config";
 import { terrainMat } from "./fx";
 import { makeRT, bakeChunk } from "./bake";
 import { frame, type Frame } from "./utilgeo";
@@ -34,6 +33,7 @@ export class ChunkManager {
   private dying: THREE.Mesh[] = [];
   private shared?: Shared;
   private scratchFrame = frame(new THREE.Vector3(0, 1, 0), 1, 1);
+  private scratchCenter = new THREE.Vector3();
   private lastFace = -1;
   private lastChunkI = 0;
   private lastChunkJ = 0; // last completed (face, chunk i, chunk j)
@@ -94,8 +94,7 @@ export class ChunkManager {
         want.add(k);
         if (!this.map.has(k)) todo.push([ci + a, cj + b]);
       }
-    const dist2 = (p: [number, number]) => { const dx = p[0] - ci, dy = p[1] - cj; return dx * dx + dy * dy; };
-    todo.sort((x, y) => dist2(x) - dist2(y)); // nearest first
+    todo.sort((x, y) => { const dx = x[0]-ci, dy = x[1]-cj, ex = y[0]-ci, ey = y[1]-cj; return dx*dx+dy*dy - ex*ex-ey*ey; });
     let budget = this.map.size ? BUDGET : FIRST;
     for (const [a, b] of todo) {
       if (budget-- <= 0) break;
@@ -292,7 +291,7 @@ export class ChunkManager {
     m.geometry.setIndex(isLowLod ? shared.idxLo : shared.idx);
     bakeChunk(userData.rt, userData.rtC, ci * CS, cj * CS, faceCode);
     const R = this.radius(),
-      chunkCenter = new THREE.Vector3()
+      chunkCenter = this.scratchCenter
         .copy(fr.normal)
         .multiplyScalar(R)
         .addScaledVector(fr.tangentU, (ci * CS + CS / 2) * CC)
