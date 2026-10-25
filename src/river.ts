@@ -36,20 +36,25 @@ function riverName(index: number): string {
 // Hoisted — rebuilt per call previously, wasting 1080+ short-lived arrays on a full planet build
 const DIRS = [0, 1, 2, 3, 4, 5, 6, 7].map(i => (i * Math.PI) / 4);
 
-export class RiverSystem {
-  mesh: THREE.Mesh;
-  readonly paths: THREE.Vector3[][];
-  readonly names: string[];
+const yieldFrame = () => new Promise<void>(r => setTimeout(r));
 
-  constructor(planet: Planet) {
-    const paths = this._generatePaths(planet);
-    this.paths = paths;
-    this.names = paths.map((_, i) => riverName(i));
-    const geo = this._buildGeometry(paths, planet);
-    const mat = this._buildMaterial();
-    this.mesh = new THREE.Mesh(geo, mat);
-    this.mesh.frustumCulled = false;
-    this.mesh.renderOrder = 2; // render after water (1), before clouds (10)
+export class RiverSystem {
+  mesh!: THREE.Mesh;
+  paths!: THREE.Vector3[][];
+  names!: string[];
+
+  // Async factory — yields between sources so the browser can repaint during path generation
+  static async build(planet: Planet): Promise<RiverSystem> {
+    const rs = new RiverSystem();
+    const paths = await rs._generatePaths(planet);
+    rs.paths = paths;
+    rs.names = paths.map((_, i) => riverName(i));
+    const geo = rs._buildGeometry(paths, planet);
+    const mat = rs._buildMaterial();
+    rs.mesh = new THREE.Mesh(geo, mat);
+    rs.mesh.frustumCulled = false;
+    rs.mesh.renderOrder = 2;
+    return rs;
   }
 
   dispose() {
@@ -58,7 +63,7 @@ export class RiverSystem {
     this.mesh.removeFromParent();
   }
 
-  private _generatePaths(planet: Planet): THREE.Vector3[][] {
+  private async _generatePaths(planet: Planet): Promise<THREE.Vector3[][]> {
     const R = planet.radius;
     const cfg = CFG.river;
     // Reduce CPU path work on low-tier mobile (fewer rivers, shorter paths)
@@ -90,7 +95,7 @@ export class RiverSystem {
     const paths: THREE.Vector3[][] = [];
 
     for (const src of sources) {
-      // Main river path
+      await yieldFrame(); // yield between sources so the browser can repaint during step 1
       const main = this._tracePath(src, planet, R, tierMaxSteps);
       if (main.length < 5) continue;
       paths.push(main);

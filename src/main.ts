@@ -197,24 +197,8 @@ renderer.setRenderTarget(_warmTarget);
 renderer.render(scene, camera);
 renderer.setRenderTarget(null);
 _warmTarget.dispose();
-await new Promise<void>(r => requestAnimationFrame(() => r()));
-
-showSplash(enterLabel);
-splash.addEventListener("click", () => {
-  hideSplash();
-  if (!isTouchDevice) renderer.domElement.requestPointerLock();
-});
-if (!isTouchDevice) {
-  document.addEventListener("pointerlockchange", () => {
-    if (document.pointerLockElement) {
-      hideSplash();
-    } else {
-      showSplash("Click to resume");
-    }
-  });
-}
-
-// ---- frame loop ----------------------------------------------------------------------------------------------------------------------------------
+// Frame loop must be running before the RAF wait so the first visible frame
+// is already rendered when showSplash reveals the canvas (memory: project_startup_sequence)
 let lastFrameTime = performance.now(),
   hudTimer = 0;
 renderer.setAnimationLoop(() => {
@@ -283,6 +267,23 @@ renderer.setAnimationLoop(() => {
   mapOverlay.tick();
   postFX.render(dt);
 });
+
+// Loop is now running — wait for one rendered frame then reveal the splash
+await new Promise<void>(r => requestAnimationFrame(() => r()));
+showSplash(enterLabel);
+splash.addEventListener("click", () => {
+  hideSplash();
+  if (!isTouchDevice) renderer.domElement.requestPointerLock();
+});
+if (!isTouchDevice) {
+  document.addEventListener("pointerlockchange", () => {
+    if (document.pointerLockElement) {
+      hideSplash();
+    } else {
+      showSplash("Click to resume");
+    }
+  });
+}
 })().catch((err: unknown) => {
   // Surface startup errors on the loading screen instead of silently stalling.
   const tip = document.getElementById("ls-tip");

@@ -342,7 +342,7 @@ void main() {
     this.landmarks = buildLandmarks(this, landmarkGroup);
     this.group.add(landmarkGroup);
     this.riverSystem?.dispose();
-    this.riverSystem = new RiverSystem(this);
+    this.riverSystem = await RiverSystem.build(this);
     this.group.add(this.riverSystem.mesh);
   }
   /** Per-frame animation: landmarks, planet cube-map bake/fade-in, chunk fades. */
