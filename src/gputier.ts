@@ -18,12 +18,19 @@ export function detectGpuTier(gl: WebGLRenderingContext | WebGL2RenderingContext
     return ('ontouchstart' in window) ? 'medium' : 'high';
   }
 
-  // arc.{0,8} handles "Arc(TM) A770"; apple m\d+ catches M1/M1 Pro/M2/etc.
-  const HIGH = /rtx|rx [5-9]\d{3}|gtx 1[0-9]{3}|gtx 9[5-9]\d|arc.{0,8}a[5-9]\d{2}|apple m\d+/i;
+  // arc.{0,8} handles "Arc(TM) A770"; apple m\d+ is dead (apple gpu branch returns first, kept for clarity)
+  // AMD: rx [5-9]\d{3} catches RX 5000-9000 (RDNA1-3); vega covers Vega 56/64; radeon vii is GCN5
+  const HIGH = /rtx|rx [5-9]\d{3}|vega [5-9]\d|radeon vii|gtx 1[0-9]{3}|gtx 9[5-9]\d|arc.{0,8}a[5-9]\d{2}|apple m\d+/i;
   if (HIGH.test(renderer)) return 'high';
+
+  // Mali-G710/G715/G720 (Dimensity 9000+, high-end Oppo/Nothing/MediaTek) → medium
+  // Must precede the broad mali LOW catch below
+  if (/mali[-\s]g7[1-9]\d{2}/i.test(renderer)) return 'medium';
 
   // (uhd|hd graphics) without "Intel" prefix — "(R)" in real strings breaks prefix match
   // adreno.{0,8} handles "Adreno (TM) 530" ANGLE wrapper format
+  // mali[-\s] catches Mali-G31/G52/G57/G68/G71/G72/G76/G78, Mali-T, Mali-4xx (all low-end)
+  // Oppo/Nothing/Samsung expose the underlying Adreno or Mali name, not the brand — handled above
   const LOW = /(uhd [2-6]\d{2}|hd graphics)|mali[-\s]|adreno.{0,8}[3-5]\d{2}|videocore|powervr g[67]|sgx/i;
   if (LOW.test(renderer)) return 'low';
 
