@@ -177,36 +177,41 @@ export class MapOverlay {
     bc.width = W; bc.height = H;
     const bctx = bc.getContext("2d")!;
     bctx.putImageData(imgData, 0, 0);
-    // Draw rivers as semi-transparent blue polylines
+    // Draw rivers — wide soft glow pass then sharp bright centre line
     const rivers = this.planet.riverSystem?.paths;
     if (rivers) {
+      const drawPaths = (strokeStyle: string, lineWidth: number, blur: number) => {
+        bctx.strokeStyle = strokeStyle;
+        bctx.lineWidth = lineWidth;
+        bctx.shadowColor = strokeStyle;
+        bctx.shadowBlur = blur;
+        for (const path of rivers) {
+          if (path.length < 2) continue;
+          bctx.beginPath();
+          let prevLon = 0;
+          for (let i = 0; i < path.length; i++) {
+            const pt = path[i].clone().normalize();
+            const lat = Math.asin(Math.max(-1, Math.min(1, pt.y)));
+            const lon = Math.atan2(pt.z, pt.x);
+            const px = ((lon / (Math.PI * 2)) + 0.5) * W;
+            const py = (0.5 - lat / Math.PI) * H;
+            if (i === 0 || Math.abs(lon - prevLon) > Math.PI) {
+              bctx.moveTo(px, py);
+            } else {
+              bctx.lineTo(px, py);
+            }
+            prevLon = lon;
+          }
+          bctx.stroke();
+        }
+      };
       bctx.save();
-      bctx.strokeStyle = "rgba(100, 180, 255, 0.85)";
-      bctx.lineWidth = 2;
-      bctx.shadowColor = "rgba(60, 140, 220, 0.6)";
-      bctx.shadowBlur = 3;
       bctx.lineCap = "round";
       bctx.lineJoin = "round";
-      for (const path of rivers) {
-        if (path.length < 2) continue;
-        bctx.beginPath();
-        let prevLon = 0;
-        for (let i = 0; i < path.length; i++) {
-          const pt = path[i].clone().normalize();
-          const lat = Math.asin(Math.max(-1, Math.min(1, pt.y)));
-          const lon = Math.atan2(pt.z, pt.x);
-          const px = ((lon / (Math.PI * 2)) + 0.5) * W;
-          const py = (0.5 - lat / Math.PI) * H;
-          // Break path at antimeridian crossing to avoid horizontal artifacts
-          if (i === 0 || Math.abs(lon - prevLon) > Math.PI) {
-            bctx.moveTo(px, py);
-          } else {
-            bctx.lineTo(px, py);
-          }
-          prevLon = lon;
-        }
-        bctx.stroke();
-      }
+      // Pass 1: wide soft glow
+      drawPaths("rgba(80, 160, 255, 0.45)", 6, 8);
+      // Pass 2: bright opaque centre line
+      drawPaths("rgba(140, 210, 255, 0.95)", 2, 4);
       bctx.restore();
     }
     bctx.font = "14px sans-serif";
