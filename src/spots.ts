@@ -252,5 +252,12 @@ export async function findSpots(planet: Planet): Promise<Spot[]> {
     });
   });
 
-  return [...fixed, ...scanned, ...landmarks];
+  const rivers: Spot[] = (planet.riverSystem?.paths ?? []).map((path, i) => ({
+    name: `River ${i + 1}`,
+    icon: "🏞️",
+    dir: path[Math.floor(path.length * 0.4)].clone().normalize(),
+    group: "Rivers",
+  }));
+
+  return [...fixed, ...scanned, ...landmarks, ...rivers];
 }
