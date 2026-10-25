@@ -73,8 +73,9 @@ const planet = new Planet(scene);
 await planet.build();
 pushSeedUrl(currentSeedWord);
 
-// Start scouting immediately — only needs planet, not scatter or other systems
+// Start scouting and river generation in parallel — neither needs scatter or other systems
 const spotsPromise = findSpots(planet);
+void planet.buildRivers();
 
 await setStep(2, "Setting up world");
 const player = new Player(camera, planet, renderer.domElement);
@@ -103,6 +104,7 @@ const rebuild = (respawn = false) => {
   clearTimeout(rebuildTimer);
   rebuildTimer = window.setTimeout(async () => {
     await planet.build();
+    void planet.buildRivers();
     mapOverlay.reset();
     scatter.dirty = true;
     collider.dirty = true;

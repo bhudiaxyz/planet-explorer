@@ -341,6 +341,11 @@ void main() {
     const landmarkGroup = new THREE.Group();
     this.landmarks = buildLandmarks(this, landmarkGroup);
     this.group.add(landmarkGroup);
+    // Rivers are built separately (see main.ts) to avoid blocking startup
+  }
+
+  /** Call after planet.build() to (re)build the river system in the background. */
+  async buildRivers(): Promise<void> {
     this.riverSystem?.dispose();
     this.riverSystem = await RiverSystem.build(this);
     this.group.add(this.riverSystem.mesh);
