@@ -5,7 +5,7 @@ import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js"
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import { ShaderPass } from "three/addons/postprocessing/ShaderPass.js";
 import { S } from "./config";
-import { gpuTier } from "./gputier";
+import { gpuTier } from "./gpuTier";
 import { AerialPass } from "./aerialfx";
 
 /**

@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import type { Planet } from "./planet";
 import { frame, smoothstep } from "./utilgeo";
-import { gpuTier, plantRadiusMul } from "./gputier";
+import { gpuTier, plantRadiusMul } from "./gpuTier";
 import { T, TERRAIN_GLSL } from "./terrain";
 import { makeRT, draw, QUAD_VS, readRT } from "./bake";
 import { U, TINT_GLSL, IGN } from "./fx";

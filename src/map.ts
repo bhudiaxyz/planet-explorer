@@ -177,6 +177,38 @@ export class MapOverlay {
     bc.width = W; bc.height = H;
     const bctx = bc.getContext("2d")!;
     bctx.putImageData(imgData, 0, 0);
+    // Draw rivers as semi-transparent blue polylines
+    const rivers = this.planet.riverSystem?.paths;
+    if (rivers) {
+      bctx.save();
+      bctx.strokeStyle = "rgba(100, 180, 255, 0.85)";
+      bctx.lineWidth = 2;
+      bctx.shadowColor = "rgba(60, 140, 220, 0.6)";
+      bctx.shadowBlur = 3;
+      bctx.lineCap = "round";
+      bctx.lineJoin = "round";
+      for (const path of rivers) {
+        if (path.length < 2) continue;
+        bctx.beginPath();
+        let prevLon = 0;
+        for (let i = 0; i < path.length; i++) {
+          const pt = path[i].clone().normalize();
+          const lat = Math.asin(Math.max(-1, Math.min(1, pt.y)));
+          const lon = Math.atan2(pt.z, pt.x);
+          const px = ((lon / (Math.PI * 2)) + 0.5) * W;
+          const py = (0.5 - lat / Math.PI) * H;
+          // Break path at antimeridian crossing to avoid horizontal artifacts
+          if (i === 0 || Math.abs(lon - prevLon) > Math.PI) {
+            bctx.moveTo(px, py);
+          } else {
+            bctx.lineTo(px, py);
+          }
+          prevLon = lon;
+        }
+        bctx.stroke();
+      }
+      bctx.restore();
+    }
     bctx.font = "14px sans-serif";
     bctx.textAlign = "center";
     for (const lm of this.landmarks) {

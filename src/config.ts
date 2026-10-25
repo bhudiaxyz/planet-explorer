@@ -82,6 +82,18 @@ export const CFG = {
     roughness: 0.2,
     metalness: 0.1,
   },
+  river: {
+    count: 4,                // main rivers per planet
+    tributaries: 2,          // tributaries per main river
+    sourceMinElev: 0.25,     // min elevation unit for source (above seaLevel)
+    sourceMinMoisture: 0.15, // min moisture for source
+    minSourceSpacingDeg: 40, // degrees — prevents rivers clustering together
+    stepSize: 6,             // metres per gradient-descent step
+    maxSteps: 180,           // max steps before path is abandoned
+    widthStart: 2,           // ribbon width (metres) at source
+    widthEnd: 9,             // ribbon width (metres) at mouth/sea
+    surfaceOffset: 0.3,      // metres above terrain surface (avoids z-fighting)
+  },
 } as const;
 
 // ---- mutable runtime settings (seed, radius, weather, etc.) ----

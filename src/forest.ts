@@ -6,7 +6,7 @@ import { rng } from "./noise";
 import { S, CFG } from "./config";
 import { treeGeos, lowGeos, treeMats, getLeafColors } from "./trees";
 import { canBake, bakePoints } from "./bake";
-import { gpuTier } from "./gputier";
+import { gpuTier } from "./gpuTier";
 import type { Obs } from "./collision";
 const UP = new THREE.Vector3(0, 1, 0);
 const _lod = CFG.treeLod;

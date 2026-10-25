@@ -7,10 +7,11 @@ import { canBake, bakePoints, Atlas } from "./bake";
 import { ChunkManager } from "./chunks";
 import { smoothstep, frame } from "./utilgeo";
 import { Forest } from "./forest";
-import { gpuTier } from "./gputier";
+import { gpuTier } from "./gpuTier";
 import { CurrentPalette, biomeColors } from "./palette";
 import { buildLandmarks } from "./landmarks";
 import { CloudShell } from "./skyfx";
+import { RiverSystem } from "./river";
 export { smoothstep, frame };
 const DROP = CFG.chunk.drop;
 
@@ -23,6 +24,7 @@ export class Planet {
   clouds = new CloudShell();
   cloudRadius = S.radius + CFG.atmosphere.cloudRadiusOffset;
   forest = new Forest(this);
+  riverSystem?: RiverSystem;
   landmarks: ReturnType<typeof buildLandmarks> = { list: [], obs: [], tick: () => {} };
   chunks = new ChunkManager(this.group, () => this.radius);
   private elapsedTime = 0;
@@ -57,6 +59,7 @@ void main() {
   water = new THREE.MeshStandardMaterial({
     color: biomeColors.water,
     transparent: true,
+    depthWrite: true,
     opacity: CFG.ocean.opacity,
     roughness: CFG.ocean.roughness,
     metalness: CFG.ocean.metalness,
@@ -329,6 +332,7 @@ void main() {
         new THREE.SphereGeometry(this.cloudRadius * 1.05, gpuTier === 'low' ? 24 : 48, gpuTier === 'low' ? 16 : 32),
         this.atmosphere,
       );
+    waterMesh.renderOrder = 1;
     cloudMesh.renderOrder = 10;
     atmosphereMesh.renderOrder = 12;
     this.group.add(waterMesh, cloudMesh, atmosphereMesh);
@@ -337,6 +341,9 @@ void main() {
     const landmarkGroup = new THREE.Group();
     this.landmarks = buildLandmarks(this, landmarkGroup);
     this.group.add(landmarkGroup);
+    this.riverSystem?.dispose();
+    this.riverSystem = new RiverSystem(this);
+    this.group.add(this.riverSystem.mesh);
   }
   /** Per-frame animation: landmarks, planet cube-map bake/fade-in, chunk fades. */
   tick(dt: number) {

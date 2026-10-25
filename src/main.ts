@@ -18,7 +18,7 @@ import { genSeedWord, hashSeedWord } from "./util";
 import { S } from "./config";
 import { isTouchDevice, setupTouch, setGuiToggle, setMapToggle } from "./touch";
 import { MapOverlay } from "./map";
-import { detectGpuTier, setGpuTier, gpuTier } from "./gputier";
+import { detectGpuTier, setGpuTier, gpuTier } from "./gpuTier";
 
 // word-based seed: hash string → number for noise; URL stores the word
 export let currentSeedWord = genSeedWord();
