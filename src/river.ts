@@ -273,7 +273,7 @@ varying vec3 vWorldPos;
 
 void main() {
   vUv = uv;
-  vWorldNormal = normalize(normalMatrix * normal);
+  vWorldNormal = normalize(mat3(modelMatrix) * normal);
   vec4 worldPos = modelMatrix * vec4(position, 1.0);
   vWorldPos = worldPos.xyz;
   gl_Position = projectionMatrix * viewMatrix * worldPos;
