@@ -79,9 +79,9 @@ const planet = new Planet(scene);
 await planet.build();
 pushSeedUrl(currentSeedWord);
 
-// Start scouting and river generation in parallel — neither needs scatter or other systems
-const spotsPromise = findSpots(planet);
-void planet.buildRivers();
+// Start river generation and scouting in parallel; findSpots needs riverSystem populated
+const riversPromise = planet.buildRivers();
+const spotsPromise = riversPromise.then(() => findSpots(planet));
 
 await setStep(2, "Setting up world");
 const player = new Player(camera, planet, renderer.domElement);
