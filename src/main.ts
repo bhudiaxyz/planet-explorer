@@ -180,7 +180,6 @@ const hideSplash = () => {
 
 const enterLabel = isTouchDevice ? "Tap to enter" : "Click to enter";
 
-
 await setStep(4, "Ready");
 showSplash(enterLabel);
 // Click handler must be registered before compileAsync — it can take seconds on medium

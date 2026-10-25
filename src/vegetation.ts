@@ -123,7 +123,11 @@ class Layer {
       new THREE.InstancedBufferAttribute(new Float32Array(cells), 2),
     );
     g.instanceCount = cells.length / 2;
-    const [outerFull, outerGone, innerGone, innerFull] = tier.lod,
+    // Scale LOD distances with the disc radius so the fade band always fits inside the disc.
+    // Without this, a 0.8× disc on medium GPU ends at ~128 m while outerGone stays at 152 m,
+    // creating a dead zone that causes a visible edge-pop.
+    const lodMul = plantRadiusMul();
+    const [outerFull, outerGone, innerGone, innerFull] = tier.lod.map(v => v * lodMul),
       f = (v: number) => v.toFixed(2);
     const defines = {
       KIND: spec.kind,
