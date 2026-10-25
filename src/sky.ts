@@ -4,7 +4,7 @@ import { S, CFG } from "./config";
 import { CurrentPalette } from "./palette";
 import { Precip } from "./precip";
 import { U } from "./fx";
-import { gpuTier } from "./gputier";
+import { gpuTier } from "./gpuTier";
 const { sky: SKY, atmosphere: ATM, lights: LGT } = CFG;
 export class Sky {
   sun = new THREE.Vector3(1, 0, 0);

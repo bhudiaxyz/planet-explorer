@@ -7,7 +7,7 @@ import { canBake, bakePoints, Atlas } from "./bake";
 import { ChunkManager } from "./chunks";
 import { smoothstep, frame } from "./utilgeo";
 import { Forest } from "./forest";
-import { gpuTier } from "./gputier";
+import { gpuTier } from "./gpuTier";
 import { CurrentPalette, biomeColors } from "./palette";
 import { buildLandmarks } from "./landmarks";
 import { CloudShell } from "./skyfx";

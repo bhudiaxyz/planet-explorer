@@ -2,7 +2,7 @@ import * as THREE from "three";
 import type { Planet } from "./planet";
 import { S, CFG } from "./config";
 import { U } from "./fx";
-import { gpuTier } from "./gputier";
+import { gpuTier } from "./gpuTier";
 import { rng } from "./noise";
 
 export class RiverSystem {
