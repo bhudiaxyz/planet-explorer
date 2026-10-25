@@ -1,6 +1,5 @@
 import * as THREE from "three";
 import { CFG } from "./config";
-import { isTouchDevice } from "./touch";
 import {
   grassGeo,
   shrubGeo,
@@ -69,13 +68,7 @@ export interface PlantSpec {
   tiers: Tier[];
 }
 const LOD = CFG.plantLod,
-  _R = CFG.plantRadius,
-  _m = isTouchDevice ? 0.65 : 1,
-  RAD = {
-    near: _R.near * _m, mid: _R.mid * _m, far: _R.far * _m,
-    flower: _R.flower * _m, mush: _R.mush * _m, shrub: _R.shrub * _m,
-    shrubMid: _R.shrubMid * _m, rock: _R.rock * _m, rockMid: _R.rockMid * _m,
-  };
+  RAD = CFG.plantRadius;
 // tier radius → instance-disc K; PMUL = (cell/0.85)² converts per-0.85m-cell probabilities to this tier's cell area
 const tier = (
   geo: () => THREE.BufferGeometry,

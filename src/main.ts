@@ -18,9 +18,7 @@ import { genSeedWord, hashSeedWord } from "./util";
 import { S } from "./config";
 import { isTouchDevice, setupTouch, setGuiToggle, setMapToggle } from "./touch";
 import { MapOverlay } from "./map";
-
-// lower default resolution, render scale, and noise quality on mobile/tablet to stay within GPU/CPU budget
-if (isTouchDevice) { S.resolution = 128; S.renderScale = 0.75; S.octaves = 4; }
+import { detectGpuTier, setGpuTier, gpuTier } from "./gputier";
 
 // word-based seed: hash string → number for noise; URL stores the word
 export let currentSeedWord = genSeedWord();
@@ -37,14 +35,21 @@ export function pushSeedUrl(word: string) {
 
 // ---- renderer & scene ------------------------------------------------------------------------------------------------------------------------
 const renderer = new THREE.WebGLRenderer({
-  antialias: !isTouchDevice,
+  antialias: true,
   powerPreference: "high-performance",
 });
+setRenderer(renderer);
+{
+  const gl = renderer.getContext();
+  setGpuTier(detectGpuTier(gl));
+}
+// Tier-based quality: low = mobile/integrated, medium = mid-range, high = discrete
+if (gpuTier === 'low')    { S.resolution = 128; S.renderScale = 0.75; S.octaves = 4; }
+else if (gpuTier === 'medium') { S.resolution = 160; S.renderScale = 0.85; S.octaves = 5; }
 renderer.setPixelRatio(Math.min(devicePixelRatio, S.renderScale));
 renderer.setSize(innerWidth, innerHeight);
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 document.body.appendChild(renderer.domElement);
-setRenderer(renderer);
 const scene = new THREE.Scene(),
   camera = new THREE.PerspectiveCamera(
     70,
@@ -77,12 +82,12 @@ const sky = new Sky(scene, planet);
 const skyDome = new SkyDome(scene);
 const scatter = new Scatter(planet);
 const collider = new Collider(planet, scatter);
-const shadows = new Shadows(renderer, sky.light, isTouchDevice, sky.moon);
+const shadows = new Shadows(renderer, sky.light, gpuTier !== 'high', sky.moon);
 const aurora = new Aurora(scene);
 const fireflies = new Fireflies(scene);
 const galacticBand = new GalacticBand(scene);
 const biolumi = new Bioluminescence(scene);
-const footprints = isTouchDevice ? null : new Footprints(player, planet);
+const footprints = gpuTier === 'low' ? null : new Footprints(player, planet);
 const postFX = new PostFX(renderer, scene, camera);
 postFX.aerial.setCamera(camera.near, camera.far);
 scene.add(scatter.group, sky.light.target);
@@ -175,12 +180,11 @@ const hideSplash = () => {
 
 const enterLabel = isTouchDevice ? "Tap to enter" : "Click to enter";
 
-// Skip upfront shader compilation: compileAsync walks every material in the scene
-// (~65+ unique programs after vegetation) and hangs indefinitely on weaker GPUs.
-// Shaders JIT-compile on first draw instead — brief stutter spread across the first
-// second of play, which is far less disruptive than a frozen splash screen.
+
 await setStep(4, "Ready");
 showSplash(enterLabel); // show enter button immediately; splash stays up while shaders warm
+// Warm shaders during the "click to enter" pause — fire-and-forget so it never blocks startup
+renderer.compileAsync(scene, camera).catch(() => {});
 splash.addEventListener("click", () => {
   hideSplash();
   if (!isTouchDevice) renderer.domElement.requestPointerLock();

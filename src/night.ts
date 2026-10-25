@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { T, TERRAIN_GLSL } from "./gpu";
+import { T, TERRAIN_GLSL } from "./terrain";
 import { U } from "./fx";
 const FIREFLY_COUNT = 320,
   scratchForwardAxis = new THREE.Vector3(),

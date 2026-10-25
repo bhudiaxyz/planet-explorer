@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { wind, U, IGN, TINT_GLSL } from "./fx";
 import { S, CFG } from "./config";
-import { T as TU } from "./gpu";
+import { T as TU } from "./terrain";
 
 // Three tree tiers (0 detailed · 1 medium · 2 low-poly) cross-fade with strictly complementary screen-door dither over uLod = (H0,H1,M0,M1) metres:
 // tier0 keeps noise ≥ a, tier1 keeps b ≤ noise < a, tier2 keeps noise < b  (a = smoothstep(H0,H1,d) ≥ b = smoothstep(M0,M1,d)) → no holes, no double coverage, no pops.

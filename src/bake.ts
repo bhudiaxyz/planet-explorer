@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { T, TERRAIN_GLSL, BIOME_GLSL } from "./gpu";
+import { T, TERRAIN_GLSL, BIOME_GLSL } from "./terrain";
 import { S, CFG } from "./config";
 const CELL = CFG.chunk.cell.toFixed(2);
 // GPU "compute" via render-to-texture: the terrain function is evaluated on the GPU once (rebuild / chunk load / lattice move), never per frame.

@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { T, TERRAIN_GLSL, BIOME_GLSL } from "./gpu";
+import { T, TERRAIN_GLSL, BIOME_GLSL } from "./terrain";
 import { CFG } from "./config";
 import { CurrentPalette } from "./palette";
 const CELL = CFG.chunk.cell.toFixed(2),

@@ -4,11 +4,11 @@ import { S, CFG } from "./config";
 import { CurrentPalette } from "./palette";
 import { Precip } from "./precip";
 import { U } from "./fx";
-import { isTouchDevice } from "./touch";
+import { gpuTier } from "./gputier";
 const { sky: SKY, atmosphere: ATM, lights: LGT } = CFG;
-const starCount   = isTouchDevice ? 1200 : SKY.starCount;
-const precipCount = isTouchDevice ? 1500 : SKY.precipCount;
-const nebulaCount = isTouchDevice ? 7 : SKY.nebulaCount;
+const starCount   = gpuTier === 'low' ? 1200 : SKY.starCount;
+const precipCount = gpuTier === 'low' ? 1500 : SKY.precipCount;
+const nebulaCount = gpuTier === 'low' ? 7 : SKY.nebulaCount;
 export class Sky {
   sun = new THREE.Vector3(1, 0, 0);
   dayF = 1;

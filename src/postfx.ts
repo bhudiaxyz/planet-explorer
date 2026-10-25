@@ -5,7 +5,7 @@ import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js"
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import { ShaderPass } from "three/addons/postprocessing/ShaderPass.js";
 import { S } from "./config";
-import { isTouchDevice } from "./touch";
+import { gpuTier } from "./gputier";
 import { AerialPass } from "./aerialfx";
 
 /**
@@ -29,7 +29,7 @@ export class PostFX {
   ) {
     const rt = new THREE.WebGLRenderTarget(innerWidth, innerHeight, {
       type: THREE.HalfFloatType,
-      samples: isTouchDevice ? 0 : 4,
+      samples: gpuTier === 'low' ? 0 : gpuTier === 'medium' ? 2 : 4,
     });
     rt.depthTexture = new THREE.DepthTexture(innerWidth, innerHeight);
     rt.depthTexture.format = THREE.DepthFormat;
@@ -37,8 +37,8 @@ export class PostFX {
     this.composer = new EffectComposer(renderer, rt);
     this.bloom = new UnrealBloomPass(
       new THREE.Vector2(innerWidth / 2, innerHeight / 2),
-      isTouchDevice ? 0.3 : 0.45,
-      isTouchDevice ? 0.35 : 0.5,
+      gpuTier === 'low' ? 0.3 : 0.45,
+      gpuTier === 'low' ? 0.35 : 0.5,
       0.75,
     );
     const clean = new ShaderPass({

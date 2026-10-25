@@ -1,8 +1,8 @@
 import * as THREE from "three";
 import type { Planet } from "./planet";
 import { frame, smoothstep } from "./utilgeo";
-import { isTouchDevice } from "./touch";
-import { T, TERRAIN_GLSL } from "./gpu";
+import { gpuTier, plantRadiusMul } from "./gputier";
+import { T, TERRAIN_GLSL } from "./terrain";
 import { makeRT, draw, QUAD_VS, readRT } from "./bake";
 import { U, TINT_GLSL, IGN } from "./fx";
 import { CFG } from "./config";
@@ -106,10 +106,10 @@ class Layer {
   constructor(spec: PlantSpec, tier: Tier) {
     this.kind = spec.kind;
     this.cell = tier.cell;
-    this.K = tier.K;
+    this.K = Math.ceil(tier.K * plantRadiusMul());
     this.near = tier.near;
     const geo = tier.geo(),
-      K = tier.K,
+      K = this.K,
       n = 2 * K + 1;
     const g = new THREE.InstancedBufferGeometry();
     if (geo.index) g.setIndex(geo.index);
@@ -256,7 +256,7 @@ export class Scatter {
   constructor(private pl: Planet) {
     for (const spec of PLANTS)
       for (const tier of spec.tiers) {
-        if (isTouchDevice && tier.far) continue;
+        if (gpuTier === 'low' && tier.far) continue;
         const l = new Layer(spec, tier);
         if (spec.collide && tier.near) {
           l.collide = true;
@@ -271,11 +271,11 @@ export class Scatter {
   update(playerDirection: THREE.Vector3, alt: number, dt = 0.016) {
     U.uVeg.value = 1 - smoothstep(CFG.vegetation.altFadeStart, CFG.vegetation.altFadeEnd, alt);
     this.group.visible = alt < CFG.vegetation.altCullAbove;
-    let budget = isTouchDevice ? Math.max(2, Math.round(2 * dt * 60)) : Math.max(2, Math.round(4 * dt * 60));
+    let budget = gpuTier === 'low' ? Math.max(2, Math.round(2 * dt * 60)) : Math.max(2, Math.round(4 * dt * 60));
     if (this.dirty) {
       this.layers.forEach((l) => (l.lastFace = -1));
       this.dirty = false;
-      budget = isTouchDevice ? 20 : this.layers.length; // mobile: spread flush over ~2 frames
+      budget = gpuTier === 'low' ? 20 : this.layers.length;
     }
     if (alt >= 255) return;
     const n = this.layers.length;
