@@ -2,8 +2,7 @@ import * as THREE from "three";
 import { T, TERRAIN_GLSL } from "./terrain";
 import { U } from "./fx";
 import { gpuTier } from "./gputier";
-const FIREFLY_COUNT = gpuTier === 'low' ? 50 : gpuTier === 'medium' ? 120 : 220,
-  scratchForwardAxis = new THREE.Vector3(),
+const scratchForwardAxis = new THREE.Vector3(),
   AXIS_X = new THREE.Vector3(1, 0, 0),
   AXIS_Z = new THREE.Vector3(0, 0, 1);
 const NOISE_GLSL = `
@@ -90,6 +89,7 @@ export class Fireflies {
   pts: THREE.Points;
   mat: THREE.ShaderMaterial;
   constructor(scene: THREE.Scene, _pl?: unknown) {
+    const FIREFLY_COUNT = gpuTier === 'low' ? 50 : gpuTier === 'medium' ? 120 : 220;
     const seedData = new Float32Array(FIREFLY_COUNT * 4);
     for (let i = 0; i < seedData.length; i++) seedData[i] = Math.random();
     const g = new THREE.BufferGeometry()
@@ -149,11 +149,11 @@ void main() {
     this.pts.visible = intensity > 0.02 || dayF > 0.1;
   }
 }
-const BIO_COUNT = gpuTier === 'low' ? 12 : gpuTier === 'medium' ? 28 : 50;
 export class Bioluminescence {
   pts: THREE.Points;
   mat: THREE.ShaderMaterial;
   constructor(scene: THREE.Scene) {
+    const BIO_COUNT = gpuTier === 'low' ? 12 : gpuTier === 'medium' ? 28 : 50;
     const sd = new Float32Array(BIO_COUNT * 4);
     for (let i = 0; i < sd.length; i++) sd[i] = Math.random();
     const geo = new THREE.BufferGeometry()
@@ -210,10 +210,10 @@ void main() {
     this.mat.uniforms.uCam.value.copy(cameraPosition);
   }
 }
-const BAND_COUNT = gpuTier === 'low' ? 140 : gpuTier === 'medium' ? 280 : 500;
 export class GalacticBand {
   mesh: THREE.Points;
   constructor(scene: THREE.Scene) {
+    const BAND_COUNT = gpuTier === 'low' ? 140 : gpuTier === 'medium' ? 280 : 500;
     const pos = new Float32Array(BAND_COUNT * 3);
     const gal = new Float32Array(BAND_COUNT); // 0 = galactic core, 1 = anti-core
     for (let i = 0; i < BAND_COUNT; i++) {

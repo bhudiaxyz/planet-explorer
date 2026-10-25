@@ -179,7 +179,7 @@ const hideSplash = () => {
 
 const enterLabel = isTouchDevice ? "Tap to enter" : "Click to enter";
 splashControls.textContent = isTouchDevice
-  ? "Joystick · move   ✦ · jump/ascend   ⟳ · roll   ⊘ · fly toggle"
+  ? "Left joystick · move   ↑ · ascend   ↓ · descend   ⚡ · sprint   ✈ · fly toggle   Swipe right · look"
   : "WASD · move   Shift · sprint   Space · jump/ascend   C · descend   F · walk↔fly   Q/E · roll   G · panel   Esc · release mouse";
 
 // Pre-compile all shaders so the first visible frame is instant.
@@ -283,4 +283,13 @@ renderer.setAnimationLoop(() => {
   mapOverlay.tick();
   postFX.render(dt);
 });
-})();
+})().catch((err: unknown) => {
+  // Surface startup errors on the loading screen instead of silently stalling.
+  const tip = document.getElementById("ls-tip");
+  if (tip) {
+    tip.style.display = "";
+    tip.textContent = `Failed to start: ${err instanceof Error ? err.message : String(err)}`;
+    tip.style.color = "#f88";
+  }
+  console.error("[planet-explorer] startup failed", err);
+});

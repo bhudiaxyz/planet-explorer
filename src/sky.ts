@@ -6,9 +6,6 @@ import { Precip } from "./precip";
 import { U } from "./fx";
 import { gpuTier } from "./gputier";
 const { sky: SKY, atmosphere: ATM, lights: LGT } = CFG;
-const starCount   = gpuTier === 'low' ? 900  : gpuTier === 'medium' ? 1600 : SKY.starCount;
-const precipCount = gpuTier === 'low' ? 1200 : gpuTier === 'medium' ? 2200 : SKY.precipCount;
-const nebulaCount = gpuTier === 'low' ? 5    : gpuTier === 'medium' ? 9    : SKY.nebulaCount;
 export class Sky {
   sun = new THREE.Vector3(1, 0, 0);
   dayF = 1;
@@ -30,12 +27,17 @@ export class Sky {
   nebulae: THREE.Points;
   precip: THREE.Points;
   precipitation: Precip;
-  lastPrecipPos = new Float32Array(precipCount * 3);
-  prevPrecipPos = new Float32Array(precipCount * 3);
+  lastPrecipPos: Float32Array;
+  prevPrecipPos: Float32Array;
   constructor(
     private scene: THREE.Scene,
     private planet: Planet,
   ) {
+    const starCount   = gpuTier === 'low' ? 900  : gpuTier === 'medium' ? 1600 : SKY.starCount;
+    const precipCount = gpuTier === 'low' ? 1200 : gpuTier === 'medium' ? 2200 : SKY.precipCount;
+    const nebulaCount = gpuTier === 'low' ? 5    : gpuTier === 'medium' ? 9    : SKY.nebulaCount;
+    this.lastPrecipPos = new Float32Array(precipCount * 3);
+    this.prevPrecipPos = new Float32Array(precipCount * 3);
     scene.add(this.light, this.moon, this.ambientLight);
     scene.fog = new THREE.FogExp2(0, SKY.fogDensityBase);
     scene.background = this.bg;
