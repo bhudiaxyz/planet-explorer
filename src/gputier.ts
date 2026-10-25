@@ -18,10 +18,13 @@ export function detectGpuTier(gl: WebGLRenderingContext | WebGL2RenderingContext
     return ('ontouchstart' in window) ? 'medium' : 'high';
   }
 
-  const HIGH = /rtx|rx [5-9]\d{3}|gtx 1[0-9]{3}|gtx 9[5-9]\d|arc a[5-7]\d{2}|apple m[2-9]/i;
+  // arc.{0,8} handles "Arc(TM) A770"; apple m\d+ catches M1/M1 Pro/M2/etc.
+  const HIGH = /rtx|rx [5-9]\d{3}|gtx 1[0-9]{3}|gtx 9[5-9]\d|arc.{0,8}a[5-9]\d{2}|apple m\d+/i;
   if (HIGH.test(renderer)) return 'high';
 
-  const LOW = /intel (hd|uhd [2-6]\d{2})|mali[-\s]|adreno [3-5]\d{2}|videocore|powervr g[67]|sgx/i;
+  // (uhd|hd graphics) without "Intel" prefix — "(R)" in real strings breaks prefix match
+  // adreno.{0,8} handles "Adreno (TM) 530" ANGLE wrapper format
+  const LOW = /(uhd [2-6]\d{2}|hd graphics)|mali[-\s]|adreno.{0,8}[3-5]\d{2}|videocore|powervr g[67]|sgx/i;
   if (LOW.test(renderer)) return 'low';
 
   return 'medium';
