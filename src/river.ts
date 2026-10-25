@@ -233,8 +233,10 @@ export class RiverSystem {
 
       for (let i = 0; i < N; i++) {
         const t = i / (N - 1);
-        // Quadratic ease-in: rivers widen slowly at first then open up downstream
-        const width = cfg.widthStart + (cfg.widthEnd - cfg.widthStart) * (t * t);
+        // Widen with quadratic ease-in, then taper the last 20% so the mouth
+        // doesn't end in a blunt flat cut where the ribbon meets the ocean
+        const taper = t > 0.8 ? 1.0 - ((t - 0.8) / 0.2) * 0.75 : 1.0;
+        const width = (cfg.widthStart + (cfg.widthEnd - cfg.widthStart) * (t * t)) * taper;
         const halfW = width * 0.5;
 
         // Sphere normal = outward unit direction from centre
