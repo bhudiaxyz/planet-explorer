@@ -21,6 +21,27 @@ function chaikin(pts: THREE.Vector3[], rounds: number): THREE.Vector3[] {
   return p;
 }
 
+// Sinusoidal lateral displacement to create natural meanders.
+// Applied before Chaikin so the smoothing blends the curves naturally.
+// Envelope fades in at source (t<0.2) and out at mouth (t>0.85).
+function addMeanders(pts: THREE.Vector3[], rand: () => number): THREE.Vector3[] {
+  if (pts.length < 4) return pts;
+  const phase = rand() * Math.PI * 2;
+  const freq  = 0.08 + rand() * 0.07; // waves per step — controls meander spacing
+  const amp   = 5  + rand() * 6;      // max lateral offset in metres
+  return pts.map((pt, i) => {
+    const t   = i / (pts.length - 1);
+    const env = Math.min(t / 0.20, 1) * Math.min((1 - t) / 0.15, 1); // fade at ends
+    const disp = Math.sin(i * freq + phase) * amp * env;
+    if (Math.abs(disp) < 0.01) return pt;
+    const sn     = pt.clone().normalize();
+    const next   = pts[Math.min(i + 1, pts.length - 1)];
+    const prev   = pts[Math.max(i - 1, 0)];
+    const right  = new THREE.Vector3().crossVectors(next.clone().sub(prev).normalize(), sn).normalize();
+    return pt.clone().addScaledVector(right, disp);
+  });
+}
+
 const RIVER_NAMES = [
   "Ardenvale","Blackwater","Coldrun","Deepflow","Embervein",
   "Frostmere","Greystone","Hollow Brook","Ironstream","Jade Run",
@@ -49,7 +70,7 @@ export class RiverSystem {
     const paths = await rs._generatePaths(planet);
     rs.paths = paths;
     rs.names = paths.map((_, i) => riverName(i));
-    const geo = rs._buildGeometry(paths, planet);
+    const geo = rs._buildGeometry(paths);
     const mat = rs._buildMaterial();
     rs.mesh = new THREE.Mesh(geo, mat);
     rs.mesh.frustumCulled = false;
@@ -94,40 +115,52 @@ export class RiverSystem {
     }
 
     const paths: THREE.Vector3[][] = [];
+    // Tributaries use shorter paths — they're side branches, not full rivers
+    const tribMaxSteps = Math.ceil(tierMaxSteps * 0.6);
 
     for (const src of sources) {
-      await yieldFrame(); // yield between sources so the browser can repaint during step 1
+      await yieldFrame(); // yield between sources so the browser can repaint during path generation
       const main = this._tracePath(src, planet, R, tierMaxSteps);
       if (main.length < 5) continue;
       paths.push(main);
 
-      // Tributaries: branch off the main path at 30–50% along
+      // Tributaries: evenly spread junctions across 20–65% of the main path
       for (let t = 0; t < tierTributaries; t++) {
-        const junctionIdx = Math.floor(
-          (0.3 + rand() * 0.2) * main.length
-        );
-        const junctionPt = main[junctionIdx];
-        // Offset perpendicular on sphere by ~20 degrees
-        const perpAngle = (t % 2 === 0 ? 1 : -1) * 20 * (Math.PI / 180);
-        const perp = new THREE.Vector3()
-          .crossVectors(junctionPt, new THREE.Vector3(0, 1, 0.001).normalize())
-          .normalize();
+        await yieldFrame(); // yield per tributary to keep main thread responsive
+        // Spread junctions evenly so tributaries don't all cluster at one point
+        const frac = 0.20 + (t / Math.max(tierTributaries - 1, 1)) * 0.45 + (rand() - 0.5) * 0.08;
+        const junctionIdx = Math.min(Math.floor(frac * main.length), main.length - 2);
+        const junctionPt = main[junctionIdx].clone().normalize();
+
+        // Use the flow direction at the junction (not world-up) — works everywhere on sphere
+        const flowPrev = main[Math.max(junctionIdx - 1, 0)].clone().normalize();
+        const flowNext = main[Math.min(junctionIdx + 1, main.length - 1)].clone().normalize();
+        const flowDir  = flowNext.clone().sub(flowPrev).normalize();
+        const sn       = junctionPt.clone();
+        const right    = new THREE.Vector3().crossVectors(flowDir, sn).normalize();
+
+        // Alternate left/right, vary angle 15–30°
+        const side  = t % 2 === 0 ? 1 : -1;
+        const angle = (15 + rand() * 15) * (Math.PI / 180) * side;
+        // Step upstream and sideways from the junction to find a plausible tributary source
         const tributaryStart = junctionPt.clone()
-          .applyAxisAngle(perp, perpAngle)
+          .addScaledVector(right, Math.sin(angle) * 0.18)
+          .addScaledVector(flowDir.clone().negate(), 0.08)
           .normalize();
-        // Find a high point near this direction
+
         const tElev = planet.elevationAt(tributaryStart.x, tributaryStart.y, tributaryStart.z, false);
-        if (tElev > cfg.sourceMinElev * 0.5) {
-          const trib = this._tracePathToTarget(tributaryStart, junctionPt, planet, R, tierMaxSteps);
+        if (tElev > cfg.sourceMinElev * 0.4) {
+          const trib = this._tracePathToTarget(tributaryStart, main[junctionIdx], planet, R, tribMaxSteps);
           if (trib.length >= 4) paths.push(trib);
         }
       }
     }
 
-    // Smooth paths to remove 8-direction grid kinks — Chaikin subdivision
-    // Low tier: skip (saves memory), medium/high: 2 rounds (180pts → 720)
-    const rounds = gpuTier === 'low' ? 0 : 2;
-    return paths.map(p => chaikin(p, rounds));
+    // Low tier: skip meanders + Chaikin (saves CPU + memory)
+    // Medium/high: add sinusoidal meanders then smooth with Chaikin
+    if (gpuTier === 'low') return paths;
+    const rounds = 2;
+    return paths.map(p => chaikin(addMeanders(p, rand), rounds));
   }
 
   private _tracePath(source: THREE.Vector3, planet: Planet, R: number, maxSteps: number = CFG.river.maxSteps): THREE.Vector3[] {
@@ -219,7 +252,7 @@ export class RiverSystem {
     return path;
   }
 
-  private _buildGeometry(paths: THREE.Vector3[][], planet: Planet): THREE.BufferGeometry {
+  private _buildGeometry(paths: THREE.Vector3[][]): THREE.BufferGeometry {
     const cfg = CFG.river;
     const positions: number[] = [];
     const normals: number[] = [];

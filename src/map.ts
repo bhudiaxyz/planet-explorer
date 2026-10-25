@@ -177,44 +177,72 @@ export class MapOverlay {
     bc.width = W; bc.height = H;
     const bctx = bc.getContext("2d")!;
     bctx.putImageData(imgData, 0, 0);
-    // Draw rivers — wide soft glow pass then sharp bright centre line
-    const rivers = this.planet.riverSystem?.paths;
+    // Draw rivers — 3-pass glow + bright centre + name labels at midpoint
+    const rivers  = this.planet.riverSystem?.paths;
+    const rNames  = this.planet.riverSystem?.names;
     if (rivers) {
+      // Project a 3D path to canvas pixel coords, breaking at antimeridian
+      const projectPath = (path: THREE.Vector3[]) => {
+        const pts: Array<{ px: number; py: number; move: boolean }> = [];
+        let prevLon = 0;
+        for (let i = 0; i < path.length; i++) {
+          const pt  = path[i].clone().normalize();
+          const lat = Math.asin(Math.max(-1, Math.min(1, pt.y)));
+          const lon = Math.atan2(pt.z, pt.x);
+          pts.push({
+            px: ((lon / (Math.PI * 2)) + 0.5) * W,
+            py: (0.5 - lat / Math.PI) * H,
+            move: i === 0 || Math.abs(lon - prevLon) > Math.PI,
+          });
+          prevLon = lon;
+        }
+        return pts;
+      };
+
       const drawPaths = (strokeStyle: string, lineWidth: number, blur: number) => {
         bctx.strokeStyle = strokeStyle;
-        bctx.lineWidth = lineWidth;
+        bctx.lineWidth   = lineWidth;
         bctx.shadowColor = strokeStyle;
-        bctx.shadowBlur = blur;
+        bctx.shadowBlur  = blur;
         for (const path of rivers) {
           if (path.length < 2) continue;
+          const pts = projectPath(path);
           bctx.beginPath();
-          let prevLon = 0;
-          for (let i = 0; i < path.length; i++) {
-            const pt = path[i].clone().normalize();
-            const lat = Math.asin(Math.max(-1, Math.min(1, pt.y)));
-            const lon = Math.atan2(pt.z, pt.x);
-            const px = ((lon / (Math.PI * 2)) + 0.5) * W;
-            const py = (0.5 - lat / Math.PI) * H;
-            if (i === 0 || Math.abs(lon - prevLon) > Math.PI) {
-              bctx.moveTo(px, py);
-            } else {
-              bctx.lineTo(px, py);
-            }
-            prevLon = lon;
+          for (const { px, py, move } of pts) {
+            if (move) bctx.moveTo(px, py); else bctx.lineTo(px, py);
           }
           bctx.stroke();
         }
       };
+
       bctx.save();
-      bctx.lineCap = "round";
-      bctx.lineJoin = "round";
-      // Pass 1: broad outer glow
-      drawPaths("rgba(60, 140, 255, 0.35)", 10, 14);
-      // Pass 2: mid glow
-      drawPaths("rgba(100, 190, 255, 0.65)", 5, 6);
-      // Pass 3: bright opaque centre line
-      drawPaths("rgba(200, 235, 255, 1.0)", 2, 3);
+      bctx.lineCap = "round"; bctx.lineJoin = "round";
+      drawPaths("rgba(40, 110, 230, 0.30)", 16, 20); // broad outer halo
+      drawPaths("rgba(80, 165, 255, 0.60)",  8, 10); // mid glow
+      drawPaths("rgba(160, 215, 255, 0.90)", 3,  4); // inner bright line
+      drawPaths("rgba(220, 245, 255, 1.00)", 1.5, 0); // crisp centre
       bctx.restore();
+
+      // River name labels at the midpoint of each main path
+      if (rNames) {
+        bctx.save();
+        bctx.font = "bold 10px sans-serif";
+        bctx.textAlign = "center";
+        for (let ri = 0; ri < rivers.length; ri++) {
+          const path = rivers[ri];
+          if (path.length < 4) continue;
+          const mid = path[Math.floor(path.length * 0.45)].clone().normalize();
+          const lat = Math.asin(Math.max(-1, Math.min(1, mid.y)));
+          const lon = Math.atan2(mid.z, mid.x);
+          const px  = ((lon / (Math.PI * 2)) + 0.5) * W;
+          const py  = (0.5 - lat / Math.PI) * H;
+          const name = rNames[ri] ?? "";
+          bctx.shadowColor = "rgba(0,20,60,0.9)"; bctx.shadowBlur = 4;
+          bctx.fillStyle = "rgba(160, 220, 255, 0.9)";
+          bctx.fillText(name, px, py - 4);
+        }
+        bctx.restore();
+      }
     }
     bctx.font = "14px sans-serif";
     bctx.textAlign = "center";
