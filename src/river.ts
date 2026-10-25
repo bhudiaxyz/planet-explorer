@@ -134,7 +134,7 @@ export class RiverSystem {
       const curElev = planet.elevationAt(cur.x, cur.y, cur.z, false);
       path.push(cur.clone().multiplyScalar(R + curElev * S.amplitude + cfg.surfaceOffset));
 
-      if (curElev <= S.seaLevel) break;
+      if (curElev <= 0) break; // elevationAt already subtracts seaLevel; 0 = ocean surface
 
       // Build tangent frame
       const up = cur.clone();
@@ -182,7 +182,7 @@ export class RiverSystem {
 
       // Stop if we've reached the target junction area
       if (cur.distanceTo(target.clone().normalize()) < stepRad * 3) break;
-      if (curElev <= S.seaLevel) break;
+      if (curElev <= 0) break; // elevationAt already subtracts seaLevel; 0 = ocean surface
 
       const up = cur.clone();
       const ref = Math.abs(up.y) < 0.9 ? new THREE.Vector3(1, 0, 0) : new THREE.Vector3(0, 0, 1);

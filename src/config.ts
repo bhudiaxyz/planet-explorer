@@ -85,7 +85,7 @@ export const CFG = {
   river: {
     count: 4,                // main rivers per planet
     tributaries: 2,          // tributaries per main river
-    sourceMinElev: 0.25,     // min elevation unit for source (above seaLevel)
+    sourceMinElev: 0.12,     // min elevation unit for source (above seaLevel)
     sourceMinMoisture: 0.15, // min moisture for source
     minSourceSpacingDeg: 40, // degrees — prevents rivers clustering together
     stepSize: 6,             // metres per gradient-descent step
