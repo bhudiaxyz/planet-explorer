@@ -19,15 +19,15 @@ export const CFG = {
     // small ground cover (grass, flowers, ferns, reeds, sedge, mushrooms)
     near:    [40, 56,  0,  0.5],
     mid:     [74, 106, 6,  26],
-    far:     [155, 200, 36, 62],
+    far:     [90, 200, 36, 62],   // wide 110m outer fade — was 45m, prevents pop on large ground cover
     flower:  [50, 70,  0,  0.5],
     mush:    [30, 50,  0,  0.5],
     // medium shrub-height objects (shrubs, alpine scrub, cactus, dead scrub)
     shrub:   [54, 88,  0,  0.5],
-    shrubMid:[100, 152, 16, 44],
+    shrubMid:[70, 152, 16, 44],   // wide 82m outer fade — was 52m
     // large rocks, slabs, frost rocks, boulders
     rock:    [55, 110, 0,  0.5],
-    rockMid: [118, 195, 14, 46],
+    rockMid: [70, 195, 14, 46],   // wide 125m outer fade — was 77m
   },
   plantRadius: { near: 56, mid: 104, far: 204, flower: 68, mush: 48, shrub: 88, shrubMid: 160, rock: 120, rockMid: 210 },
   forest: { count: 22000, minSpacing: 2.4, tries: 12 },

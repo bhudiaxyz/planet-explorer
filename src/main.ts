@@ -182,13 +182,14 @@ const enterLabel = isTouchDevice ? "Tap to enter" : "Click to enter";
 
 
 await setStep(4, "Ready");
-showSplash(enterLabel); // show enter button immediately; splash stays up while shaders warm
-// Warm shaders during the "click to enter" pause — fire-and-forget so it never blocks startup
-renderer.compileAsync(scene, camera).catch(() => {});
+showSplash(enterLabel);
+// Click handler must be registered before compileAsync — it can take seconds on medium
 splash.addEventListener("click", () => {
   hideSplash();
   if (!isTouchDevice) renderer.domElement.requestPointerLock();
 });
+// Warm shaders during the "click to enter" pause — fire-and-forget; low skips (JIT over first frames is safer than a long upfront stall)
+if (gpuTier !== 'low') renderer.compileAsync(scene, camera).catch(() => {});
 if (!isTouchDevice) {
   document.addEventListener("pointerlockchange", () => {
     if (document.pointerLockElement) {

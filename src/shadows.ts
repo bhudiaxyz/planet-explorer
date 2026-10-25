@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { CFG } from "./config";
+import { gpuTier } from "./gputier";
 const X = new THREE.Vector3(1, 0, 0),
   Y = new THREE.Vector3(0, 1, 0);
 
@@ -22,14 +23,15 @@ export class Shadows {
   constructor(
     private renderer: THREE.WebGLRenderer,
     private light: THREE.DirectionalLight,
-    private mobileScale = false,
+    private _unused = false,
     private moon?: THREE.DirectionalLight,
   ) {
     const { size: rawSize } = CFG.shadow;
-    this.half = this.mobileScale ? CFG.shadow.half * 0.65 : CFG.shadow.half;
+    const sizeMul = gpuTier === 'low' ? 0.25 : gpuTier === 'medium' ? 0.5 : 1;
+    this.half = gpuTier === 'low' ? CFG.shadow.half * 0.65 : CFG.shadow.half;
     const half = this.half;
-    const size = this.mobileScale ? rawSize >> 1 : rawSize;
-    this.hz = this.mobileScale ? 20 : CFG.shadow.hz;
+    const size = Math.round(rawSize * sizeMul);
+    this.hz = gpuTier === 'low' ? 20 : gpuTier === 'medium' ? 30 : CFG.shadow.hz;
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFShadowMap;
     renderer.shadowMap.autoUpdate = false;
@@ -47,7 +49,7 @@ export class Shadows {
     light.shadow.bias = -0.0004;
     light.shadow.normalBias = 0.4;
     if (moon) {
-      const moonSize = this.mobileScale ? rawSize >> 2 : rawSize >> 1;
+      const moonSize = Math.round(size >> 1);
       moon.castShadow = true;
       moon.shadow.mapSize.set(moonSize, moonSize);
       Object.assign(moon.shadow.camera, {

@@ -256,7 +256,7 @@ export class Scatter {
   constructor(private pl: Planet) {
     for (const spec of PLANTS)
       for (const tier of spec.tiers) {
-        if (gpuTier === 'low' && tier.far) continue;
+        if (gpuTier === 'low' && (tier.far || !tier.near)) continue;
         const l = new Layer(spec, tier);
         if (spec.collide && tier.near) {
           l.collide = true;

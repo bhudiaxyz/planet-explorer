@@ -62,6 +62,7 @@ void main() {
     this.composer.addPass(new RenderPass(scene, camera));
     this.composer.addPass(clean);
     this.composer.addPass(this.aerial.pass);
+    this.bloom.enabled = gpuTier !== 'low';
     this.composer.addPass(this.bloom);
     this.composer.addPass(new OutputPass());
     this.pixelRatio = this.pendingPixelRatio = renderer.getPixelRatio();
