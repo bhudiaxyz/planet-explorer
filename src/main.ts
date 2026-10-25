@@ -44,8 +44,9 @@ setRenderer(renderer);
   setGpuTier(detectGpuTier(gl));
 }
 // Tier-based quality: low = mobile/integrated, medium = mid-range, high = discrete
-if (gpuTier === 'low')    { S.resolution = 128; S.renderScale = 0.75; S.octaves = 4; }
-else if (gpuTier === 'medium') { S.resolution = 160; S.renderScale = 0.85; S.octaves = 5; }
+if (gpuTier === 'low')         { S.resolution = 128; S.renderScale = 0.60; S.octaves = 4; }
+else if (gpuTier === 'medium') { S.resolution = 160; S.renderScale = 0.75; S.octaves = 5; }
+else                           { S.renderScale = 0.90; }
 renderer.setPixelRatio(Math.min(devicePixelRatio, S.renderScale));
 renderer.setSize(innerWidth, innerHeight);
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -61,9 +62,9 @@ const scene = new THREE.Scene(),
 // ---- world & systems ---------------------------------------------------------------------------------------------------------------------------
 (async () => {
 const lsTip = document.getElementById("ls-tip")!;
-const STEPS = 4;
+const STEPS = 5;
 const setStep = (n: number, label: string) => {
-  lsTip.textContent = `Step ${n} of ${STEPS}: ${label}`;
+  lsTip.textContent = `Step ${n} of ${STEPS}: ${label}…`;
   return new Promise<void>(r => requestAnimationFrame(() => r()));
 };
 
@@ -180,15 +181,18 @@ const hideSplash = () => {
 
 const enterLabel = isTouchDevice ? "Tap to enter" : "Click to enter";
 
-await setStep(4, "Ready");
+// Pre-compile all shaders so the first rendered frame is instant.
+// compileAsync is synchronous on browsers without KHR_parallel_shader_compile (iOS Safari, many
+// mobile Chrome builds) — labelling it as a step keeps the loading screen honest.
+await setStep(4, "Compiling shaders");
+if (gpuTier !== 'low') await renderer.compileAsync(scene, camera).catch(() => {});
+
+await setStep(5, "Ready");
 showSplash(enterLabel);
-// Click handler must be registered before compileAsync — it can take seconds on medium
 splash.addEventListener("click", () => {
   hideSplash();
   if (!isTouchDevice) renderer.domElement.requestPointerLock();
 });
-// Warm shaders during the "click to enter" pause — fire-and-forget; low skips (JIT over first frames is safer than a long upfront stall)
-if (gpuTier !== 'low') renderer.compileAsync(scene, camera).catch(() => {});
 if (!isTouchDevice) {
   document.addEventListener("pointerlockchange", () => {
     if (document.pointerLockElement) {

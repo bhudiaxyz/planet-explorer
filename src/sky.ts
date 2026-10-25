@@ -6,9 +6,9 @@ import { Precip } from "./precip";
 import { U } from "./fx";
 import { gpuTier } from "./gputier";
 const { sky: SKY, atmosphere: ATM, lights: LGT } = CFG;
-const starCount   = gpuTier === 'low' ? 1200 : SKY.starCount;
-const precipCount = gpuTier === 'low' ? 1500 : SKY.precipCount;
-const nebulaCount = gpuTier === 'low' ? 7 : SKY.nebulaCount;
+const starCount   = gpuTier === 'low' ? 900  : gpuTier === 'medium' ? 1600 : SKY.starCount;
+const precipCount = gpuTier === 'low' ? 1200 : gpuTier === 'medium' ? 2200 : SKY.precipCount;
+const nebulaCount = gpuTier === 'low' ? 5    : gpuTier === 'medium' ? 9    : SKY.nebulaCount;
 export class Sky {
   sun = new THREE.Vector3(1, 0, 0);
   dayF = 1;

@@ -260,7 +260,8 @@ export class Scatter {
   constructor(private pl: Planet) {
     for (const spec of PLANTS)
       for (const tier of spec.tiers) {
-        if (gpuTier === 'low' && (tier.far || !tier.near)) continue;
+        if (tier.far && gpuTier !== 'high') continue;   // far tiers: high GPU only
+        if (!tier.near && gpuTier === 'low') continue;  // mid tiers: medium+ only
         const l = new Layer(spec, tier);
         if (spec.collide && tier.near) {
           l.collide = true;
@@ -279,7 +280,7 @@ export class Scatter {
     if (this.dirty) {
       this.layers.forEach((l) => (l.lastFace = -1));
       this.dirty = false;
-      budget = gpuTier === 'low' ? 20 : this.layers.length;
+      budget = gpuTier === 'low' ? 14 : gpuTier === 'medium' ? 20 : this.layers.length;
     }
     if (alt >= 255) return;
     const n = this.layers.length;

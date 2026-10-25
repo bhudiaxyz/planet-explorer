@@ -11,7 +11,7 @@ import type { Obs } from "./collision";
 const UP = new THREE.Vector3(0, 1, 0);
 // Pull LOD crossfade distances in on weaker GPUs — fewer detailed tree instances per frame
 const _lod = CFG.treeLod;
-const lodMul = gpuTier === 'low' ? 0.55 : gpuTier === 'medium' ? 0.75 : 1;
+const lodMul = gpuTier === 'low' ? 0.45 : gpuTier === 'medium' ? 0.65 : 1;
 const [H0, H1, M0, M1] = _lod.map(v => v * lodMul) as [number, number, number, number];
 /** Species indices (order matches treeGeos / lowGeos / getLeafColors() in trees.ts). */
 const SP = {
@@ -224,7 +224,7 @@ export class Forest {
     const planet = this.pl,
       planetRadius = planet.radius,
       max = Math.floor(
-        CFG.forest.count * (gpuTier === 'low' ? 0.45 : gpuTier === 'medium' ? 0.7 : 1) * S.forest * (planetRadius / 700) ** 2,
+        CFG.forest.count * (gpuTier === 'low' ? 0.30 : gpuTier === 'medium' ? 0.55 : 0.80) * S.forest * (planetRadius / 700) ** 2,
       ),
       rand = rng(S.seed + 7);
     // Kick off all three geometry builds immediately (each via setTimeout so they run in separate

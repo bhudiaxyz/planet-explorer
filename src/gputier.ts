@@ -32,4 +32,4 @@ export function detectGpuTier(gl: WebGLRenderingContext | WebGL2RenderingContext
 
 /** Instance count multiplier: 1.0 high, 0.80 medium, 0.65 low */
 export const plantRadiusMul = () =>
-  gpuTier === 'low' ? 0.65 : gpuTier === 'medium' ? 0.80 : 1.0;
+  gpuTier === 'low' ? 0.50 : gpuTier === 'medium' ? 0.65 : 1.0;

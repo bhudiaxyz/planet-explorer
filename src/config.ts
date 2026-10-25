@@ -30,8 +30,8 @@ export const CFG = {
     rockMid: [70, 195, 14, 46],   // wide 125m outer fade — was 77m
   },
   plantRadius: { near: 65, mid: 104, far: 204, flower: 68, mush: 48, shrub: 88, shrubMid: 160, rock: 120, rockMid: 210 },
-  forest: { count: 22000, minSpacing: 2.4, tries: 12 },
-  shadow: { size: 2048, half: 120, hz: 30 },
+  forest: { count: 14000, minSpacing: 2.4, tries: 12 },
+  shadow: { size: 1024, half: 120, hz: 30 },
 
   // tree instance management
   trees: {

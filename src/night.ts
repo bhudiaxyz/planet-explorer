@@ -2,7 +2,7 @@ import * as THREE from "three";
 import { T, TERRAIN_GLSL } from "./terrain";
 import { U } from "./fx";
 import { gpuTier } from "./gputier";
-const FIREFLY_COUNT = gpuTier === 'low' ? 80 : gpuTier === 'medium' ? 180 : 320,
+const FIREFLY_COUNT = gpuTier === 'low' ? 50 : gpuTier === 'medium' ? 120 : 220,
   scratchForwardAxis = new THREE.Vector3(),
   AXIS_X = new THREE.Vector3(1, 0, 0),
   AXIS_Z = new THREE.Vector3(0, 0, 1);
@@ -149,7 +149,7 @@ void main() {
     this.pts.visible = intensity > 0.02 || dayF > 0.1;
   }
 }
-const BIO_COUNT = gpuTier === 'low' ? 20 : gpuTier === 'medium' ? 40 : 60;
+const BIO_COUNT = gpuTier === 'low' ? 12 : gpuTier === 'medium' ? 28 : 50;
 export class Bioluminescence {
   pts: THREE.Points;
   mat: THREE.ShaderMaterial;
@@ -210,7 +210,7 @@ void main() {
     this.mat.uniforms.uCam.value.copy(cameraPosition);
   }
 }
-const BAND_COUNT = gpuTier === 'low' ? 200 : gpuTier === 'medium' ? 400 : 600;
+const BAND_COUNT = gpuTier === 'low' ? 140 : gpuTier === 'medium' ? 280 : 500;
 export class GalacticBand {
   mesh: THREE.Points;
   constructor(scene: THREE.Scene) {
