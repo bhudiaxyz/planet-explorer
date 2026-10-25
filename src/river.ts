@@ -78,6 +78,7 @@ export class RiverSystem {
     let attempts = 0;
     while (sources.length < tierCount && attempts < 500) {
       attempts++;
+      if (attempts % 50 === 0) await yieldFrame(); // yield periodically to avoid blocking main thread
       // Random point on unit sphere
       const u = rand() * 2 - 1;
       const phi = rand() * Math.PI * 2;

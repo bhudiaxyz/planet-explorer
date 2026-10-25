@@ -43,10 +43,16 @@ setRenderer(renderer);
   const gl = renderer.getContext();
   setGpuTier(detectGpuTier(gl));
 }
-// Tier-based quality: low = mobile/integrated, medium = mid-range, high = discrete
+// Tier-based quality: low = mobile/integrated, medium = mid-range, high = discrete/flagship mobile
+const isMobileHigh = gpuTier === 'high' && 'ontouchstart' in window;
 if (gpuTier === 'low')         { S.resolution = 128; S.renderScale = 0.60; S.octaves = 4; }
 else if (gpuTier === 'medium') { S.resolution = 160; S.renderScale = 0.75; S.octaves = 5; }
-else if (devicePixelRatio > 1) { S.renderScale = 0.90; }
+else {
+  // Mobile high (e.g. S22 Ultra, iPhone 15 Pro): full shader quality, reduced terrain resolution
+  // to avoid the synchronous GPU readback stall that blocks startup on mobile browsers
+  if (isMobileHigh) S.resolution = 256;
+  if (devicePixelRatio > 1) S.renderScale = 0.90;
+}
 renderer.setPixelRatio(Math.min(devicePixelRatio, S.renderScale));
 renderer.setSize(innerWidth, innerHeight);
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -73,8 +79,9 @@ const planet = new Planet(scene);
 await planet.build();
 pushSeedUrl(currentSeedWord);
 
-// Start scouting immediately — only needs planet, not scatter or other systems
+// Start scouting and river generation in parallel — neither needs scatter or other systems
 const spotsPromise = findSpots(planet);
+void planet.buildRivers();
 
 await setStep(2, "Setting up world");
 const player = new Player(camera, planet, renderer.domElement);
@@ -103,6 +110,7 @@ const rebuild = (respawn = false) => {
   clearTimeout(rebuildTimer);
   rebuildTimer = window.setTimeout(async () => {
     await planet.build();
+    void planet.buildRivers();
     mapOverlay.reset();
     scatter.dirty = true;
     collider.dirty = true;
