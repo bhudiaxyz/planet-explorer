@@ -11,6 +11,7 @@ import { gpuTier } from "./gpuTier";
 import { CurrentPalette, biomeColors } from "./palette";
 import { buildLandmarks } from "./landmarks";
 import { CloudShell } from "./skyfx";
+import { RiverSystem } from "./river";
 export { smoothstep, frame };
 const DROP = CFG.chunk.drop;
 
@@ -23,6 +24,7 @@ export class Planet {
   clouds = new CloudShell();
   cloudRadius = S.radius + CFG.atmosphere.cloudRadiusOffset;
   forest = new Forest(this);
+  riverSystem?: RiverSystem;
   landmarks: ReturnType<typeof buildLandmarks> = { list: [], obs: [], tick: () => {} };
   chunks = new ChunkManager(this.group, () => this.radius);
   private elapsedTime = 0;
@@ -337,6 +339,9 @@ void main() {
     const landmarkGroup = new THREE.Group();
     this.landmarks = buildLandmarks(this, landmarkGroup);
     this.group.add(landmarkGroup);
+    this.riverSystem?.dispose();
+    this.riverSystem = new RiverSystem(this);
+    this.group.add(this.riverSystem.mesh);
   }
   /** Per-frame animation: landmarks, planet cube-map bake/fade-in, chunk fades. */
   tick(dt: number) {

@@ -7,9 +7,11 @@ import { rng } from "./noise";
 
 export class RiverSystem {
   mesh: THREE.Mesh;
+  readonly paths: THREE.Vector3[][];
 
   constructor(planet: Planet) {
     const paths = this._generatePaths(planet);
+    this.paths = paths;
     const geo = this._buildGeometry(paths, planet);
     const mat = this._buildMaterial();
     this.mesh = new THREE.Mesh(geo, mat);
