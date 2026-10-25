@@ -244,16 +244,73 @@ export class RiverSystem {
   }
 
   private _buildMaterial(): THREE.Material {
-    return new THREE.MeshBasicMaterial({
-      color: 0x4a8fc2,
+    if (gpuTier === 'low') {
+      return new THREE.MeshBasicMaterial({
+        color: 0x4a7a9b,
+        transparent: true,
+        opacity: 0.7,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+      });
+    }
+
+    const highDetail = gpuTier === 'high' ? 1.0 : 0.0;
+
+    return new THREE.ShaderMaterial({
       transparent: true,
-      opacity: 0.82,
       depthWrite: false,
       side: THREE.DoubleSide,
+      uniforms: {
+        uTime: U.uTime,
+        uHighDetail: { value: highDetail },
+      },
+      vertexShader: `
+varying vec2 vUv;
+varying vec3 vWorldNormal;
+varying vec3 vWorldPos;
+
+void main() {
+  vUv = uv;
+  vWorldNormal = normalize(normalMatrix * normal);
+  vec4 worldPos = modelMatrix * vec4(position, 1.0);
+  vWorldPos = worldPos.xyz;
+  gl_Position = projectionMatrix * viewMatrix * worldPos;
+}`,
+      fragmentShader: `
+uniform float uTime;
+uniform float uHighDetail;
+
+varying vec2 vUv;
+varying vec3 vWorldNormal;
+varying vec3 vWorldPos;
+
+void main() {
+  // Scroll UV.y downstream
+  float v = fract(vUv.y - uTime * 0.4);
+
+  // Base teal colour, slightly darker at ribbon edges to suggest depth
+  float edgeDark = smoothstep(0.1, 0.3, vUv.x) * (1.0 - smoothstep(0.7, 0.9, vUv.x));
+  vec3 deepColor  = vec3(0.08, 0.22, 0.35);
+  vec3 shallowColor = vec3(0.15, 0.38, 0.52);
+  vec3 baseColor = mix(deepColor, shallowColor, edgeDark);
+
+  // Fresnel edge highlight
+  vec3 viewDir = normalize(cameraPosition - vWorldPos);
+  float fresnel = pow(1.0 - max(0.0, dot(viewDir, vWorldNormal)), 2.5);
+  baseColor += vec3(0.3, 0.5, 0.6) * fresnel * 0.6;
+
+  // High-detail: ripple + foam at ribbon edges
+  float foam = 0.0;
+  if (uHighDetail > 0.5) {
+    float ripple = sin(v * 8.0 + uTime * 2.0) * 0.5 + 0.5;
+    baseColor += vec3(0.1, 0.15, 0.2) * ripple * 0.15;
+    foam = step(0.88, vUv.x) + step(vUv.x, 0.12);
+    baseColor = mix(baseColor, vec3(0.85, 0.92, 0.95), foam * 0.6);
+  }
+
+  float alpha = mix(0.72, 0.88, edgeDark) + fresnel * 0.1 + foam * 0.1;
+  gl_FragColor = vec4(baseColor, clamp(alpha, 0.0, 0.95));
+}`,
     });
   }
 }
-
-// suppress unused import warnings — these are skeleton imports for future tasks
-void U;
-void gpuTier;
