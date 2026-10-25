@@ -33,6 +33,9 @@ function riverName(index: number): string {
   return RIVER_NAMES[(S.seed + index * 7) % RIVER_NAMES.length];
 }
 
+// Hoisted — rebuilt per call previously, wasting 1080+ short-lived arrays on a full planet build
+const DIRS = [0, 1, 2, 3, 4, 5, 6, 7].map(i => (i * Math.PI) / 4);
+
 export class RiverSystem {
   mesh: THREE.Mesh;
   readonly paths: THREE.Vector3[][];
@@ -109,7 +112,7 @@ export class RiverSystem {
         // Find a high point near this direction
         const tElev = planet.elevationAt(tributaryStart.x, tributaryStart.y, tributaryStart.z, false);
         if (tElev > cfg.sourceMinElev * 0.5) {
-          const trib = this._tracePathToTarget(tributaryStart, junctionPt, planet, R);
+          const trib = this._tracePathToTarget(tributaryStart, junctionPt, planet, R, tierMaxSteps);
           if (trib.length >= 4) paths.push(trib);
         }
       }
@@ -124,8 +127,6 @@ export class RiverSystem {
   private _tracePath(source: THREE.Vector3, planet: Planet, R: number, maxSteps: number = CFG.river.maxSteps): THREE.Vector3[] {
     const cfg = CFG.river;
     const stepRad = cfg.stepSize / R; // step in radians on unit sphere
-    // 8 compass directions on the sphere tangent plane
-    const DIRS = [0, 1, 2, 3, 4, 5, 6, 7].map(i => (i * Math.PI) / 4);
 
     const path: THREE.Vector3[] = [];
     let cur = source.clone().normalize();
@@ -168,15 +169,15 @@ export class RiverSystem {
     target: THREE.Vector3,
     planet: Planet,
     R: number,
+    maxSteps: number = CFG.river.maxSteps,
   ): THREE.Vector3[] {
     const cfg = CFG.river;
     const stepRad = cfg.stepSize / R;
-    const DIRS = [0, 1, 2, 3, 4, 5, 6, 7].map(i => (i * Math.PI) / 4);
 
     const path: THREE.Vector3[] = [];
     let cur = source.clone().normalize();
 
-    for (let step = 0; step < cfg.maxSteps; step++) {
+    for (let step = 0; step < maxSteps; step++) {
       const curElev = planet.elevationAt(cur.x, cur.y, cur.z, false);
       path.push(cur.clone().multiplyScalar(R + curElev * S.amplitude + cfg.surfaceOffset));
 
