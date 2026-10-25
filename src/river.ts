@@ -176,41 +176,69 @@ export class RiverSystem {
   private _buildGeometry(paths: THREE.Vector3[][], planet: Planet): THREE.BufferGeometry {
     const cfg = CFG.river;
     const positions: number[] = [];
+    const normals: number[] = [];
+    const uvs: number[] = [];
     const indices: number[] = [];
-    let base = 0;
 
     for (const path of paths) {
       if (path.length < 2) continue;
-      const n = path.length;
-      for (let i = 0; i < n; i++) {
-        const t = i / (n - 1);
-        const width = cfg.widthStart + (cfg.widthEnd - cfg.widthStart) * t;
-        const pt = path[i];
-        // tangent along path
-        const next = path[Math.min(i + 1, n - 1)];
-        const prev = path[Math.max(i - 1, 0)];
-        const tangent = next.clone().sub(prev).normalize();
-        const up = pt.clone().normalize();
-        const right = new THREE.Vector3().crossVectors(tangent, up).normalize();
-        // two ribbon verts
-        positions.push(
-          pt.x + right.x * width * 0.5,
-          pt.y + right.y * width * 0.5,
-          pt.z + right.z * width * 0.5,
-          pt.x - right.x * width * 0.5,
-          pt.y - right.y * width * 0.5,
-          pt.z - right.z * width * 0.5,
-        );
-        if (i < n - 1) {
-          const b = base + i * 2;
-          indices.push(b, b + 1, b + 2, b + 1, b + 3, b + 2);
-        }
+      const N = path.length;
+      const baseVertex = positions.length / 3;
+
+      // Compute arc-length for v coordinate
+      const arcLen: number[] = [0];
+      for (let i = 1; i < N; i++) {
+        arcLen.push(arcLen[i - 1] + path[i].distanceTo(path[i - 1]));
       }
-      base += n * 2;
+      const totalLen = arcLen[N - 1] || 1;
+
+      for (let i = 0; i < N; i++) {
+        const t = i / (N - 1);
+        const width = cfg.widthStart + (cfg.widthEnd - cfg.widthStart) * t;
+        const halfW = width * 0.5;
+
+        // Sphere normal = outward unit direction from centre
+        const sphereNormal = path[i].clone().normalize();
+
+        // Tangent: direction of flow
+        const tangent = i < N - 1
+          ? path[i + 1].clone().sub(path[i]).normalize()
+          : path[i].clone().sub(path[i - 1]).normalize();
+
+        // Ribbon right = tangent × sphereNormal (cross gives perpendicular on sphere surface)
+        const right = new THREE.Vector3().crossVectors(tangent, sphereNormal).normalize();
+
+        // Left and right vertices
+        const left = path[i].clone().addScaledVector(right, -halfW);
+        const right3 = path[i].clone().addScaledVector(right, halfW);
+
+        const v = arcLen[i] / totalLen;
+
+        // Left vertex
+        positions.push(left.x, left.y, left.z);
+        normals.push(sphereNormal.x, sphereNormal.y, sphereNormal.z);
+        uvs.push(0, v);
+
+        // Right vertex
+        positions.push(right3.x, right3.y, right3.z);
+        normals.push(sphereNormal.x, sphereNormal.y, sphereNormal.z);
+        uvs.push(1, v);
+      }
+
+      // Quad indices for this path
+      for (let i = 0; i < N - 1; i++) {
+        const a = baseVertex + i * 2;
+        const b = a + 1;
+        const c = a + 2;
+        const d = a + 3;
+        indices.push(a, b, c, b, d, c);
+      }
     }
 
     const geo = new THREE.BufferGeometry();
-    geo.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+    geo.setAttribute("position", new THREE.BufferAttribute(new Float32Array(positions), 3));
+    geo.setAttribute("normal",   new THREE.BufferAttribute(new Float32Array(normals), 3));
+    geo.setAttribute("uv",       new THREE.BufferAttribute(new Float32Array(uvs), 2));
     geo.setIndex(indices);
     return geo;
   }
