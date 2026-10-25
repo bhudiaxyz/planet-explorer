@@ -2,7 +2,7 @@ import * as THREE from "three";
 import type { Planet } from "./planet";
 import { S, CFG } from "./config";
 import { U } from "./fx";
-import { gpuTier } from "./gpuTier";
+import { gpuTier } from "./gputier";
 import { rng } from "./noise";
 
 // Chaikin corner-cutting: replaces each segment with two points at 1/4 and 3/4,

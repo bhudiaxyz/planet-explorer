@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { CFG } from "./config";
-import { gpuTier } from "./gpuTier";
+import { gpuTier } from "./gputier";
 const X = new THREE.Vector3(1, 0, 0),
   Y = new THREE.Vector3(0, 1, 0);
 

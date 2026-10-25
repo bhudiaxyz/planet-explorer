@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { T, TERRAIN_GLSL } from "./terrain";
 import { U } from "./fx";
-import { gpuTier } from "./gpuTier";
+import { gpuTier } from "./gputier";
 const scratchForwardAxis = new THREE.Vector3(),
   AXIS_X = new THREE.Vector3(1, 0, 0),
   AXIS_Z = new THREE.Vector3(0, 0, 1);
