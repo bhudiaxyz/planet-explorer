@@ -46,7 +46,7 @@ setRenderer(renderer);
 // Tier-based quality: low = mobile/integrated, medium = mid-range, high = discrete
 if (gpuTier === 'low')         { S.resolution = 128; S.renderScale = 0.60; S.octaves = 4; }
 else if (gpuTier === 'medium') { S.resolution = 160; S.renderScale = 0.75; S.octaves = 5; }
-else                           { S.renderScale = 0.90; }
+else if (devicePixelRatio > 1) { S.renderScale = 0.90; }
 renderer.setPixelRatio(Math.min(devicePixelRatio, S.renderScale));
 renderer.setSize(innerWidth, innerHeight);
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -163,8 +163,6 @@ const hudText = () => {
   return `${modeLabel} · alt ${Math.round(player.alt)} m · ${String(Math.floor(hourOfDay)).padStart(2, "0")}:${String(Math.floor((hourOfDay % 1) * 60)).padStart(2, "0")}${nearestLandmark.n ? " · " + nearestLandmark.n + " " + Math.round(nearestLandmark.d) + " m" : ""} · ${weather}`;
 };
 
-planet.update(player.up, player.alt);
-
 const splash = document.getElementById("ls")!;
 const splashEnter = document.getElementById("ls-enter")!;
 const splashControls = document.getElementById("ls-controls")!;
@@ -181,13 +179,23 @@ const hideSplash = () => {
 
 const enterLabel = isTouchDevice ? "Tap to enter" : "Click to enter";
 
-// Pre-compile all shaders so the first rendered frame is instant.
+// Pre-compile all shaders so the first visible frame is instant.
 // compileAsync is synchronous on browsers without KHR_parallel_shader_compile (iOS Safari, many
-// mobile Chrome builds) — labelling it as a step keeps the loading screen honest.
+// mobile Chrome builds) — labelling it as a loading step keeps the screen honest during the block.
 await setStep(4, "Compiling shaders");
-if (gpuTier !== 'low') await renderer.compileAsync(scene, camera).catch(() => {});
+await renderer.compileAsync(scene, camera).catch(() => {});
 
-await setStep(5, "Ready");
+// Render one warm-up frame off-screen — uploads geometry/textures to GPU without painting to canvas.
+await setStep(5, "Warming up");
+sky.update(0, camera, player.up, player.alt, 0.5);
+planet.update(player.up, player.alt);
+const _warmTarget = new THREE.WebGLRenderTarget(1, 1);
+renderer.setRenderTarget(_warmTarget);
+renderer.render(scene, camera);
+renderer.setRenderTarget(null);
+_warmTarget.dispose();
+await new Promise<void>(r => requestAnimationFrame(() => r()));
+
 showSplash(enterLabel);
 splash.addEventListener("click", () => {
   hideSplash();

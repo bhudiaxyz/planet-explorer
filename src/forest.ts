@@ -9,10 +9,7 @@ import { canBake, bakePoints } from "./bake";
 import { gpuTier } from "./gputier";
 import type { Obs } from "./collision";
 const UP = new THREE.Vector3(0, 1, 0);
-// Pull LOD crossfade distances in on weaker GPUs — fewer detailed tree instances per frame
 const _lod = CFG.treeLod;
-const lodMul = gpuTier === 'low' ? 0.45 : gpuTier === 'medium' ? 0.65 : 1;
-const [H0, H1, M0, M1] = _lod.map(v => v * lodMul) as [number, number, number, number];
 /** Species indices (order matches treeGeos / lowGeos / getLeafColors() in trees.ts). */
 const SP = {
   pine: 0,
@@ -102,7 +99,11 @@ export class Forest {
   private scratchAx = new THREE.Vector3();
   private scratchUp = new THREE.Vector3(1, 0, 0);
   private leafColors: THREE.Color[] = [];
-  constructor(private pl: Planet) {}
+  private H0: number; private H1: number; private M0: number; private M1: number;
+  constructor(private pl: Planet) {
+    const lodMul = gpuTier === 'low' ? 0.45 : gpuTier === 'medium' ? 0.65 : 1;
+    [this.H0, this.H1, this.M0, this.M1] = _lod.map(v => v * lodMul) as [number, number, number, number];
+  }
 
   /** Per-candidate terrain samples. mode 1: (elev, moisture, tree density, slope) · 2: coarse-mesh radius · 5: stand noise. */
   private async sample(dirs: Float32Array, mode: number) {
@@ -433,9 +434,9 @@ export class Forest {
       horizonThreshold = planetRadius / camLength - 0.06;
     const near = this.nearStrength > 0.001,
       distanceToCosAngle = (m: number) => Math.cos(Math.min(1.5, m / planetRadius));
-    const highDetailThreshold = distanceToCosAngle(H1 + 15),
-      midNearThreshold = distanceToCosAngle(H0 - 15),
-      midFarThreshold = distanceToCosAngle(M1 + 15);
+    const highDetailThreshold = distanceToCosAngle(this.H1 + 15),
+      midNearThreshold = distanceToCosAngle(this.H0 - 15),
+      midFarThreshold = distanceToCosAngle(this.M1 + 15);
     for (const lists of this.speciesLists) {
       this.tierCounts[0] = this.tierCounts[1] = 0;
       const tierCounts = this.tierCounts,
