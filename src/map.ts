@@ -208,10 +208,12 @@ export class MapOverlay {
       bctx.save();
       bctx.lineCap = "round";
       bctx.lineJoin = "round";
-      // Pass 1: wide soft glow
-      drawPaths("rgba(80, 160, 255, 0.45)", 6, 8);
-      // Pass 2: bright opaque centre line
-      drawPaths("rgba(140, 210, 255, 0.95)", 2, 4);
+      // Pass 1: broad outer glow
+      drawPaths("rgba(60, 140, 255, 0.35)", 10, 14);
+      // Pass 2: mid glow
+      drawPaths("rgba(100, 190, 255, 0.65)", 5, 6);
+      // Pass 3: bright opaque centre line
+      drawPaths("rgba(200, 235, 255, 1.0)", 2, 3);
       bctx.restore();
     }
     bctx.font = "14px sans-serif";
