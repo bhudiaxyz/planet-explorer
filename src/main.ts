@@ -178,6 +178,9 @@ const hideSplash = () => {
 };
 
 const enterLabel = isTouchDevice ? "Tap to enter" : "Click to enter";
+splashControls.textContent = isTouchDevice
+  ? "Joystick · move   ✦ · jump/ascend   ⟳ · roll   ⊘ · fly toggle"
+  : "WASD · move   Shift · sprint   Space · jump/ascend   C · descend   F · walk↔fly   Q/E · roll   G · panel   Esc · release mouse";
 
 // Pre-compile all shaders so the first visible frame is instant.
 // compileAsync is synchronous on browsers without KHR_parallel_shader_compile (iOS Safari, many

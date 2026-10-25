@@ -55,6 +55,9 @@
       justify-content: center;
       pointer-events: auto;
       transition: opacity .9s ease;
+      touch-action: manipulation;
+      user-select: none;
+      -webkit-user-select: none;
     }
     #ls.dismissed { opacity: 0; pointer-events: none }
     #ls-bg {
@@ -210,8 +213,8 @@
       <div id="ls-sub">A procedural world, forged on the GPU</div>
       <div id="ls-bar"><span></span></div>
       <div id="ls-tip">Preparing world&hellip;</div>
-      <div id="ls-controls">WASD move &middot; Shift sprint &middot; Space jump/ascend &middot; C descend &middot; F walk&harr;fly &middot; Q/E roll &middot; G panel &middot; Esc release mouse</div>
-      <div id="ls-enter">Click to enter</div>
+      <div id="ls-controls"></div>
+      <div id="ls-enter">Tap to enter</div>
     </div>
   </div>
   <script type="module" src="/src/main.ts"></script>
