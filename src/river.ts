@@ -5,13 +5,43 @@ import { U } from "./fx";
 import { gpuTier } from "./gpuTier";
 import { rng } from "./noise";
 
+// Chaikin corner-cutting: replaces each segment with two points at 1/4 and 3/4,
+// preserving the first and last point so source/mouth stay in place.
+function chaikin(pts: THREE.Vector3[], rounds: number): THREE.Vector3[] {
+  let p = pts;
+  for (let r = 0; r < rounds; r++) {
+    const out: THREE.Vector3[] = [p[0]];
+    for (let i = 0; i < p.length - 1; i++) {
+      out.push(p[i].clone().lerp(p[i + 1], 0.25));
+      out.push(p[i].clone().lerp(p[i + 1], 0.75));
+    }
+    out.push(p[p.length - 1]);
+    p = out;
+  }
+  return p;
+}
+
+const RIVER_NAMES = [
+  "Ardenvale","Blackwater","Coldrun","Deepflow","Embervein",
+  "Frostmere","Greystone","Hollow Brook","Ironstream","Jade Run",
+  "Keldmere","Longwater","Mistfall","Nightveil","Orvenmere",
+  "Pale Current","Quicksilver","Redmere","Silverrun","Thornwater",
+  "Umbraveil","Veldmere","Whitefall","Xandrel","Yewbrook","Zephyrvale",
+];
+// Pick a river name seeded by path index + world seed so it's stable per planet
+function riverName(index: number): string {
+  return RIVER_NAMES[(S.seed + index * 7) % RIVER_NAMES.length];
+}
+
 export class RiverSystem {
   mesh: THREE.Mesh;
   readonly paths: THREE.Vector3[][];
+  readonly names: string[];
 
   constructor(planet: Planet) {
     const paths = this._generatePaths(planet);
     this.paths = paths;
+    this.names = paths.map((_, i) => riverName(i));
     const geo = this._buildGeometry(paths, planet);
     const mat = this._buildMaterial();
     this.mesh = new THREE.Mesh(geo, mat);
@@ -85,7 +115,10 @@ export class RiverSystem {
       }
     }
 
-    return paths;
+    // Smooth paths to remove 8-direction grid kinks — Chaikin subdivision
+    // Low tier: skip (saves memory), medium/high: 2 rounds (180pts → 720)
+    const rounds = gpuTier === 'low' ? 0 : 2;
+    return paths.map(p => chaikin(p, rounds));
   }
 
   private _tracePath(source: THREE.Vector3, planet: Planet, R: number, maxSteps: number = CFG.river.maxSteps): THREE.Vector3[] {
@@ -200,7 +233,8 @@ export class RiverSystem {
 
       for (let i = 0; i < N; i++) {
         const t = i / (N - 1);
-        const width = cfg.widthStart + (cfg.widthEnd - cfg.widthStart) * t;
+        // Quadratic ease-in: rivers widen slowly at first then open up downstream
+        const width = cfg.widthStart + (cfg.widthEnd - cfg.widthStart) * (t * t);
         const halfW = width * 0.5;
 
         // Sphere normal = outward unit direction from centre
@@ -269,6 +303,7 @@ export class RiverSystem {
       uniforms: {
         uTime: U.uTime,
         uHighDetail: { value: highDetail },
+        uSun: U.uSun,
       },
       vertexShader: `
 varying vec2 vUv;
@@ -285,36 +320,47 @@ void main() {
       fragmentShader: `
 uniform float uTime;
 uniform float uHighDetail;
+uniform vec3 uSun;
 
 varying vec2 vUv;
 varying vec3 vWorldNormal;
 varying vec3 vWorldPos;
 
 void main() {
-  // Scroll UV.y downstream
-  float v = fract(vUv.y - uTime * 0.4);
+  // Flow speed: fast at source (vUv.y≈0, narrow), slow at mouth (vUv.y≈1, wide)
+  float flowSpeed = mix(0.9, 0.2, vUv.y);
+  float v = fract(vUv.y - uTime * flowSpeed);
 
-  // Base teal colour, slightly darker at ribbon edges to suggest depth
-  float edgeDark = smoothstep(0.1, 0.3, vUv.x) * (1.0 - smoothstep(0.7, 0.9, vUv.x));
-  vec3 deepColor  = vec3(0.08, 0.22, 0.35);
-  vec3 shallowColor = vec3(0.15, 0.38, 0.52);
-  vec3 baseColor = mix(deepColor, shallowColor, edgeDark);
+  // Edge mask: centre=1, banks=0 — deep vs shallow colour
+  float edgeMask = smoothstep(0.0, 0.25, vUv.x) * (1.0 - smoothstep(0.75, 1.0, vUv.x));
+  vec3 deepColor    = vec3(0.05, 0.18, 0.32);
+  vec3 shallowColor = vec3(0.18, 0.44, 0.55);
+  vec3 baseColor = mix(shallowColor, deepColor, edgeMask);
 
-  // Fresnel edge highlight
   vec3 viewDir = normalize(cameraPosition - vWorldPos);
-  float fresnel = pow(1.0 - max(0.0, dot(viewDir, vWorldNormal)), 2.5);
-  baseColor += vec3(0.3, 0.5, 0.6) * fresnel * 0.6;
 
-  // High-detail: ripple + foam at ribbon edges
+  // Fresnel rim brightening
+  float fresnel = pow(1.0 - max(0.0, dot(viewDir, vWorldNormal)), 2.5);
+  baseColor += vec3(0.25, 0.45, 0.55) * fresnel * 0.5;
+
+  // Sun specular — glinting highlight on water surface
+  vec3 halfVec = normalize(viewDir + normalize(uSun));
+  float spec = pow(max(0.0, dot(vWorldNormal, halfVec)), 48.0);
+  baseColor += vec3(1.0, 0.97, 0.85) * spec * 0.7;
+
+  // High-detail: ripple normal disturbance + bank foam
   float foam = 0.0;
   if (uHighDetail > 0.5) {
-    float ripple = sin(v * 8.0 + uTime * 2.0) * 0.5 + 0.5;
-    baseColor += vec3(0.1, 0.15, 0.2) * ripple * 0.15;
-    foam = step(0.88, vUv.x) + step(vUv.x, 0.12);
-    baseColor = mix(baseColor, vec3(0.85, 0.92, 0.95), foam * 0.6);
+    // Two overlapping ripple frequencies give cross-hatched surface texture
+    float r1 = sin(v * 10.0 + uTime * 2.5) * 0.5 + 0.5;
+    float r2 = sin(v * 6.0 - uTime * 1.8 + vUv.x * 4.0) * 0.5 + 0.5;
+    baseColor += vec3(0.08, 0.14, 0.18) * (r1 * r2) * 0.2;
+    // White foam at banks where water meets land
+    foam = smoothstep(0.78, 0.92, vUv.x) + smoothstep(0.22, 0.08, vUv.x);
+    baseColor = mix(baseColor, vec3(0.88, 0.94, 0.97), foam * 0.55);
   }
 
-  float alpha = mix(0.72, 0.88, edgeDark) + fresnel * 0.1 + foam * 0.1;
+  float alpha = mix(0.65, 0.90, edgeMask) + fresnel * 0.08 + foam * 0.1;
   gl_FragColor = vec4(baseColor, clamp(alpha, 0.0, 0.95));
 }`,
     });
