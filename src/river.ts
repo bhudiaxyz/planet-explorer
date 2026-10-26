@@ -223,7 +223,8 @@ export class RiverSystem {
       sources.push(_scratch.src.clone());
     }
 
-    const paths: THREE.Vector3[][] = [];
+    const mainPaths: THREE.Vector3[][] = [];
+    const tribPaths: THREE.Vector3[][] = [];
     // Tributaries use shorter paths — they're side branches, not full rivers
     const tribMaxSteps = Math.ceil(tierMaxSteps * 0.6);
 
@@ -231,7 +232,7 @@ export class RiverSystem {
       await mayYield();
       const main = this._tracePath(src, planet, R, tierMaxSteps);
       if (main.length < 5) continue;
-      paths.push(main);
+      mainPaths.push(main);
 
       // Tributaries: evenly spread junctions across 20–65% of the main path
       for (let t = 0; t < tierTributaries; t++) {
@@ -259,16 +260,36 @@ export class RiverSystem {
         const tElev = planet.elevationAt(_scratch.trib.start.x, _scratch.trib.start.y, _scratch.trib.start.z, false);
         if (tElev > cfg.sourceMinElev * 0.4) {
           const trib = this._tracePathToTarget(_scratch.trib.start, main[junctionIdx], planet, R, tribMaxSteps);
-          if (trib.length >= 4) paths.push(trib);
+          if (trib.length >= 4) tribPaths.push(trib);
         }
       }
     }
 
+    // Drop paths whose waypoints fall too close to an already-accepted path.
+    // Uses distanceToSquared (no sqrt) with early-exit on first close point.
+    // 16 m threshold = just wider than max ribbon half-width (9 m / 2 + margin).
+    const thSq = 16 * 16;
+    const overlaps = (candidate: THREE.Vector3[], pool: THREE.Vector3[][], maxFrac: number) => {
+      let n = 0;
+      for (const pt of candidate)
+        if (pool.some(acc => acc.some(op => pt.distanceToSquared(op) < thSq))) n++;
+      return n / candidate.length >= maxFrac;
+    };
+
+    // Main rivers: keep all; only cull a main if >50% of it duplicates an earlier main.
+    const accepted: THREE.Vector3[][] = [];
+    for (const m of mainPaths)
+      if (!overlaps(m, accepted, 0.50)) accepted.push(m);
+
+    // Tributaries: stricter — cull if >40% overlaps any accepted path (main or trib).
+    for (const tr of tribPaths)
+      if (!overlaps(tr, accepted, 0.40)) accepted.push(tr);
+
     // Low tier: skip meanders + Chaikin (saves CPU + memory)
     // Medium/high: add sinusoidal meanders then smooth with Chaikin
-    if (gpuTier === 'low') return paths;
+    if (gpuTier === 'low') return accepted;
     const rounds = 2;
-    return paths.map(p => chaikin(addMeanders(p, rand), rounds));
+    return accepted.map(p => chaikin(addMeanders(p, rand), rounds));
   }
 
   private _tracePath(source: THREE.Vector3, planet: Planet, R: number, maxSteps: number = CFG.river.maxSteps): THREE.Vector3[] {
