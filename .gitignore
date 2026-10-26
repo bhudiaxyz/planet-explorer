@@ -1,16 +1,63 @@
-node_modules
-dist
+# Dependencies and generated builds
+node_modules/
+dist/
+dist-test/
+.vite/
+coverage/
+
+# Local tools and editor state
+.claude/
+.idea/
+.vscode/
+tools/
+_swim_tmp.mjs
+
+# Local captures, references, and binary artwork
+shots/
+ref_images/
+*.png
+*.jpg
+*.jpeg
+*.webp
+*.avif
+*.gif
+*.bmp
+*.tif
+*.tiff
+*.svg
+*.ico
+*.mp4
+*.webm
+*.mov
+*.mkv
+*.wav
+*.mp3
+*.glb
+*.gltf
+*.bin
+*.blend
+*.psd
+*.exr
+*.hdr
+*.zip
+*.tar
+*.gz
+
+# Keep only the public README; omit working notes
+*.md
+
+# Local environment and logs
 .env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+.env.*
+!.env.example
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.DS_Store
 
-.cursorrules
-.cursor
-.claude
-.codex
-*.code-workspace
-.idea
-.vscode
-
+# Test and browser automation output
+test-results/
+playwright-report/
+blob-report/
