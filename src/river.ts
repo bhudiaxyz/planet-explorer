@@ -205,9 +205,11 @@ export class RiverSystem {
 
     for (let step = 0; step < maxSteps; step++) {
       const curElev = planet.elevationAt(cur.x, cur.y, cur.z, false);
-      path.push(cur.clone().multiplyScalar(R + curElev * S.amplitude + cfg.surfaceOffset));
+      // Clamp to sea level so the ribbon doesn't sink below the ocean floor
+      const surfElev = Math.max(0, curElev);
+      path.push(cur.clone().multiplyScalar(R + surfElev * S.amplitude + cfg.surfaceOffset));
 
-      if (curElev <= 0) break;
+      if (curElev <= 0) break; // reached ocean/lake — stop here
 
       _s.up.copy(cur);
       if (Math.abs(_s.up.y) < 0.9) _s.ref.set(1, 0, 0); else _s.ref.set(0, 0, 1);
@@ -255,10 +257,11 @@ export class RiverSystem {
 
     for (let step = 0; step < maxSteps; step++) {
       const curElev = planet.elevationAt(cur.x, cur.y, cur.z, false);
-      path.push(cur.clone().multiplyScalar(R + curElev * S.amplitude + cfg.surfaceOffset));
+      const surfElev = Math.max(0, curElev);
+      path.push(cur.clone().multiplyScalar(R + surfElev * S.amplitude + cfg.surfaceOffset));
 
       if (cur.distanceTo(targetN) < stepRad * 3) break;
-      if (curElev <= 0) break;
+      if (curElev <= 0) break; // hit water — stop
 
       _s.up.copy(cur);
       if (Math.abs(_s.up.y) < 0.9) _s.ref.set(1, 0, 0); else _s.ref.set(0, 0, 1);
@@ -311,9 +314,8 @@ export class RiverSystem {
 
       for (let i = 0; i < N; i++) {
         const t = i / (N - 1);
-        // Widen with quadratic ease-in, then taper the last 20% so the mouth
-        // doesn't end in a blunt flat cut where the ribbon meets the ocean
-        const taper = t > 0.8 ? 1.0 - ((t - 0.8) / 0.2) * 0.75 : 1.0;
+        // Widen with quadratic ease-in, then taper fully to zero over the last 15%
+        const taper = t > 0.85 ? 1.0 - (t - 0.85) / 0.15 : 1.0;
         const width = (cfg.widthStart + (cfg.widthEnd - cfg.widthStart) * (t * t)) * taper;
         const halfW = width * 0.5;
 
@@ -449,7 +451,9 @@ void main() {
   }
 
   float alpha = mix(0.68, 0.92, edgeMask) + fresnel * 0.07 + foam * 0.08;
-  gl_FragColor = vec4(baseColor, clamp(alpha, 0.0, 0.96));
+  // Fade alpha at source (first 4%) and mouth (last 12%) — removes hard cut at both ends
+  float endFade = smoothstep(0.0, 0.04, vUv.y) * smoothstep(1.0, 0.88, vUv.y);
+  gl_FragColor = vec4(baseColor, clamp(alpha * endFade, 0.0, 0.96));
 }`,
     });
   }

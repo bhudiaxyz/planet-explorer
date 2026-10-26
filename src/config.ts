@@ -88,8 +88,8 @@ export const CFG = {
     sourceMinElev: 0.12,     // min elevation unit for source (above seaLevel)
     sourceMinMoisture: 0.15, // min moisture for source
     minSourceSpacingDeg: 40, // degrees — prevents rivers clustering together
-    stepSize: 6,             // metres per gradient-descent step
-    maxSteps: 180,           // max steps before path is abandoned
+    stepSize: 10,            // metres per gradient-descent step
+    maxSteps: 260,           // max steps before path is abandoned (~2600m, ~60% of circumference)
     widthStart: 2,           // ribbon width (metres) at source
     widthEnd: 9,             // ribbon width (metres) at mouth/sea
     surfaceOffset: 0.3,      // metres above terrain surface (avoids z-fighting)
