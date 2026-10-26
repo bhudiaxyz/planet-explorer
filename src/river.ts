@@ -59,6 +59,27 @@ const DIRS = [0, 1, 2, 3, 4, 5, 6, 7].map(i => (i * Math.PI) / 4);
 
 const yieldFrame = () => new Promise<void>(r => setTimeout(r));
 
+// Scratch vectors for path tracing — reused every step to avoid ~20k Vector3 allocations per build
+const _s = {
+  up:   new THREE.Vector3(),
+  east: new THREE.Vector3(),
+  north:new THREE.Vector3(),
+  ref:  new THREE.Vector3(),
+  off:  new THREE.Vector3(),
+  nbr:  new THREE.Vector3(),
+};
+// Scratch for tributary junction math (~7 allocs × 12 tributaries per build)
+const _tp = {
+  jPt:   new THREE.Vector3(),
+  fPrev: new THREE.Vector3(),
+  fNext: new THREE.Vector3(),
+  fDir:  new THREE.Vector3(),
+  right: new THREE.Vector3(),
+  start: new THREE.Vector3(),
+};
+// Scratch for source-finding loop (up to 500 attempts → was 500 allocs)
+const _dirScratch = new THREE.Vector3();
+
 export class RiverSystem {
   mesh!: THREE.Mesh;
   paths!: THREE.Vector3[][];
@@ -94,24 +115,31 @@ export class RiverSystem {
     const rand = rng(S.seed + 9999);
     const cosMin = Math.cos((cfg.minSourceSpacingDeg * Math.PI) / 180);
 
+    // Time-based yielding: yield only when ≥4 ms has elapsed, same as findSpots.
+    // Replaces 26 unconditional setTimeout calls (100–400 ms overhead on mobile).
+    let _lastYield = performance.now();
+    const mayYield = async () => {
+      const t = performance.now();
+      if (t - _lastYield >= 4) { await yieldFrame(); _lastYield = performance.now(); }
+    };
+
     // Find main river sources: high elevation, high moisture, well spaced
     const sources: THREE.Vector3[] = [];
     let attempts = 0;
     while (sources.length < tierCount && attempts < 500) {
       attempts++;
-      if (attempts % 50 === 0) await yieldFrame(); // yield periodically to avoid blocking main thread
-      // Random point on unit sphere
+      await mayYield();
+      // Random point on unit sphere — reuse scratch to avoid one alloc per attempt
       const u = rand() * 2 - 1;
       const phi = rand() * Math.PI * 2;
       const r = Math.sqrt(1 - u * u);
-      const dir = new THREE.Vector3(r * Math.cos(phi), u, r * Math.sin(phi));
-      const elev = planet.elevationAt(dir.x, dir.y, dir.z, false);
-      const moist = planet.moistureAt(dir);
+      _dirScratch.set(r * Math.cos(phi), u, r * Math.sin(phi));
+      const elev = planet.elevationAt(_dirScratch.x, _dirScratch.y, _dirScratch.z, false);
+      const moist = planet.moistureAt(_dirScratch);
       if (elev < cfg.sourceMinElev) continue;
       if (moist < cfg.sourceMinMoisture) continue;
-      // Check spacing from existing sources
-      if (sources.some(s => s.dot(dir) > cosMin)) continue;
-      sources.push(dir.clone());
+      if (sources.some(s => s.dot(_dirScratch) > cosMin)) continue;
+      sources.push(_dirScratch.clone());
     }
 
     const paths: THREE.Vector3[][] = [];
@@ -119,38 +147,37 @@ export class RiverSystem {
     const tribMaxSteps = Math.ceil(tierMaxSteps * 0.6);
 
     for (const src of sources) {
-      await yieldFrame(); // yield between sources so the browser can repaint during path generation
+      await mayYield();
       const main = this._tracePath(src, planet, R, tierMaxSteps);
       if (main.length < 5) continue;
       paths.push(main);
 
       // Tributaries: evenly spread junctions across 20–65% of the main path
       for (let t = 0; t < tierTributaries; t++) {
-        await yieldFrame(); // yield per tributary to keep main thread responsive
+        await mayYield();
         // Spread junctions evenly so tributaries don't all cluster at one point
         const frac = 0.20 + (t / Math.max(tierTributaries - 1, 1)) * 0.45 + (rand() - 0.5) * 0.08;
         const junctionIdx = Math.min(Math.floor(frac * main.length), main.length - 2);
-        const junctionPt = main[junctionIdx].clone().normalize();
 
         // Use the flow direction at the junction (not world-up) — works everywhere on sphere
-        const flowPrev = main[Math.max(junctionIdx - 1, 0)].clone().normalize();
-        const flowNext = main[Math.min(junctionIdx + 1, main.length - 1)].clone().normalize();
-        const flowDir  = flowNext.clone().sub(flowPrev).normalize();
-        const sn       = junctionPt.clone();
-        const right    = new THREE.Vector3().crossVectors(flowDir, sn).normalize();
+        _tp.jPt.copy(main[junctionIdx]).normalize();
+        _tp.fPrev.copy(main[Math.max(junctionIdx - 1, 0)]).normalize();
+        _tp.fNext.copy(main[Math.min(junctionIdx + 1, main.length - 1)]).normalize();
+        _tp.fDir.copy(_tp.fNext).sub(_tp.fPrev).normalize();
+        _tp.right.crossVectors(_tp.fDir, _tp.jPt).normalize();
 
         // Alternate left/right, vary angle 15–30°
         const side  = t % 2 === 0 ? 1 : -1;
         const angle = (15 + rand() * 15) * (Math.PI / 180) * side;
         // Step upstream and sideways from the junction to find a plausible tributary source
-        const tributaryStart = junctionPt.clone()
-          .addScaledVector(right, Math.sin(angle) * 0.18)
-          .addScaledVector(flowDir.clone().negate(), 0.08)
+        _tp.start.copy(_tp.jPt)
+          .addScaledVector(_tp.right, Math.sin(angle) * 0.18)
+          .addScaledVector(_tp.fDir.negate(), 0.08) // negate in-place; _tp.fDir not used after
           .normalize();
 
-        const tElev = planet.elevationAt(tributaryStart.x, tributaryStart.y, tributaryStart.z, false);
+        const tElev = planet.elevationAt(_tp.start.x, _tp.start.y, _tp.start.z, false);
         if (tElev > cfg.sourceMinElev * 0.4) {
-          const trib = this._tracePathToTarget(tributaryStart, main[junctionIdx], planet, R, tribMaxSteps);
+          const trib = this._tracePathToTarget(_tp.start, main[junctionIdx], planet, R, tribMaxSteps);
           if (trib.length >= 4) paths.push(trib);
         }
       }
@@ -165,7 +192,7 @@ export class RiverSystem {
 
   private _tracePath(source: THREE.Vector3, planet: Planet, R: number, maxSteps: number = CFG.river.maxSteps): THREE.Vector3[] {
     const cfg = CFG.river;
-    const stepRad = cfg.stepSize / R; // step in radians on unit sphere
+    const stepRad = cfg.stepSize / R;
 
     const path: THREE.Vector3[] = [];
     let cur = source.clone().normalize();
@@ -174,29 +201,27 @@ export class RiverSystem {
       const curElev = planet.elevationAt(cur.x, cur.y, cur.z, false);
       path.push(cur.clone().multiplyScalar(R + curElev * S.amplitude + cfg.surfaceOffset));
 
-      if (curElev <= 0) break; // elevationAt already subtracts seaLevel; 0 = ocean surface
+      if (curElev <= 0) break;
 
-      // Build tangent frame
-      const up = cur.clone();
-      const ref = Math.abs(up.y) < 0.9 ? new THREE.Vector3(1, 0, 0) : new THREE.Vector3(0, 0, 1);
-      const east = new THREE.Vector3().crossVectors(up, ref).normalize();
-      const north = new THREE.Vector3().crossVectors(east, up).normalize();
+      _s.up.copy(cur);
+      if (Math.abs(_s.up.y) < 0.9) _s.ref.set(1, 0, 0); else _s.ref.set(0, 0, 1);
+      _s.east.crossVectors(_s.up, _s.ref).normalize();
+      _s.north.crossVectors(_s.east, _s.up).normalize();
 
-      // Sample 8 neighbours and pick the steepest descent
       let bestElev = curElev;
       let bestDir: THREE.Vector3 | null = null;
       for (const angle of DIRS) {
-        const offset = east.clone().multiplyScalar(Math.cos(angle) * stepRad)
-          .addScaledVector(north, Math.sin(angle) * stepRad);
-        const neighbour = cur.clone().add(offset).normalize();
-        const nElev = planet.elevationAt(neighbour.x, neighbour.y, neighbour.z, false);
+        _s.off.copy(_s.east).multiplyScalar(Math.cos(angle) * stepRad)
+          .addScaledVector(_s.north, Math.sin(angle) * stepRad);
+        _s.nbr.copy(cur).add(_s.off).normalize();
+        const nElev = planet.elevationAt(_s.nbr.x, _s.nbr.y, _s.nbr.z, false);
         if (nElev < bestElev) {
           bestElev = nElev;
-          bestDir = neighbour;
+          bestDir = _s.nbr.clone(); // clone only the winner
         }
       }
 
-      if (!bestDir) break; // basin/flat — stop
+      if (!bestDir) break;
       cur = bestDir;
     }
 
@@ -212,6 +237,8 @@ export class RiverSystem {
   ): THREE.Vector3[] {
     const cfg = CFG.river;
     const stepRad = cfg.stepSize / R;
+    // Normalise target once; reused in distance check each step
+    const targetN = target.clone().normalize();
 
     const path: THREE.Vector3[] = [];
     let cur = source.clone().normalize();
@@ -220,28 +247,26 @@ export class RiverSystem {
       const curElev = planet.elevationAt(cur.x, cur.y, cur.z, false);
       path.push(cur.clone().multiplyScalar(R + curElev * S.amplitude + cfg.surfaceOffset));
 
-      // Stop if we've reached the target junction area
-      if (cur.distanceTo(target.clone().normalize()) < stepRad * 3) break;
-      if (curElev <= 0) break; // elevationAt already subtracts seaLevel; 0 = ocean surface
+      if (cur.distanceTo(targetN) < stepRad * 3) break;
+      if (curElev <= 0) break;
 
-      const up = cur.clone();
-      const ref = Math.abs(up.y) < 0.9 ? new THREE.Vector3(1, 0, 0) : new THREE.Vector3(0, 0, 1);
-      const east = new THREE.Vector3().crossVectors(up, ref).normalize();
-      const north = new THREE.Vector3().crossVectors(east, up).normalize();
+      _s.up.copy(cur);
+      if (Math.abs(_s.up.y) < 0.9) _s.ref.set(1, 0, 0); else _s.ref.set(0, 0, 1);
+      _s.east.crossVectors(_s.up, _s.ref).normalize();
+      _s.north.crossVectors(_s.east, _s.up).normalize();
 
-      // Weight: 70% downhill, 30% toward target
       let bestScore = Infinity;
       let bestDir: THREE.Vector3 | null = null;
       for (const angle of DIRS) {
-        const offset = east.clone().multiplyScalar(Math.cos(angle) * stepRad)
-          .addScaledVector(north, Math.sin(angle) * stepRad);
-        const neighbour = cur.clone().add(offset).normalize();
-        const nElev = planet.elevationAt(neighbour.x, neighbour.y, neighbour.z, false);
-        const distToTarget = neighbour.distanceTo(target.clone().normalize());
+        _s.off.copy(_s.east).multiplyScalar(Math.cos(angle) * stepRad)
+          .addScaledVector(_s.north, Math.sin(angle) * stepRad);
+        _s.nbr.copy(cur).add(_s.off).normalize();
+        const nElev = planet.elevationAt(_s.nbr.x, _s.nbr.y, _s.nbr.z, false);
+        const distToTarget = _s.nbr.distanceTo(targetN);
         const score = nElev * 0.7 + distToTarget * 0.3;
         if (score < bestScore) {
           bestScore = score;
-          bestDir = neighbour;
+          bestDir = _s.nbr.clone(); // clone only the winner
         }
       }
 

@@ -227,7 +227,7 @@ export class MapOverlay {
       // River name labels at the midpoint of each main path
       if (rNames) {
         bctx.save();
-        bctx.font = "bold 13px sans-serif";
+        bctx.font = "13px sans-serif";
         bctx.textAlign = "center";
         for (let ri = 0; ri < rivers.length; ri++) {
           const path = rivers[ri];
@@ -258,7 +258,7 @@ export class MapOverlay {
       bctx.fillText(icon, px + 1, py + 6);
       bctx.fillStyle = "#fff";
       bctx.fillText(icon, px, py + 5);
-      bctx.font = "bold 14px sans-serif";
+      bctx.font = "14px sans-serif";
       bctx.fillStyle = "rgba(0,0,0,0.65)";
       bctx.fillText(lm.label, px + 1, py + 21);
       bctx.fillStyle = "#e8e4d0";
@@ -274,7 +274,7 @@ export class MapOverlay {
       bctx.fillText(sp.icon, px + 1, py + 6);
       bctx.fillStyle = "#fff";
       bctx.fillText(sp.icon, px, py + 5);
-      bctx.font = "bold 14px sans-serif";
+      bctx.font = "14px sans-serif";
       bctx.fillStyle = "rgba(0,0,0,0.65)";
       bctx.fillText(sp.name, px + 1, py + 21);
       bctx.fillStyle = "#e8e4d0";
@@ -353,7 +353,7 @@ export class MapOverlay {
     // N label
     ctx.shadowBlur = 3;
     ctx.fillStyle = "#ffffff";
-    ctx.font = "bold 14px sans-serif";
+    ctx.font = "14px sans-serif";
     ctx.textAlign = "center";
     ctx.fillText("N", cx, cy - r - 5);
     ctx.restore();
@@ -370,10 +370,10 @@ export class MapOverlay {
     ctx.shadowBlur = 4;
     ctx.fillStyle = "#ee8844";
     ctx.beginPath();
-    ctx.moveTo(0, -26);
-    ctx.lineTo(14, 14);
-    ctx.lineTo(0, 6);
-    ctx.lineTo(-14, 14);
+    ctx.moveTo(0, -18);
+    ctx.lineTo(10, 10);
+    ctx.lineTo(0, 4);
+    ctx.lineTo(-10, 10);
     ctx.closePath();
     ctx.fill();
     ctx.restore();
