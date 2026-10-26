@@ -4,6 +4,7 @@ import { S, CFG } from "./config";
 import { U } from "./fx";
 import { gpuTier } from "./gputier";
 import { rng } from "./noise";
+import { RIVER_NAMES } from "./landmarknames";
 
 // Chaikin corner-cutting: replaces each segment with two points at 1/4 and 3/4,
 // preserving the first and last point so source/mouth stay in place.
@@ -42,16 +43,9 @@ function addMeanders(pts: THREE.Vector3[], rand: () => number): THREE.Vector3[] 
   });
 }
 
-const RIVER_NAMES = [
-  "Ardenvale","Blackwater","Coldrun","Deepflow","Embervein",
-  "Frostmere","Greystone","Hollow Brook","Ironstream","Jade Run",
-  "Keldmere","Longwater","Mistfall","Nightveil","Orvenmere",
-  "Pale Current","Quicksilver","Redmere","Silverrun","Thornwater",
-  "Umbraveil","Veldmere","Whitefall","Xandrel","Yewbrook","Zephyrvale",
-];
 // Pick a river name seeded by path index + world seed so it's stable per planet
 function riverName(index: number): string {
-  return RIVER_NAMES[(S.seed + index * 7) % RIVER_NAMES.length];
+  return RIVER_NAMES[Math.abs(S.seed + index * 7) % RIVER_NAMES.length];
 }
 
 // Hoisted — rebuilt per call previously, wasting 1080+ short-lived arrays on a full planet build

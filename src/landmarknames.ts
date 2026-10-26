@@ -1,5 +1,6 @@
 // Per-kind sci-fi landmark name pools — each kind has 18 names, picked by (seed + instance) % 18.
 export const LANDMARK_NAMES_BY_KIND: Readonly<Record<string, readonly string[]>> = {
+  // Theme: 2001: A Space Odyssey — monoliths, crew, ships, and discovery sites
   ring: [
     "Tycho Anomaly",    "TMA-1 Array",        "Clarke Formation",  "Sentinel Ring",
     "Obelisk Circle",   "Monolith Crown",      "Heywood Ring",      "Bowman Array",
@@ -7,6 +8,7 @@ export const LANDMARK_NAMES_BY_KIND: Readonly<Record<string, readonly string[]>>
     "HAL Enclosure",    "Poole Circle",        "Floyd Array",       "Leonov Ring",
     "Aries Formation",  "Japetus Gate",
   ],
+  // Theme: Dune (Arrakis/Barsoom) — spice world geography, fremen culture, Harkonnen military
   spire: [
     "Arrakeen Needle",  "Barsoom Lance",       "Krypton Peak",      "Pandora Spine",
     "Nemo's Lance",     "Solaris Tip",         "Ringworld Spire",   "Terminus Peak",
@@ -14,6 +16,7 @@ export const LANDMARK_NAMES_BY_KIND: Readonly<Record<string, readonly string[]>>
     "Giedi Pinnacle",   "Caladan Spire",       "Thumper Point",     "Maker's Hook",
     "Sardaukar Fang",   "Harkonnen Needle",
   ],
+  // Theme: Video game battlefields — Halo, Mass Effect, StarCraft, Killzone, Doctor Who
   tombs: [
     "Fallen Empire",    "Battle of Reach",     "Covenant Grounds",  "Wraith Fields",
     "Necropolis IX",    "Forerunner Relics",   "Borg Remnant",      "Dalek Memorial",
@@ -21,6 +24,7 @@ export const LANDMARK_NAMES_BY_KIND: Readonly<Record<string, readonly string[]>>
     "Flood Graveyard",  "Precursor Burial",    "Geth Memorial",     "Collector Site",
     "Reaper Fragment",  "Prothean Tomb",
   ],
+  // Theme: Avatar / Laputa / Star Wars sky cities — floating platforms and canopy settlements
   island: [
     "Pandora Heights",  "Hallelujah Plateau",  "Laputa Station",    "Navi Eywa",
     "Starhaven Isle",   "Aether Platform",     "Skyreach",          "Bespin Platform",
@@ -28,6 +32,7 @@ export const LANDMARK_NAMES_BY_KIND: Readonly<Record<string, readonly string[]>>
     "Toruk Makto",      "Kelutral Canopy",     "Iknimaya Ridge",    "Hometree Crown",
     "Orbital Gardens",  "High Sanctuary",
   ],
+  // Theme: Stargate SG-1 / Norse mythology — wormhole gates, Asgard bridges, ancient portals
   arch: [
     "Stargate Prime",   "Bifrost Gate",        "Ancient Portal",    "Quantum Arch",
     "Threshold Bridge", "Event Horizon",       "Warp Gate",         "Terminus Arch",
@@ -35,6 +40,7 @@ export const LANDMARK_NAMES_BY_KIND: Readonly<Record<string, readonly string[]>>
     "Tollan Gateway",   "Chappa'ai",           "Ori Portal",        "Asgard Bridge",
     "Quantum Mirror",   "Dakara Arch",
   ],
+  // Theme: Famous fictional spacecraft wrecks — Alien, Firefly, BSG, WALL-E, Farscape
   ship: [
     "Nostromo Wreck",   "Sulaco Debris",       "Serenity Crash",    "Discovery One",
     "Borg Hulk",        "Star Destroyer",      "Pilgrim's Rest",    "Galactica Fragment",
@@ -42,13 +48,15 @@ export const LANDMARK_NAMES_BY_KIND: Readonly<Record<string, readonly string[]>>
     "Prometheus Hull",  "Covenant Hulk",       "Moya Down",         "Talyn Ruin",
     "Andromeda Ascent", "Shadow Vessel",
   ],
+  // Theme: Hitchhiker's Guide / Dune / Halo / Mass Effect geology and megastructures
   pillars: [
-    "Magrathea Columns","Krypton Crystals",    "Ringworld Spires",  "Arrakis Pillars",
+    "Magrathea Columns","Krypton Crystals",    "Scrith Columns",    "Arrakis Pillars",
     "Solaris Obelisks", "Terminus Posts",      "Helicon Shafts",    "Ion Crystals",
     "Resonance Field",  "Anomaly Pillars",     "Monolith Shards",   "Basalt Crown",
     "Forerunner Posts", "Prothean Pylons",     "Sangheili Columns", "Covenant Spires",
     "Ancient Conduit",  "Precursor Lattice",
   ],
+  // Theme: Real impact craters (Earth/solar system) + Thor mythology (Mjolnir)
   crater: [
     "Chicxulub",        "Vredefort Basin",     "Sudbury Hollow",    "Tunguska Point",
     "Meteor Scar",      "Ceres Impact",        "Vesta Pit",         "Callisto Basin",
@@ -58,30 +66,60 @@ export const LANDMARK_NAMES_BY_KIND: Readonly<Record<string, readonly string[]>>
   ],
 };
 
+// River name pool — sci-fi themed, picked by (seed + index × 7) % length for stable per-planet names.
+export const RIVER_NAMES: readonly string[] = [
+  // Greek/Roman underworld rivers — Hyperion Cantos, classic sci-fi mythology
+  "Acheron",        "Styx",           "Lethe",          "Phlegethon",     "Eridanus",
+  "Charon Flow",    "Cocytus",        "Oceanus",
+  // Martian valley names — Kim Stanley Robinson's Mars trilogy / real Martian geography
+  "Kasei",          "Nirgal",         "Ares Vale",      "Simud",          "Shalbatana",
+  "Coprates",       "Hellas Run",     "Elysium",        "Candor Reach",   "Amazonis",
+  "Vastitas",       "Mariner Vale",   "Valles",         "Hesperia",       "Tyrrhena",
+  "Cimmeria",       "Noachis",        "Zephyria",       "Olympus Melt",
+  // Outer solar system moons — Neptune, Uranus, Saturn, Pluto, Jupiter
+  "Tethys Run",     "Naiad",          "Proteus",        "Triton",         "Ariel Falls",
+  "Umbriel",        "Oberon",         "Miranda",        "Titania",        "Pandora",
+  "Dione",          "Rhea",           "Iapetus",        "Enceladus",      "Nix",
+  "Hydra",          "Europa",         "Ganymede",
+  // Fiction — Philip José Farmer's Riverworld, Barsoom (Edgar Rice Burroughs)
+  "Riverworld",     "River Iss",
+];
+
 // Flat name pool used by findSpots() to label scanned terrain features (beaches, canyons, etc.)
+// Themes chosen to not overlap with LANDMARK_NAMES_BY_KIND or RIVER_NAMES.
 export const SPOT_NAMES: readonly string[] = [
-  // Dune / Foundation / Vorkosigan
-  "Arrakeen","Giedi Prime","Caladan","Salusa Secundus",
-  "Trantor","Helicon","Terminus","Askonia","Kalgan",
-  "Komarr","Barrayar","Athos","Sigma Draconis","Aral",
-  // Stanislaw Lem
-  "Solaris","Rheya","Kelvin Station","Harey",
-  // Alien / Hitchhiker's
-  "LV-426","Fiorina 161","Hadley's Hope",
-  "Magrathea","Betelgeuse VII","Krikkit","Vogsphere",
-  // BSG / Avatar / Marvel
-  "Caprica","Picon","Scorpia","Gemenon","Kobol",
-  "Pandora","Hell's Gate","Iknimaya","Kelutral",
-  "Ego","Contraxia","Knowhere","Sovereign","Sakaar",
-  // Star Wars
-  "Tatooine","Hoth","Bespin","Endor","Coruscant",
-  // Halo / Mass Effect
-  "Reach","Threshold","Installation 04","Harvest","Meridian",
-  "Rannoch","Palaven","Tuchanka","Thessia","Eden Prime",
-  "Gilevane","Irune","Sur'Kesh","Dekuuna",
-  // Hyperion / Ringworld
-  "Hyperion","Pacem","Hebron","Tau Ceti Center","Lusus",
-  "Ringworld","Fist of God","Arch","Spill Mountain",
+  // Star Trek planets — Federation, Klingon, Romulan, Cardassian, Bajoran space
+  "Vulcan","Qo'noS","Bajor","Cardassia Prime","Ferenginar",
+  "Romulus","Andoria","Betazed","Risa","Rura Penthe",
+  "Ceti Alpha V","Talos IV","Argelius II","Veridian III","Exo III",
+  // Doctor Who — Time Lord and alien homeworlds
+  "Skaro","Gallifrey","Trenzalore","Mondas","Traken",
+  "Alzarius","Peladon","Logopolis","Karn","Ribos",
+  // Three-Body Problem (Cixin Liu) — Trisolaran civilisation and Dark Forest concepts
+  "Trisolaris","Dark Forest","Blue Space","Bronze Age","Sophon",
+  "Staircase Program","Wallfacer","Deterrence",
+  // Cyberpunk / William Gibson — Neuromancer, Sprawl trilogy
+  "Chiba City","Freeside","Zion Cluster","Tessier-Ashpool",
+  "Wintermute","The Sprawl","Flatline","Straylight",
+  // Asimov Robot & Empire worlds — Spacer worlds, Galaxia
+  "Solaria","Aurora","Baleyworld","Gaia","Sayshell",
+  "Melpomenia","Comporellon","Synnax",
+  // Arthur C. Clarke — The City and the Stars, Rama, 2010
+  "Diaspar","Lys","Rama","New Alexandria","Cradle","Tsienville",
+  // Real confirmed exoplanets — named by IAU or commonly referenced in sci-fi
+  "Proxima b","TRAPPIST-1e","Kepler-442b","55 Cancri e",
+  "Gliese 667Cc","Tau Ceti e","Kepler-62f","HD 40307g",
+  // Iain M. Banks Culture — ship names (GCUs, GSVs, ROU)
+  "Sleeper Service","Mistake Not","Quietly Confident","Just Read the Instructions",
+  "Experiencing A Significant Gravitas Shortfall","Lightly Seared on the Reality Grill",
+  // Ursula K. Le Guin — Hainish Cycle worlds
+  "Anarres","Urras","Gethen","Rocannon's World","Athshe","O","Seggri","Werel",
+  // Alastair Reynolds — Revelation Space
+  "Chasm City","Resurgam","Ararat","Hela","Absolution Gap",
+  // The Expanse — Belt settlements and colony worlds
+  "Ilus","Laconia","Medina","Ring Station",
+  // Babylon 5 — homeworlds and contested systems
+  "Minbar","Narn","Centauri Prime","Z'ha'dum","Rigel VII",
   // Galaxies
   "Andromeda","Triangulum","Whirlpool","Sombrero","Cartwheel",
   "Pinwheel","Sunflower","Sculptor","Centaurus A","Bode's Galaxy",
@@ -91,14 +129,6 @@ export const SPOT_NAMES: readonly string[] = [
   "Horsehead","Pillars of Creation","Lagoon Nebula","Veil Nebula","Carina Nebula",
   "Rosette","Tarantula","Butterfly Nebula","Cat's Eye","Owl Nebula",
   "Flame Nebula","Pelican Nebula","Witch Head","Running Man","Soul Nebula",
-  // Culture ships
-  "Sleeper Service","Mistake Not","Quietly Confident","Just Read the Instructions",
-  "Experiencing A Significant Gravitas Shortfall","Lightly Seared on the Reality Grill",
-  // Revelation Space / Le Guin / The Expanse / Babylon 5
-  "Chasm City","Resurgam","Ararat","Hela","Absolution Gap",
-  "Anarres","Urras","Gethen","Rocannon's World","Athshe",
-  "Ilus","Laconia","Medina","Ring Station",
-  "Minbar","Narn","Centauri Prime","Z'ha'dum","Rigel VII",
   // US National Parks
   "Yellowstone","Yosemite","Grand Canyon","Zion","Bryce Canyon",
   "Arches","Canyonlands","Capitol Reef","Badlands","Grand Teton",

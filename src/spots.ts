@@ -251,8 +251,9 @@ export async function findSpots(planet: Planet, riversReady?: Promise<void>): Pr
     f.candidates.sort((a, b) => b.score - a.score);
     return f.candidates.map(c => {
       let name: string;
-      do { name = SPOT_NAMES[(nameOffset + nameIdx++) % SPOT_NAMES.length]; }
-      while (usedNames.has(name));
+      let tries = 0;
+      do { name = SPOT_NAMES[(nameOffset + nameIdx++) % SPOT_NAMES.length]; tries++; }
+      while (usedNames.has(name) && tries < SPOT_NAMES.length);
       usedNames.add(name);
       return { name, icon: f.icon, dir: c.dir, group: f.name };
     });
