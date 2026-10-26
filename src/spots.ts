@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import type { Planet } from "./planet";
-import { LANDMARK_ICON, LANDMARK_NAMES } from "./landmarks";
+import { LANDMARK_ICON } from "./landmarks";
+import { SPOT_NAMES } from "./landmarknames";
 import { rng } from "./noise";
 import { S } from "./config";
 import { treeDensityCPU } from "./treeutil";
@@ -239,13 +240,13 @@ export async function findSpots(planet: Planet): Promise<Spot[]> {
   });
 
   const usedNames = new Set(landmarks.map(s => s.name));
-  const nameOffset = Math.floor(rand() * LANDMARK_NAMES.length);
+  const nameOffset = Math.floor(rand() * SPOT_NAMES.length);
   let nameIdx = 0;
   const scanned = features.flatMap(f => {
     f.candidates.sort((a, b) => b.score - a.score);
     return f.candidates.map(c => {
       let name: string;
-      do { name = LANDMARK_NAMES[(nameOffset + nameIdx++) % LANDMARK_NAMES.length]; }
+      do { name = SPOT_NAMES[(nameOffset + nameIdx++) % SPOT_NAMES.length]; }
       while (usedNames.has(name));
       usedNames.add(name);
       return { name, icon: f.icon, dir: c.dir, group: f.name };

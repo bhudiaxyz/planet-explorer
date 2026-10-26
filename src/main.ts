@@ -48,10 +48,11 @@ const isMobileHigh = gpuTier === 'high' && 'ontouchstart' in window;
 if (gpuTier === 'low')         { S.resolution = 128; S.renderScale = 0.60; S.octaves = 4; }
 else if (gpuTier === 'medium') { S.resolution = 160; S.renderScale = 0.75; S.octaves = 5; }
 else {
-  // Mobile high (e.g. S22 Ultra, iPhone 15 Pro): full shader quality, reduced terrain resolution
-  // to avoid the synchronous GPU readback stall that blocks startup on mobile browsers
-  if (isMobileHigh) S.resolution = 256;
-  if (devicePixelRatio > 1) S.renderScale = 0.90;
+  // Mobile high (e.g. S22 Ultra, iPhone 15 Pro): cap DPR at 2 — renders 4× fewer pixels than
+  // native 3× DPR with no quality loss visible at phone distances.
+  if (isMobileHigh) { S.resolution = 256; S.renderScale = 2.0; }
+  // Desktop/laptop Retina (DPR≥2): cap at 1.5 — saves GPU bandwidth on 4K/5K displays.
+  else if (devicePixelRatio > 1) S.renderScale = 1.5;
 }
 renderer.setPixelRatio(Math.min(devicePixelRatio, S.renderScale));
 renderer.setSize(innerWidth, innerHeight);

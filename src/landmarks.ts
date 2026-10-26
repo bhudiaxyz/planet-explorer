@@ -5,6 +5,7 @@ import type { Obs } from "./collision";
 import { rng } from "./noise";
 import { S } from "./config";
 import { CurrentPalette } from "./palette";
+import { LANDMARK_NAMES_BY_KIND } from "./landmarknames";
 const UP = new THREE.Vector3(0, 1, 0);
 export type Landmark = { name: string; label: string; pos: THREE.Vector3 };
 
@@ -19,76 +20,15 @@ export const LANDMARK_ICON: Record<string, string> = {
   "Impact Crater":   "☄️",
 };
 
-export const LANDMARK_NAMES = [
-  // sci-fi
-  "Arrakeen","Giedi Prime","Caladan","Arrakis","Salusa Secundus",
-  "Trantor","Helicon","Terminus","Askonia","Kalgan",
-  "Komarr","Barrayar","Athos","Sigma Draconis","Aral",
-  "Solaris","Rheya","Kelvin Station","Snow","Harey",
-  "LV-426","Fiorina 161","Fury 161","Weyland Station","Hadley's Hope",
-  "Magrathea","Betelgeuse VII","Krikkit","Rupert","Vogsphere",
-  "Caprica","Picon","Scorpia","Gemenon","Kobol",
-  "Pandora","Hell's Gate","Iknimaya","Kelutral","Toruk Makto",
-  "Ego","Contraxia","Knowhere","Sovereign","Sakaar",
-  "Tatooine","Hoth","Bespin","Endor","Coruscant",
-  "Reach","Threshold","Installation 04","Harvest","Meridian",
-  "Rannoch","Palaven","Tuchanka","Thessia","Eden Prime",
-  "Gilevane","Khar'shan","Irune","Sur'Kesh","Dekuuna",
-  "Hyperion","Pacem","Hebron","Tau Ceti Center","Lusus",
-  "Ringworld","Map of Known Space","Fist of God","Arch","Spill Mountain",
-  // galaxies
-  "Andromeda","Triangulum","Whirlpool","Sombrero","Cartwheel",
-  "Pinwheel","Sunflower","Sculptor","Centaurus A","Bode's Galaxy",
-  "Large Magellanic","Small Magellanic","Black Eye","Tadpole","Antennae",
-  // nebulae
-  "Orion Nebula","Crab Nebula","Eagle Nebula","Helix Nebula","Ring Nebula",
-  "Horsehead","Pillars of Creation","Lagoon Nebula","Veil Nebula","Carina Nebula",
-  "Rosette","Tarantula","Butterfly Nebula","Cat's Eye","Owl Nebula",
-  "Flame Nebula","Pelican Nebula","Witch Head","Running Man","Soul Nebula",
-  // Culture ships
-  "Sleeper Service","Mistake Not","Quietly Confident","Just Read the Instructions",
-  "Experiencing A Significant Gravitas Shortfall","Lightly Seared on the Reality Grill",
-  // Revelation Space
-  "Chasm City","Resurgam","Ararat","Hela","Absolution Gap",
-  // Le Guin
-  "Anarres","Urras","Gethen","Rocannon's World","Athshe",
-  // The Expanse
-  "Ilus","Laconia","Medina","Ring Station","Ilus Prime",
-  // Babylon 5
-  "Minbar","Narn","Centauri Prime","Z'ha'dum","Rigel VII",
-  // US National Parks
-  "Yellowstone","Yosemite","Grand Canyon","Zion","Bryce Canyon",
-  "Arches","Canyonlands","Capitol Reef","Badlands","Grand Teton",
-  "Olympic","Rainier","Crater Lake","Denali","Kenai Fjords",
-  "Sequoia","Joshua Tree","Death Valley","Saguaro","Petrified Forest",
-  "Acadia","Everglades","Biscayne","Dry Tortugas","Shenandoah",
-  "Great Smoky","Mammoth Cave","Isle Royale","Sleeping Bear","Voyageurs",
-  "Glacier","Waterton","Rocky Mountain","Mesa Verde","Black Canyon",
-  // World National Parks & Natural Sites
-  "Banff","Jasper","Algonquin","Nahanni","Kluane",
-  "Torres del Paine","Iguazú","Pantanal","Galápagos","Patagonia",
-  "Fiordland","Abel Tasman","Tongariro","Purnululu","Kakadu",
-  "Cradle Mountain","Blue Mountains","Daintree","Nambung","Karijini",
-  "Serengeti","Ngorongoro","Virunga","Okavango","Etosha",
-  "Kruger","Bwindi","Simien","Tsavo","Amboseli",
-  "Sagarmatha","Kaziranga","Sundarbans","Ranthambore","Nagarhole",
-  "Jiuzhaigou","Zhangjiajie","Huangshan","Wulingyuan","Changbai",
-  "Plitvice","Durmitor","Triglav","Białowieża","Ordesa",
-  "Doñana","Skellig Michael","Cairngorms","Snowdonia","Dartmoor",
-  // terrain-flavoured
-  "Obsidian Flats","Ashfall Plain","Midnight Basin","Ironspire","Cinder Reach",
-  "The Shallows","High Ridge","Storm Coast","Dust Bowl","Caldera",
-  "The Rift","Sunken Vale","Mountain Peak","Coastal Cliffs","Ancient Shelf",
-  "Canyon","Open Plains","Lagoon","Desert","Forest",
-];
 // Rare deterministic landmarks: monolith rings, twisted spires, tombstone fields, floating islands, crashed ships, basalt pillar fields, impact craters.
 // Each landmark's parts are baked into ONE vertex-coloured mesh (about 210 draw calls and as many shadow draws become 16).
 export function buildLandmarks(pl: Planet, group: THREE.Group) {
   const r = rng(S.seed + 900),
     list: Landmark[] = [],
     obs: Obs[] = [],
-    labelOffset = Math.floor(r() * LANDMARK_NAMES.length),
+    labelOffset = Math.floor(r() * 18),
     bob: { m: THREE.Object3D; y: number; ph: number }[] = [];
+  const kindCounts: Record<string, number> = {};
   const mat = new THREE.MeshStandardMaterial({
     vertexColors: true,
     roughness: 0.95,
@@ -762,7 +702,12 @@ export function buildLandmarks(pl: Planet, group: THREE.Group) {
         : kind === "crater"  ? "Impact Crater"
         : kind === "arch"    ? "Stone Arch"
         : "Floating Island",
-      label: LANDMARK_NAMES[(labelOffset + list.length) % LANDMARK_NAMES.length],
+      label: (() => {
+        const kc = kindCounts[kind] ?? 0;
+        kindCounts[kind] = kc + 1;
+        const pool = LANDMARK_NAMES_BY_KIND[kind] ?? LANDMARK_NAMES_BY_KIND.ring;
+        return pool[(labelOffset + kc) % pool.length];
+      })(),
       pos: g.position.clone(),
     });
   }
