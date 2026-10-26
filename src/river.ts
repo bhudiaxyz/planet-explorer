@@ -407,8 +407,8 @@ export class RiverSystem {
 
       for (let i = 0; i < N; i++) {
         const t = i / (N - 1);
-        // Widen with quadratic ease-in, then taper fully to zero over the last 15%
-        const taper = t > 0.85 ? 1.0 - (t - 0.85) / 0.15 : 1.0;
+        // Taper from zero at source (first 15%) and back to zero at mouth (last 15%); widen quadratically between
+        const taper = Math.min(t / 0.15, 1) * (t > 0.85 ? (1 - t) / 0.15 : 1);
         const width = (cfg.widthStart + (cfg.widthEnd - cfg.widthStart) * (t * t)) * taper;
         const halfW = width * 0.5;
 
