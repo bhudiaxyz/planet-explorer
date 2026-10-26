@@ -41,6 +41,7 @@ document.head.appendChild(locsStyle);
 /** Builds the settings panel (G toggles it). */
 export function setupGui({ planet, player, post, rebuild, rebuildVeg, spots }: Ctx) {
   const gui = new GUI({ title: "Planet settings", width: Math.min(280, innerWidth - 8) });
+  gui.close();
   const paletteState = { palette: "Earth" };
   gui
     .add(paletteState, "palette", Object.keys(PALETTES))
