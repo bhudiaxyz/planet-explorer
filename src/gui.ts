@@ -42,7 +42,8 @@ document.head.appendChild(locsStyle);
 export function setupGui({ planet, player, post, rebuild, rebuildVeg, spots }: Ctx) {
   const gui = new GUI({ title: "Planet settings", width: Math.min(280, innerWidth - 8) });
   const paletteState = { palette: "Earth" };
-  gui.add(paletteState, "palette", Object.keys(PALETTES))
+  gui
+    .add(paletteState, "palette", Object.keys(PALETTES))
     .name("🪐 Planet palette")
     .onChange((name: string) => {
       const p = PALETTES[name];
@@ -56,11 +57,17 @@ export function setupGui({ planet, player, post, rebuild, rebuildVeg, spots }: C
     });
   const terrain = gui.addFolder("Terrain");
   const seedState = { word: currentSeedWord };
-  terrain.add(seedState, "word").name("seed").onFinishChange((v: string) => { pushSeedUrl(v); rebuild(true); });
+  terrain
+    .add(seedState, "word")
+    .name("seed")
+    .onFinishChange((v: string) => {
+      pushSeedUrl(v);
+      rebuild(true);
+    });
   for (const [k, min, max, step] of TERRAIN)
-    terrain
-      .add(S, k, min, max, step)
-      .onFinishChange(() => { rebuild(k === "radius"); });
+    terrain.add(S, k, min, max, step).onFinishChange(() => {
+      rebuild(k === "radius");
+    });
   const biomes = gui.addFolder("Biomes");
   biomes
     .add(S, "forest", 0, 2, 0.05)
@@ -72,9 +79,7 @@ export function setupGui({ planet, player, post, rebuild, rebuildVeg, spots }: C
       .addColor(biomeColors, k)
       .name(k + " colour")
       .onFinishChange(() => rebuild());
-  biomes
-    .addColor(biomeColors, "water")
-    .onChange((v: string) => planet.water.color.set(v));
+  biomes.addColor(biomeColors, "water").onChange((v: string) => planet.water.color.set(v));
   const sky = gui.addFolder("Sky & weather");
   sky.add(S, "timeOfDay", 0, 1, 0.001).listen();
   sky.add(S, "dayLength", 20, 1200, 1).name("day length (s)");
@@ -85,8 +90,7 @@ export function setupGui({ planet, player, post, rebuild, rebuildVeg, spots }: C
     .add(S, "renderScale", 0.5, 2, 0.05)
     .name("render scale")
     .onFinishChange((v: number) => post.requestScale(v));
-  if (isTouchDevice)
-    sky.add(S, "touchLookSensitivity", 0.5, 6, 0.1).name("look sensitivity");
+  if (isTouchDevice) sky.add(S, "touchLookSensitivity", 0.5, 6, 0.1).name("look sensitivity");
   sky.add(S, "weather", Object.values(WEATHER_TYPE));
   let locs: GUI | null = null;
   if (spots.length) {
@@ -94,21 +98,29 @@ export function setupGui({ planet, player, post, rebuild, rebuildVeg, spots }: C
     locs = new GUI({ title: "📍", width: touch ? 120 : 110 });
     locs.domElement.classList.add("locs-panel");
     // ungrouped spots (fixed nav + terrain features) go flat
-    for (const spot of spots.filter(s => !s.group))
+    for (const spot of spots.filter((s) => !s.group))
       locs.add({ go: () => player.warpTo(spot.dir) }, "go").name(`${spot.icon} ${spot.name}`);
     // landmark types go into collapsible subfolders — single pass
     const grouped = new Map<string, Spot[]>();
-    for (const s of spots) if (s.group) {
-      if (!grouped.has(s.group)) grouped.set(s.group, []);
-      grouped.get(s.group)!.push(s);
-    }
+    for (const s of spots)
+      if (s.group) {
+        if (!grouped.has(s.group)) grouped.set(s.group, []);
+        grouped.get(s.group)!.push(s);
+      }
     for (const [g, members] of grouped) {
       const folder = locs.addFolder(g);
       folder.close();
       for (const spot of members)
         folder.add({ go: () => player.warpTo(spot.dir) }, "go").name(`${spot.icon} ${spot.name}`);
     }
-    Object.assign(locs.domElement.style, { position: "fixed", top: "78px", left: "10px" });
+    // z-index 49 = below the loading splash (z-index 50) so the panel is hidden during load
+    // and fades in naturally as the splash opacity transitions to 0 on entry.
+    Object.assign(locs.domElement.style, {
+      position: "fixed",
+      top: "78px",
+      left: "10px",
+      zIndex: "49",
+    });
     if (touch) {
       locs.domElement.style.setProperty("--widget-height", "44px");
       Object.assign(locs.domElement.style, {
@@ -131,11 +143,20 @@ export function setupGui({ planet, player, post, rebuild, rebuildVeg, spots }: C
           rebuild(true);
         },
       },
-      "randomize",
+      "randomize"
     )
     .name("🎲 New random world");
   gui.add({ fly: () => player.toggle() }, "fly").name("Cycle walk / drone / fly (F)");
-  gui.add({ land: () => { if (player.mode !== "walk") player.land(); } }, "land").name("Land (L)");
+  gui
+    .add(
+      {
+        land: () => {
+          if (player.mode !== "walk") player.land();
+        },
+      },
+      "land"
+    )
+    .name("Land (L)");
   addEventListener("keydown", (e) => {
     if (e.code === "KeyG") {
       const show = gui._hidden;
