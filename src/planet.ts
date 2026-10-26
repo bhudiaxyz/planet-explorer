@@ -191,6 +191,8 @@ void main() {
     if (this.base?.N === N) return this.base;
     const pos: number[] = [],
       idx: number[] = [];
+    const _n = new THREE.Vector3(), _u = new THREE.Vector3(),
+      _v = new THREE.Vector3(), _p = new THREE.Vector3();
     for (const f of [
       [0, 0, 1],
       [0, 0, -1],
@@ -199,18 +201,17 @@ void main() {
       [0, 1, 0],
       [0, -1, 0],
     ]) {
-      const n = new THREE.Vector3(f[0], f[1], f[2]),
-        u = f[1] ? new THREE.Vector3(1, 0, 0) : new THREE.Vector3(0, 1, 0),
-        v = new THREE.Vector3().crossVectors(n, u),
-        o = pos.length / 3;
+      _n.set(f[0], f[1], f[2]);
+      f[1] ? _u.set(1, 0, 0) : _u.set(0, 1, 0);
+      _v.crossVectors(_n, _u);
+      const o = pos.length / 3;
       for (let j = 0; j <= N; j++)
         for (let i = 0; i <= N; i++) {
-          const p = n
-            .clone()
-            .addScaledVector(u, (2 * i) / N - 1)
-            .addScaledVector(v, (2 * j) / N - 1)
+          _p.copy(_n)
+            .addScaledVector(_u, (2 * i) / N - 1)
+            .addScaledVector(_v, (2 * j) / N - 1)
             .normalize();
-          pos.push(p.x, p.y, p.z);
+          pos.push(_p.x, _p.y, _p.z);
         }
       for (let j = 0; j < N; j++)
         for (let i = 0; i < N; i++) {

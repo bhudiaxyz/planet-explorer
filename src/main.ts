@@ -33,16 +33,19 @@ export function pushSeedUrl(word: string) {
   history.replaceState(null, "", "?" + p.toString());
 }
 
+// ---- GPU tier detection (offscreen probe so antialias can be set correctly) ------
+{
+  const probe = document.createElement("canvas");
+  const gl = probe.getContext("webgl2") ?? probe.getContext("webgl");
+  if (gl) setGpuTier(detectGpuTier(gl as WebGLRenderingContext));
+}
+
 // ---- renderer & scene ------------------------------------------------------------------------------------------------------------------------
 const renderer = new THREE.WebGLRenderer({
-  antialias: true,
+  antialias: gpuTier !== 'low', // MSAA off on low tier — saves fill-rate on budget mobile
   powerPreference: "high-performance",
 });
 setRenderer(renderer);
-{
-  const gl = renderer.getContext();
-  setGpuTier(detectGpuTier(gl));
-}
 // Tier-based quality: low = mobile/integrated, medium = mid-range, high = discrete/flagship mobile
 const isMobileHigh = gpuTier === 'high' && 'ontouchstart' in window;
 if (gpuTier === 'low')         { S.resolution = 128; S.renderScale = 0.60; S.octaves = 4; }
@@ -112,11 +115,14 @@ const rebuild = (respawn = false) => {
   clearTimeout(rebuildTimer);
   rebuildTimer = window.setTimeout(async () => {
     await planet.build();
-    void planet.buildRivers();
+    const newRiversPromise = planet.buildRivers();
     mapOverlay.reset();
     scatter.dirty = true;
     collider.dirty = true;
     respawn ? player.spawn() : player.refresh();
+    // Re-scout so teleport list and map reflect the new planet
+    const newSpots = await findSpots(planet, newRiversPromise);
+    mapOverlay.setSpots(newSpots);
   }, 120);
 };
 renderer.domElement.addEventListener("webglcontextlost", (e) =>

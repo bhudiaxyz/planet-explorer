@@ -5,7 +5,7 @@ import type { Obs } from "./collision";
 import { rng } from "./noise";
 import { S } from "./config";
 import { CurrentPalette } from "./palette";
-import { LANDMARK_NAMES_BY_KIND } from "./landmarknames";
+import { LANDMARK_NAMES_BY_KIND } from "./names";
 const UP = new THREE.Vector3(0, 1, 0);
 export type Landmark = { name: string; label: string; pos: THREE.Vector3 };
 
