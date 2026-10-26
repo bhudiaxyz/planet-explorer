@@ -42,6 +42,23 @@ document.head.appendChild(locsStyle);
 export function setupGui({ planet, player, post, rebuild, rebuildVeg, spots }: Ctx) {
   const gui = new GUI({ title: "Planet settings", width: Math.min(280, innerWidth - 8) });
   gui.close();
+  const seedState = { word: currentSeedWord };
+  gui
+    .add(
+      {
+        randomize: () => {
+          const word = genSeedWord();
+          seedState.word = word;
+          const weathers = Object.values(WEATHER_TYPE);
+          S.weather = weathers[Math.floor(Math.random() * weathers.length)];
+          gui.controllersRecursive().forEach((c) => c.updateDisplay());
+          pushSeedUrl(word);
+          rebuild(true);
+        },
+      },
+      "randomize",
+    )
+    .name("🎲 New random world");
   const paletteState = { palette: "Earth" };
   gui
     .add(paletteState, "palette", Object.keys(PALETTES))
@@ -57,7 +74,6 @@ export function setupGui({ planet, player, post, rebuild, rebuildVeg, spots }: C
       rebuild();
     });
   const terrain = gui.addFolder("Terrain");
-  const seedState = { word: currentSeedWord };
   terrain
     .add(seedState, "word")
     .name("seed")
@@ -131,22 +147,6 @@ export function setupGui({ planet, player, post, rebuild, rebuildVeg, spots }: C
       locs.hide();
     }
   }
-  gui
-    .add(
-      {
-        randomize: () => {
-          const word = genSeedWord();
-          seedState.word = word;
-          const weathers = Object.values(WEATHER_TYPE);
-          S.weather = weathers[Math.floor(Math.random() * weathers.length)];
-          gui.controllersRecursive().forEach((c) => c.updateDisplay());
-          pushSeedUrl(word);
-          rebuild(true);
-        },
-      },
-      "randomize"
-    )
-    .name("🎲 New random world");
   gui.add({ fly: () => player.toggle() }, "fly").name("Cycle walk / drone / fly (F)");
   gui
     .add(
