@@ -80,9 +80,10 @@ const planet = new Planet(scene);
 await planet.build();
 pushSeedUrl(currentSeedWord);
 
-// Start river generation and scouting in parallel; findSpots needs riverSystem populated
+// Rivers and scouting run concurrently — findSpots does its terrain scan while rivers build,
+// then awaits riversReady before reading planet.riverSystem for river teleport entries.
 const riversPromise = planet.buildRivers();
-const spotsPromise = riversPromise.then(() => findSpots(planet));
+const spotsPromise = findSpots(planet, riversPromise);
 
 await setStep(2, "Setting up world");
 const player = new Player(camera, planet, renderer.domElement);

@@ -11,8 +11,9 @@ export type Spot = { name: string; icon: string; dir: THREE.Vector3; group?: str
 const yield_ = () => new Promise<void>(r => setTimeout(r));
 
 // Scan N random surface points and score each against terrain archetypes.
-// Returns a Promise so the caller can await it without blocking the frame loop.
-export async function findSpots(planet: Planet): Promise<Spot[]> {
+// riversReady: optional promise that resolves when planet.riverSystem is populated.
+// Pass it to run scanning concurrently with river generation; spots awaits it only at the end.
+export async function findSpots(planet: Planet, riversReady?: Promise<void>): Promise<Spot[]> {
   const SCAN = 4000;
   const rand = rng(S.seed ^ 0xdeadbeef);
   const tmp = new THREE.Vector3();
@@ -164,7 +165,7 @@ export async function findSpots(planet: Planet): Promise<Spot[]> {
   let lastYield = performance.now();
   for (let i = 0; i < SCAN && unsatisfied > 0; i++) {
     const now = performance.now();
-    if (now - lastYield >= 8) { await yield_(); lastYield = performance.now(); }
+    if (now - lastYield >= 4) { await yield_(); lastYield = performance.now(); }
     tmp.set(rand() * 2 - 1, rand() * 2 - 1, rand() * 2 - 1);
     if (tmp.lengthSq() > 1 || tmp.lengthSq() < 0.01) continue;
     tmp.normalize();
@@ -196,20 +197,24 @@ export async function findSpots(planet: Planet): Promise<Spot[]> {
     }
   }
 
-  // Fill any feature short of 3 candidates — tight rescan then guaranteed clone fallback
+  // Fill any feature short of 3 candidates — rescan then guaranteed clone fallback.
+  // Skip the full 3000-iteration rescan for features with 0 candidates: they don't exist on
+  // this planet and every iteration would be wasted work (→ 5-10 s on slow mobile).
   for (const f of features) {
     if (f.candidates.length >= 3) continue;
-    let rescanYield = performance.now();
-    for (let i = 0; i < 3000 && f.candidates.length < 3; i++) {
-      const now = performance.now();
-      if (now - rescanYield >= 8) { await yield_(); rescanYield = performance.now(); }
-      tmp.set(rand() * 2 - 1, rand() * 2 - 1, rand() * 2 - 1);
-      if (tmp.lengthSq() > 1 || tmp.lengthSq() < 0.01) continue;
-      tmp.normalize();
-      const e = planet.elev(tmp), t = planet.temp(tmp, e), m = planet.moistureAt(tmp);
-      const s = f.score(e, getNeighbors(tmp), t, m);
-      if (s > 0 && f.candidates.every(c => c.dir.angleTo(tmp) > 0.05))
-        f.candidates.push({ score: s, dir: tmp.clone() });
+    if (f.candidates.length > 0) {
+      let rescanYield = performance.now();
+      for (let i = 0; i < 3000 && f.candidates.length < 3; i++) {
+        const now = performance.now();
+        if (now - rescanYield >= 4) { await yield_(); rescanYield = performance.now(); }
+        tmp.set(rand() * 2 - 1, rand() * 2 - 1, rand() * 2 - 1);
+        if (tmp.lengthSq() > 1 || tmp.lengthSq() < 0.01) continue;
+        tmp.normalize();
+        const e = planet.elev(tmp), t = planet.temp(tmp, e), m = planet.moistureAt(tmp);
+        const s = f.score(e, getNeighbors(tmp), t, m);
+        if (s > 0 && f.candidates.every(c => c.dir.angleTo(tmp) > 0.05))
+          f.candidates.push({ score: s, dir: tmp.clone() });
+      }
     }
     while (f.candidates.length < 3) {
       const offset = new THREE.Vector3(rand() - 0.5, rand() - 0.5, rand() - 0.5).normalize();
@@ -253,6 +258,9 @@ export async function findSpots(planet: Planet): Promise<Spot[]> {
     });
   });
 
+  // Wait for rivers before reading planet.riverSystem — allows rivers and the scan above to
+  // run in parallel when the caller passes a riversReady promise.
+  if (riversReady) await riversReady;
   const rs = planet.riverSystem;
   const rivers: Spot[] = (rs?.paths ?? []).map((path, i) => ({
     name: rs!.names[i],

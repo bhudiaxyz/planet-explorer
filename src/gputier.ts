@@ -7,8 +7,10 @@ export function setGpuTier(t: GpuTier) { gpuTier = t; }
 export function detectGpuTier(gl: WebGLRenderingContext | WebGL2RenderingContext): GpuTier {
   const ext = gl.getExtension('WEBGL_debug_renderer_info');
   if (!ext) {
-    // Extension blocked (privacy mode) — guess by touch
-    return ('ontouchstart' in window) ? 'low' : 'medium';
+    // Extension blocked (privacy mode / Firefox resistFingerprinting) — guess by touch.
+    // Use 'medium' for touch: a modern iPad Pro or Pixel in privacy mode shouldn't get
+    // the lowest quality tier (128px res, 0.6x scale) just because the renderer string is hidden.
+    return 'medium';
   }
   const renderer = gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) as string;
   const r = renderer.toLowerCase();
