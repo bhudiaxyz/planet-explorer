@@ -16,17 +16,21 @@ export function detectGpuTier(gl: WebGLRenderingContext | WebGL2RenderingContext
   const r = renderer.toLowerCase();
 
   // Apple GPU: non-touch = M-series Mac (high), touch = iPhone/iPad
-  // iPad Pro M1/M2 (2021+) identified by "ipad" in user-agent → high; older iPad/iPhone → medium
+  // iPadOS 13+ defaults to "Request Desktop Website" so UA reads "Macintosh" — detect via
+  // navigator.platform + maxTouchPoints instead of the UA string (Macs never have touch points).
   if (r.includes('apple gpu')) {
     if (!('ontouchstart' in window)) return 'high';
-    return /ipad/i.test(navigator.userAgent) ? 'high' : 'medium';
+    const isIpad = /ipad/i.test(navigator.userAgent) ||
+                   (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    return isIpad ? 'high' : 'medium';
   }
 
   // arc.{0,8} handles "Arc(TM) A770"; apple m\d+ is dead (apple gpu branch returns first, kept for clarity)
   // AMD: rx [5-9]\d{3} catches RX 5000-9000 (RDNA1-3); vega covers Vega 56/64; radeon vii is GCN5
   // Adreno 650+ (S21+, Pixel 6+) and all Adreno 7xx (S22 Ultra, S23 Ultra, S24 Ultra) are flagship mobile
   // xclipse covers Samsung Exynos 2200 "Xclipse 920" (RDNA2-based, S22 Ultra Exynos variant)
-  const HIGH = /rtx|rx [5-9]\d{3}|vega [5-9]\d|radeon vii|gtx 1[0-9]{3}|gtx 9[5-9]\d|arc.{0,8}a[5-9]\d{2}|apple m\d+|adreno.{0,8}(6[5-9]\d|7\d{2})|xclipse/i;
+  // adreno.{0,8}x\d covers Snapdragon X Elite "Adreno X1-85" (2024 Copilot+ laptops)
+  const HIGH = /rtx|rx [5-9]\d{3}|vega [5-9]\d|radeon vii|gtx 1[0-9]{3}|gtx 9[5-9]\d|arc.{0,8}a[5-9]\d{2}|apple m\d+|adreno.{0,8}(6[5-9]\d|7\d{2}|x\d)|xclipse/i;
   if (HIGH.test(renderer)) return 'high';
 
   // Mali-G710/G715/G720 (Dimensity 9000+, high-end Oppo/Nothing/MediaTek) → medium

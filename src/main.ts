@@ -37,7 +37,11 @@ export function pushSeedUrl(word: string) {
 {
   const probe = document.createElement("canvas");
   const gl = probe.getContext("webgl2") ?? probe.getContext("webgl");
-  if (gl) setGpuTier(detectGpuTier(gl as WebGLRenderingContext));
+  if (gl) {
+    setGpuTier(detectGpuTier(gl as WebGLRenderingContext));
+    // Release context immediately — browsers cap the number of live WebGL contexts.
+    (gl.getExtension('WEBGL_lose_context') as { loseContext(): void } | null)?.loseContext();
+  }
 }
 
 // ---- renderer & scene ------------------------------------------------------------------------------------------------------------------------
@@ -66,7 +70,7 @@ const scene = new THREE.Scene(),
     70,
     innerWidth / innerHeight,
     0.2,
-    40000,
+    gpuTier === 'low' ? 20000 : gpuTier === 'medium' ? 30000 : 40000,
   );
 
 // ---- world & systems ---------------------------------------------------------------------------------------------------------------------------
