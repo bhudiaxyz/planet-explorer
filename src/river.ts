@@ -25,21 +25,32 @@ function chaikin(pts: THREE.Vector3[], rounds: number): THREE.Vector3[] {
 // Sinusoidal lateral displacement to create natural meanders.
 // Applied before Chaikin so the smoothing blends the curves naturally.
 // Envelope fades in at source (t<0.2) and out at mouth (t>0.85).
+// Scratch for addMeanders — avoids allocs per path point
+const _mSn    = new THREE.Vector3();
+const _mTangent = new THREE.Vector3();
+const _mRight = new THREE.Vector3();
+
 function addMeanders(pts: THREE.Vector3[], rand: () => number): THREE.Vector3[] {
   if (pts.length < 4) return pts;
-  const phase = rand() * Math.PI * 2;
-  const freq  = 0.08 + rand() * 0.07; // waves per step — controls meander spacing
-  const amp   = 5  + rand() * 6;      // max lateral offset in metres
+  const phase  = rand() * Math.PI * 2;
+  const phase2 = rand() * Math.PI * 2;
+  const freq1  = 0.08 + rand() * 0.07; // primary wave — controls spacing
+  const freq2  = freq1 * 1.7 + rand() * 0.04; // secondary wave — breaks uniformity
+  const amp    = 5  + rand() * 6;      // max lateral offset in metres
   return pts.map((pt, i) => {
     const t   = i / (pts.length - 1);
     const env = Math.min(t / 0.20, 1) * Math.min((1 - t) / 0.15, 1); // fade at ends
-    const disp = Math.sin(i * freq + phase) * amp * env;
+    // Two overlapping frequencies → irregular natural bends; C2: amplitude rises near mouth
+    const terrainFactor = 0.4 + t * 0.6;
+    const disp = (Math.sin(i * freq1 + phase) * 0.7 + Math.sin(i * freq2 + phase2) * 0.3)
+                  * amp * env * terrainFactor;
     if (Math.abs(disp) < 0.01) return pt;
-    const sn     = pt.clone().normalize();
-    const next   = pts[Math.min(i + 1, pts.length - 1)];
-    const prev   = pts[Math.max(i - 1, 0)];
-    const right  = new THREE.Vector3().crossVectors(next.clone().sub(prev).normalize(), sn).normalize();
-    return pt.clone().addScaledVector(right, disp);
+    _mSn.copy(pt).normalize();
+    const next = pts[Math.min(i + 1, pts.length - 1)];
+    const prev = pts[Math.max(i - 1, 0)];
+    _mTangent.copy(next).sub(prev).normalize();
+    _mRight.crossVectors(_mTangent, _mSn).normalize();
+    return pt.clone().addScaledVector(_mRight, disp);
   });
 }
 
@@ -190,6 +201,7 @@ export class RiverSystem {
 
     const path: THREE.Vector3[] = [];
     let cur = source.clone().normalize();
+    let prevDir: THREE.Vector3 | null = null; // momentum: bias toward current direction
 
     for (let step = 0; step < maxSteps; step++) {
       const curElev = planet.elevationAt(cur.x, cur.y, cur.z, false);
@@ -202,20 +214,24 @@ export class RiverSystem {
       _s.east.crossVectors(_s.up, _s.ref).normalize();
       _s.north.crossVectors(_s.east, _s.up).normalize();
 
-      let bestElev = curElev;
+      let bestScore = Infinity;
       let bestDir: THREE.Vector3 | null = null;
       for (const angle of DIRS) {
         _s.off.copy(_s.east).multiplyScalar(Math.cos(angle) * stepRad)
           .addScaledVector(_s.north, Math.sin(angle) * stepRad);
         _s.nbr.copy(cur).add(_s.off).normalize();
         const nElev = planet.elevationAt(_s.nbr.x, _s.nbr.y, _s.nbr.z, false);
-        if (nElev < bestElev) {
-          bestElev = nElev;
+        // momentum: small bonus for continuing in the same direction, prevents zigzag on flat terrain
+        const momentum = prevDir ? (1 - _s.nbr.dot(prevDir)) * 0.012 : 0;
+        const score = nElev + momentum;
+        if (score < bestScore) {
+          bestScore = score;
           bestDir = _s.nbr.clone(); // clone only the winner
         }
       }
 
       if (!bestDir) break;
+      prevDir = bestDir;
       cur = bestDir;
     }
 
@@ -277,6 +293,9 @@ export class RiverSystem {
     const normals: number[] = [];
     const uvs: number[] = [];
     const indices: number[] = [];
+    const _bgTangent = new THREE.Vector3();
+    const _bgNormal  = new THREE.Vector3();
+    const _bgRight   = new THREE.Vector3();
 
     for (const path of paths) {
       if (path.length < 2) continue;
@@ -299,30 +318,29 @@ export class RiverSystem {
         const halfW = width * 0.5;
 
         // Sphere normal = outward unit direction from centre
-        const sphereNormal = path[i].clone().normalize();
+        _bgNormal.copy(path[i]).normalize();
 
         // Tangent: direction of flow
-        const tangent = i < N - 1
-          ? path[i + 1].clone().sub(path[i]).normalize()
-          : path[i].clone().sub(path[i - 1]).normalize();
+        if (i < N - 1) _bgTangent.copy(path[i + 1]).sub(path[i]).normalize();
+        else _bgTangent.copy(path[i]).sub(path[i - 1]).normalize();
 
         // Ribbon right = tangent × sphereNormal (cross gives perpendicular on sphere surface)
-        const right = new THREE.Vector3().crossVectors(tangent, sphereNormal).normalize();
+        _bgRight.crossVectors(_bgTangent, _bgNormal).normalize();
 
         // Left and right vertices
-        const left = path[i].clone().addScaledVector(right, -halfW);
-        const right3 = path[i].clone().addScaledVector(right, halfW);
+        const left = path[i].clone().addScaledVector(_bgRight, -halfW);
+        const right3 = path[i].clone().addScaledVector(_bgRight, halfW);
 
         const v = arcLen[i] / totalLen;
 
         // Left vertex
         positions.push(left.x, left.y, left.z);
-        normals.push(sphereNormal.x, sphereNormal.y, sphereNormal.z);
+        normals.push(_bgNormal.x, _bgNormal.y, _bgNormal.z);
         uvs.push(0, v);
 
         // Right vertex
         positions.push(right3.x, right3.y, right3.z);
-        normals.push(sphereNormal.x, sphereNormal.y, sphereNormal.z);
+        normals.push(_bgNormal.x, _bgNormal.y, _bgNormal.z);
         uvs.push(1, v);
       }
 
@@ -394,35 +412,44 @@ void main() {
 
   // Edge mask: centre=1, banks=0 — deep vs shallow colour
   float edgeMask = smoothstep(0.0, 0.25, vUv.x) * (1.0 - smoothstep(0.75, 1.0, vUv.x));
-  vec3 deepColor    = vec3(0.05, 0.18, 0.32);
-  vec3 shallowColor = vec3(0.18, 0.44, 0.55);
+  vec3 deepColor    = vec3(0.02, 0.10, 0.26);  // rich deep blue
+  vec3 shallowColor = vec3(0.08, 0.50, 0.56);  // bright teal at banks
   vec3 baseColor = mix(shallowColor, deepColor, edgeMask);
 
   vec3 viewDir = normalize(cameraPosition - vWorldPos);
+  vec3 sunDir  = normalize(uSun);
 
-  // Fresnel rim brightening
+  // Fresnel — brightens edges at grazing angles
   float fresnel = pow(1.0 - max(0.0, dot(viewDir, vWorldNormal)), 2.5);
-  baseColor += vec3(0.25, 0.45, 0.55) * fresnel * 0.5;
+  baseColor += vec3(0.18, 0.55, 0.68) * fresnel * 0.55;
 
-  // Sun specular — glinting highlight on water surface
-  vec3 halfVec = normalize(viewDir + normalize(uSun));
-  float spec = pow(max(0.0, dot(vWorldNormal, halfVec)), 48.0);
-  baseColor += vec3(1.0, 0.97, 0.85) * spec * 0.7;
+  // Subsurface scatter fake: warm turquoise tint where shallow water is backlit
+  float sss = (1.0 - edgeMask) * max(0.0, dot(sunDir, -vWorldNormal)) * 0.35;
+  baseColor += vec3(0.10, 0.55, 0.50) * sss;
 
-  // High-detail: ripple normal disturbance + bank foam
+  // Dual-lobe specular: broad base gives water glow, sharp peak gives sun glint
+  vec3 halfVec    = normalize(viewDir + sunDir);
+  float NdotH     = max(0.0, dot(vWorldNormal, halfVec));
+  float specBroad = pow(NdotH, 10.0) * 0.30;
+  float specSharp = pow(NdotH, 72.0) * 1.00;
+  baseColor += vec3(0.95, 0.98, 1.00) * (specBroad + specSharp);
+
+  // Always-on shimmer: single cheap sin, gives medium tier some life
+  float shimmer = sin(v * 9.0 + uTime * 2.2) * 0.5 + 0.5;
+  baseColor += vec3(0.04, 0.10, 0.16) * shimmer * 0.18;
+
+  // High-detail: second ripple frequency + bank foam
   float foam = 0.0;
   if (uHighDetail > 0.5) {
-    // Two overlapping ripple frequencies give cross-hatched surface texture
-    float r1 = sin(v * 10.0 + uTime * 2.5) * 0.5 + 0.5;
-    float r2 = sin(v * 6.0 - uTime * 1.8 + vUv.x * 4.0) * 0.5 + 0.5;
-    baseColor += vec3(0.08, 0.14, 0.18) * (r1 * r2) * 0.2;
+    float r2 = sin(v * 5.5 - uTime * 1.6 + vUv.x * 3.5) * 0.5 + 0.5;
+    baseColor += vec3(0.06, 0.14, 0.20) * (shimmer * r2) * 0.18;
     // White foam at banks where water meets land
-    foam = smoothstep(0.78, 0.92, vUv.x) + smoothstep(0.22, 0.08, vUv.x);
-    baseColor = mix(baseColor, vec3(0.88, 0.94, 0.97), foam * 0.55);
+    foam = smoothstep(0.76, 0.92, vUv.x) + smoothstep(0.24, 0.08, vUv.x);
+    baseColor = mix(baseColor, vec3(0.90, 0.96, 0.99), foam * 0.60);
   }
 
-  float alpha = mix(0.65, 0.90, edgeMask) + fresnel * 0.08 + foam * 0.1;
-  gl_FragColor = vec4(baseColor, clamp(alpha, 0.0, 0.95));
+  float alpha = mix(0.68, 0.92, edgeMask) + fresnel * 0.07 + foam * 0.08;
+  gl_FragColor = vec4(baseColor, clamp(alpha, 0.0, 0.96));
 }`,
     });
   }

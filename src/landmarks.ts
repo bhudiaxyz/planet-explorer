@@ -26,7 +26,7 @@ export function buildLandmarks(pl: Planet, group: THREE.Group) {
   const r = rng(S.seed + 900),
     list: Landmark[] = [],
     obs: Obs[] = [],
-    labelOffset = Math.floor(r() * 18),
+    labelOffset = Math.floor(r() * 1024),
     bob: { m: THREE.Object3D; y: number; ph: number }[] = [];
   const kindCounts: Record<string, number> = {};
   const mat = new THREE.MeshStandardMaterial({
@@ -706,6 +706,7 @@ export function buildLandmarks(pl: Planet, group: THREE.Group) {
         const kc = kindCounts[kind] ?? 0;
         kindCounts[kind] = kc + 1;
         const pool = LANDMARK_NAMES_BY_KIND[kind] ?? LANDMARK_NAMES_BY_KIND.ring;
+        if (!pool.length) return kind;
         return pool[(labelOffset + kc) % pool.length];
       })(),
       pos: g.position.clone(),

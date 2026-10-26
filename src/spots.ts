@@ -211,7 +211,7 @@ export async function findSpots(planet: Planet, riversReady?: Promise<void>): Pr
         if (tmp.lengthSq() > 1 || tmp.lengthSq() < 0.01) continue;
         tmp.normalize();
         const e = planet.elev(tmp), t = planet.temp(tmp, e), m = planet.moistureAt(tmp);
-        const s = f.score(e, getNeighbors(tmp), t, m);
+        const s = f.score(e, f.needsNeighbours !== false ? getNeighbors(tmp) : [], t, m);
         if (s > 0 && f.candidates.every(c => c.dir.angleTo(tmp) > 0.05))
           f.candidates.push({ score: s, dir: tmp.clone() });
       }

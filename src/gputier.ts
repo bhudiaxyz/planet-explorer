@@ -15,9 +15,11 @@ export function detectGpuTier(gl: WebGLRenderingContext | WebGL2RenderingContext
   const renderer = gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) as string;
   const r = renderer.toLowerCase();
 
-  // Apple GPU: non-touch = M-series Mac (high), touch = iPhone/iPad (medium)
+  // Apple GPU: non-touch = M-series Mac (high), touch = iPhone/iPad
+  // iPad Pro M1/M2 (2021+) identified by "ipad" in user-agent → high; older iPad/iPhone → medium
   if (r.includes('apple gpu')) {
-    return ('ontouchstart' in window) ? 'medium' : 'high';
+    if (!('ontouchstart' in window)) return 'high';
+    return /ipad/i.test(navigator.userAgent) ? 'high' : 'medium';
   }
 
   // arc.{0,8} handles "Arc(TM) A770"; apple m\d+ is dead (apple gpu branch returns first, kept for clarity)
@@ -30,13 +32,19 @@ export function detectGpuTier(gl: WebGLRenderingContext | WebGL2RenderingContext
   // Mali-G710/G715/G720 (Dimensity 9000+, high-end Oppo/Nothing/MediaTek) → medium
   // g7\d{2} matches G710-G799; (?!\d) prevents matching G7100+; must precede broad mali LOW
   if (/mali[-\s]g7\d{2}(?!\d)/i.test(renderer)) return 'medium';
+  // Mali-G72 (Galaxy S9/Note 8, 2017 flagship) lands medium not low — still handles medium quality
+  if (/mali[-\s]g7[0-9](?!\d)/i.test(renderer)) return 'medium';
 
   // uhd.{0,12} handles "UHD Graphics 630" (real ANGLE string) and "UHD 630"
   // adreno.{0,8} handles "Adreno (TM) 530" ANGLE wrapper format
   // mali[-\s] catches Mali-G31/G52/G57/G68/G71/G72/G76/G78, Mali-T, Mali-4xx (all low-end)
   // Adreno 3xx-5xx (mid/budget Android), Adreno 6[0-4]x (mid-range) fall to medium below
   // Oppo/Nothing/Samsung expose the underlying Adreno or Mali name, not the brand — handled above
-  const LOW = /(uhd.{0,12}[2-6]\d{2}|hd graphics)|mali[-\s]|adreno.{0,8}[3-5]\d{2}|videocore|powervr g[67]|sgx/i;
+  // Intel UHD 6xx (2018–2021 laptops) → medium; UHD 2xx–5xx remain low
+  if (/uhd.{0,12}6\d{2}/i.test(renderer)) return 'medium';
+  // Intel Iris Plus (MacBook Air/Pro 2018–2020, Intel 11th gen) → medium
+  if (/iris plus/i.test(renderer)) return 'medium';
+  const LOW = /(uhd.{0,12}[2-5]\d{2}|hd graphics)|mali[-\s]|adreno.{0,8}[3-5]\d{2}|videocore|powervr g[67]|sgx/i;
   if (LOW.test(renderer)) return 'low';
 
   return 'medium';
