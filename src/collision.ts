@@ -38,7 +38,7 @@ export class Collider {
   private scratchAx = new THREE.Vector3();
   constructor(
     private planet: Planet,
-    private scatter: Scatter,
+    private scatter: Scatter
   ) {}
   private refresh(dir: THREE.Vector3) {
     const planetRadius = this.planet.radius;
@@ -51,8 +51,7 @@ export class Collider {
     for (const o of this.planet.landmarks.obs)
       if (o.d.distanceTo(dir) * planetRadius < 22) this.obs.push(o);
     for (const layer of this.scatter.layers)
-      if (layer.collide && layer.pix && layer.psnap)
-        this.fromLayer(layer, dir);
+      if (layer.collide && layer.pix && layer.psnap) this.fromLayer(layer, dir);
   }
   private fromLayer(layer: any, dir: THREE.Vector3) {
     const planetRadius = this.planet.radius,
@@ -61,12 +60,7 @@ export class Collider {
       cell = layer.cell,
       pix = layer.pix as Float32Array,
       bakeSnapshot = layer.psnap;
-    basisFromCode(
-      bakeSnapshot.faceCode,
-      this.basisNormal,
-      this.basisTangentU,
-      this.basisTangentV,
-    );
+    basisFromCode(bakeSnapshot.faceCode, this.basisNormal, this.basisTangentU, this.basisTangentV);
     for (let y = 0; y < gridWidth; y++)
       for (let x = 0; x < gridWidth; x++) {
         const pixelOffset = (y * gridWidth + x) * 4;
@@ -77,14 +71,8 @@ export class Collider {
         this.obstaclePos
           .copy(this.basisNormal)
           .multiplyScalar(planetRadius)
-          .addScaledVector(
-            this.basisTangentU,
-            (bakeSnapshot.cellI + x - K + h1 - 0.5) * cell,
-          )
-          .addScaledVector(
-            this.basisTangentV,
-            (bakeSnapshot.cellJ + y - K + h2 - 0.5) * cell,
-          );
+          .addScaledVector(this.basisTangentU, (bakeSnapshot.cellI + x - K + h1 - 0.5) * cell)
+          .addScaledVector(this.basisTangentV, (bakeSnapshot.cellJ + y - K + h2 - 0.5) * cell);
         this.scratchD.copy(this.obstaclePos).normalize();
         if (this.scratchD.distanceToSquared(dir) * planetRadius * planetRadius > 324) continue;
         this.tangent1

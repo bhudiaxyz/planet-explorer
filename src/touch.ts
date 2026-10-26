@@ -108,7 +108,7 @@ export function setupTouch(player: Player, dom: HTMLElement): void {
     const v = (evt.data as { vector?: { x: number; y: number } }).vector;
     if (!v) return;
     player.touchStrafe = v.x;
-    player.touchMove   = v.y; // nipplejs y: up=+1
+    player.touchMove = v.y; // nipplejs y: up=+1
   });
   manager.on("end", () => {
     player.touchMove = player.touchStrafe = 0;
@@ -118,62 +118,147 @@ export function setupTouch(player: Player, dom: HTMLElement): void {
   let lookId: number | null = null;
   let prevLook = { x: 0, y: 0 };
 
-  dom.addEventListener("touchstart", e => {
-    e.preventDefault();
-    // Validate that any previously tracked touch is still active before accepting a new one
-    if (lookId !== null) {
-      const stillActive = Array.from(e.touches).some(t => t.identifier === lookId);
-      if (!stillActive) lookId = null;
-    }
-    for (const t of Array.from(e.changedTouches)) {
-      if (t.clientX >= innerWidth / 2 && lookId === null) {
-        lookId = t.identifier;
-        prevLook = { x: t.clientX, y: t.clientY };
+  dom.addEventListener(
+    "touchstart",
+    (e) => {
+      e.preventDefault();
+      // Validate that any previously tracked touch is still active before accepting a new one
+      if (lookId !== null) {
+        const stillActive = Array.from(e.touches).some((t) => t.identifier === lookId);
+        if (!stillActive) lookId = null;
       }
-    }
-  }, { passive: false });
-
-  dom.addEventListener("touchmove", e => {
-    e.preventDefault();
-    for (const t of Array.from(e.changedTouches)) {
-      if (t.identifier === lookId) {
-        player.look((t.clientX - prevLook.x) * S.touchLookSensitivity, (t.clientY - prevLook.y) * S.touchLookSensitivity);
-        prevLook = { x: t.clientX, y: t.clientY };
+      for (const t of Array.from(e.changedTouches)) {
+        if (t.clientX >= innerWidth / 2 && lookId === null) {
+          lookId = t.identifier;
+          prevLook = { x: t.clientX, y: t.clientY };
+        }
       }
-    }
-  }, { passive: false });
+    },
+    { passive: false }
+  );
 
-  dom.addEventListener("touchend",    e => { for (const t of Array.from(e.changedTouches)) if (t.identifier === lookId) lookId = null; }, { passive: true });
-  dom.addEventListener("touchcancel", e => { for (const t of Array.from(e.changedTouches)) if (t.identifier === lookId) lookId = null; }, { passive: true });
+  dom.addEventListener(
+    "touchmove",
+    (e) => {
+      e.preventDefault();
+      for (const t of Array.from(e.changedTouches)) {
+        if (t.identifier === lookId) {
+          player.look(
+            (t.clientX - prevLook.x) * S.touchLookSensitivity,
+            (t.clientY - prevLook.y) * S.touchLookSensitivity
+          );
+          prevLook = { x: t.clientX, y: t.clientY };
+        }
+      }
+    },
+    { passive: false }
+  );
+
+  dom.addEventListener(
+    "touchend",
+    (e) => {
+      for (const t of Array.from(e.changedTouches)) if (t.identifier === lookId) lookId = null;
+    },
+    { passive: true }
+  );
+  dom.addEventListener(
+    "touchcancel",
+    (e) => {
+      for (const t of Array.from(e.changedTouches)) if (t.identifier === lookId) lookId = null;
+    },
+    { passive: true }
+  );
 
   // ---- buttons -----------------------------------------------------------------
   const btn = (id: string, down: () => void, up: () => void) => {
     const el = document.getElementById(id)!;
-    el.addEventListener("touchstart",  e => { e.stopPropagation(); down(); }, { passive: true });
-    el.addEventListener("touchend",    e => { e.stopPropagation(); up(); },   { passive: true });
-    el.addEventListener("touchcancel", e => { e.stopPropagation(); up(); },   { passive: true });
+    el.addEventListener(
+      "touchstart",
+      (e) => {
+        e.stopPropagation();
+        down();
+      },
+      { passive: true }
+    );
+    el.addEventListener(
+      "touchend",
+      (e) => {
+        e.stopPropagation();
+        up();
+      },
+      { passive: true }
+    );
+    el.addEventListener(
+      "touchcancel",
+      (e) => {
+        e.stopPropagation();
+        up();
+      },
+      { passive: true }
+    );
   };
-  btn("btn-jump",       () => { player.touchJump      = true;  }, () => { player.touchJump      = false; });
-  btn("btn-descend",    () => { player.touchDescend   = true;  }, () => { player.touchDescend   = false; });
-  btn("btn-sprint",     () => { player.touchSprint    = true;  }, () => { player.touchSprint    = false; });
-  btn("btn-roll-left",  () => { player.touchRollLeft  = true;  }, () => { player.touchRollLeft  = false; });
-  btn("btn-roll-right", () => { player.touchRollRight = true;  }, () => { player.touchRollRight = false; });
-  document.getElementById("btn-fly")!.addEventListener("touchend", e => {
-    e.stopPropagation(); player.toggle();
+  btn(
+    "btn-jump",
+    () => {
+      player.touchJump = true;
+    },
+    () => {
+      player.touchJump = false;
+    }
+  );
+  btn(
+    "btn-descend",
+    () => {
+      player.touchDescend = true;
+    },
+    () => {
+      player.touchDescend = false;
+    }
+  );
+  btn(
+    "btn-sprint",
+    () => {
+      player.touchSprint = true;
+    },
+    () => {
+      player.touchSprint = false;
+    }
+  );
+  btn(
+    "btn-roll-left",
+    () => {
+      player.touchRollLeft = true;
+    },
+    () => {
+      player.touchRollLeft = false;
+    }
+  );
+  btn(
+    "btn-roll-right",
+    () => {
+      player.touchRollRight = true;
+    },
+    () => {
+      player.touchRollRight = false;
+    }
+  );
+  document.getElementById("btn-fly")!.addEventListener("touchend", (e) => {
+    e.stopPropagation();
+    player.toggle();
   });
-  document.getElementById("btn-land")!.addEventListener("touchend", e => {
-    e.stopPropagation(); if (player.mode !== "walk") player.land();
+  document.getElementById("btn-land")!.addEventListener("touchend", (e) => {
+    e.stopPropagation();
+    if (player.mode !== "walk") player.land();
   });
 
   // Show/hide buttons based on player mode
   const btnLand = document.getElementById("btn-land")!;
   const touchRoll = document.getElementById("touch-roll")!;
-  const show = (el: HTMLElement, visible: boolean) =>
-    el.style.display = visible ? "" : "none";
+  const show = (el: HTMLElement, visible: boolean) => (el.style.display = visible ? "" : "none");
   show(btnLand, false);
   show(touchRoll, false);
   const updateButtons = () => {
-    show(btnLand,   player.mode !== "walk");
+    show(btnLand, player.mode !== "walk");
     show(touchRoll, player.mode === "fly");
     requestAnimationFrame(updateButtons);
   };
@@ -181,19 +266,23 @@ export function setupTouch(player: Player, dom: HTMLElement): void {
 
   // Update controls hint
   const hint = document.getElementById("ls-controls");
-  if (hint) hint.textContent = "Left thumb · steer/move  ·  Right drag · look  ·  ↑ ascend  ·  ↓ descend  ·  ⟲⟳ roll (fly)  ·  ⚡ sprint  ·  ✈ cycle mode  ·  🛬 land  ·  🗺️ map  ·  ☰ settings";
+  if (hint)
+    hint.textContent =
+      "Left thumb · steer/move  ·  Right drag · look  ·  ↑ ascend  ·  ↓ descend  ·  ⟲⟳ roll (fly)  ·  ⚡ sprint  ·  ✈ cycle mode  ·  🛬 land  ·  🗺️ map  ·  ☰ settings";
 }
 
 /** Wire the GUI toggle button to show/hide lil-gui. Called from main after setupGui. */
 export function setGuiToggle(fn: () => void): void {
-  document.getElementById("btn-gui")?.addEventListener("touchend", e => {
-    e.stopPropagation(); fn();
+  document.getElementById("btn-gui")?.addEventListener("touchend", (e) => {
+    e.stopPropagation();
+    fn();
   });
 }
 
 /** Wire the map button. Called from main after MapOverlay is created. */
 export function setMapToggle(fn: () => void): void {
-  document.getElementById("btn-map")?.addEventListener("touchend", e => {
-    e.stopPropagation(); fn();
+  document.getElementById("btn-map")?.addEventListener("touchend", (e) => {
+    e.stopPropagation();
+    fn();
   });
 }

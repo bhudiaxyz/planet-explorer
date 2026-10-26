@@ -8,11 +8,11 @@ export class AerialPass {
     this.pass = new ShaderPass({
       uniforms: {
         tDiffuse: { value: null },
-        tDepth:   { value: depthTexture },
-        uNear:    { value: 1.0 },
-        uFar:     { value: 20000.0 },
-        uSun:     U.uSun,
-        uDayF:    U.uDayF,
+        tDepth: { value: depthTexture },
+        uNear: { value: 1.0 },
+        uFar: { value: 20000.0 },
+        uSun: U.uSun,
+        uDayF: U.uDayF,
       },
       vertexShader: `
 varying vec2 vUv;
@@ -40,6 +40,6 @@ void main() {
   }
   setCamera(near: number, far: number) {
     this.pass.uniforms.uNear.value = near;
-    this.pass.uniforms.uFar.value  = far;
+    this.pass.uniforms.uFar.value = far;
   }
 }

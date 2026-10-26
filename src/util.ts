@@ -1,6 +1,10 @@
-const _ON = "bdgklmnrstvz", _CO = "lnrsk", _V = "aeiou";
+const _ON = "bdgklmnrstvz",
+  _CO = "lnrsk",
+  _V = "aeiou";
 
-function _pick(pool: string) { return pool[Math.floor(Math.random() * pool.length)]; }
+function _pick(pool: string) {
+  return pool[Math.floor(Math.random() * pool.length)];
+}
 
 function _word() {
   const n = Math.random() < 0.15 ? 1 : Math.random() < 0.6 ? 2 : 3;
@@ -12,7 +16,9 @@ function _word() {
   return w;
 }
 
-function _cap(s: string) { return s[0].toUpperCase() + s.slice(1); }
+function _cap(s: string) {
+  return s[0].toUpperCase() + s.slice(1);
+}
 
 export function hashSeedWord(s: string): number {
   let h = 0;

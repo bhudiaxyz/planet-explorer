@@ -8,10 +8,9 @@ const permutationTexture = new THREE.DataTexture(
   512,
   2,
   THREE.RedFormat,
-  THREE.FloatType,
+  THREE.FloatType
 );
-permutationTexture.minFilter = permutationTexture.magFilter =
-  THREE.NearestFilter;
+permutationTexture.minFilter = permutationTexture.magFilter = THREE.NearestFilter;
 permutationTexture.needsUpdate = true;
 const colorUniform = () => ({ value: new THREE.Color() });
 export const T = {

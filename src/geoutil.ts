@@ -18,7 +18,7 @@ export function add(
   c: THREE.Color,
   ao = 0,
   soft = false,
-  leaf = false,
+  leaf = false
 ) {
   const g = g0.index ? g0.toNonIndexed() : g0.clone();
   g.deleteAttribute("uv");
@@ -40,8 +40,7 @@ export function add(
       n.setXYZ(i, t.x, t.y, t.z);
     }
     const sh = ao
-      ? 0.6 +
-        0.55 * Math.min(1, Math.max(0, ((p.getY(i) - ctr.y) / ao) * 0.5 + 0.5))
+      ? 0.6 + 0.55 * Math.min(1, Math.max(0, ((p.getY(i) - ctr.y) / ao) * 0.5 + 0.5))
       : 1;
     if (leaf) cc.setRGB(sh, sh, sh);
     else cc.copy(c).multiplyScalar(sh);
@@ -50,12 +49,11 @@ export function add(
   g.setAttribute("color", new THREE.BufferAttribute(col, 3));
   g.setAttribute(
     "aLeaf",
-    new THREE.BufferAttribute(new Float32Array(p.count).fill(leaf ? 1 : 0), 1),
+    new THREE.BufferAttribute(new Float32Array(p.count).fill(leaf ? 1 : 0), 1)
   );
   parts.push(g);
 }
-export const T = (x: number, y: number, z: number) =>
-  new THREE.Matrix4().makeTranslation(x, y, z);
+export const T = (x: number, y: number, z: number) => new THREE.Matrix4().makeTranslation(x, y, z);
 export function cyl(
   p: THREE.BufferGeometry[],
   a: THREE.Vector3,
@@ -63,12 +61,12 @@ export function cyl(
   r0: number,
   r1: number,
   c: THREE.Color,
-  seg = 6,
+  seg = 6
 ) {
   const m = new THREE.Matrix4().compose(
     a.clone().add(b).multiplyScalar(0.5),
     new THREE.Quaternion().setFromUnitVectors(UP, b.clone().sub(a).normalize()),
-    new THREE.Vector3(1, 1, 1),
+    new THREE.Vector3(1, 1, 1)
   );
   add(p, new THREE.CylinderGeometry(r1, r0, a.distanceTo(b), seg, 1), m, c);
 }
@@ -79,20 +77,16 @@ export const blob = (
   c: THREE.Color,
   sy = 0.8,
   det = 1,
-  leaf = true,
+  leaf = true
 ) =>
   add(
     p,
     new THREE.IcosahedronGeometry(1, det),
-    new THREE.Matrix4().compose(
-      c0,
-      new THREE.Quaternion(),
-      new THREE.Vector3(r, r * sy, r),
-    ),
+    new THREE.Matrix4().compose(c0, new THREE.Quaternion(), new THREE.Vector3(r, r * sy, r)),
     c,
     r * sy,
     true,
-    leaf,
+    leaf
   );
 export const done = (p: THREE.BufferGeometry[]) => mergeGeometries(p)!;
 export function frond(
@@ -100,16 +94,13 @@ export function frond(
   a: THREE.Vector3,
   b: THREE.Vector3,
   w: number,
-  c: THREE.Color,
+  c: THREE.Color
 ) {
   const len = a.distanceTo(b),
     m = new THREE.Matrix4().compose(
       a.clone().add(b).multiplyScalar(0.5),
-      new THREE.Quaternion().setFromUnitVectors(
-        UP,
-        b.clone().sub(a).normalize(),
-      ),
-      new THREE.Vector3(1, 1, 0.28),
+      new THREE.Quaternion().setFromUnitVectors(UP, b.clone().sub(a).normalize()),
+      new THREE.Vector3(1, 1, 0.28)
     );
   add(p, new THREE.ConeGeometry(w, len, 4), m, c, len / 2, false, true);
 }

@@ -21,7 +21,7 @@ export function frame(
   direction: THREE.Vector3,
   radius: number,
   cellSize: number,
-  scratch: Frame = makeFrame(),
+  scratch: Frame = makeFrame()
 ): Frame {
   const ax = Math.abs(direction.x),
     ay = Math.abs(direction.y),
@@ -36,20 +36,13 @@ export function frame(
   scratch.face = f;
   scratch.normal
     .set(0, 0, 0)
-    .setComponent(
-      f,
-      Math.sign(f === 0 ? direction.x : f === 1 ? direction.y : direction.z),
-    );
+    .setComponent(f, Math.sign(f === 0 ? direction.x : f === 1 ? direction.y : direction.z));
   if (f === 1) scratch.tangentU.set(1, 0, 0);
   else scratch.tangentU.set(0, 1, 0);
   scratch.tangentV.crossVectors(scratch.normal, scratch.tangentU);
   const dn = direction.dot(scratch.normal);
-  scratch.cellI = Math.round(
-    ((direction.dot(scratch.tangentU) / dn) * radius) / cellSize,
-  );
-  scratch.cellJ = Math.round(
-    ((direction.dot(scratch.tangentV) / dn) * radius) / cellSize,
-  );
+  scratch.cellI = Math.round(((direction.dot(scratch.tangentU) / dn) * radius) / cellSize);
+  scratch.cellJ = Math.round(((direction.dot(scratch.tangentV) / dn) * radius) / cellSize);
   return scratch;
 }
 
@@ -57,7 +50,7 @@ export function basisFromCode(
   code: number,
   normal: THREE.Vector3,
   tangentU: THREE.Vector3,
-  tangentV: THREE.Vector3,
+  tangentV: THREE.Vector3
 ) {
   const f = (code / 2) | 0;
   normal.set(0, 0, 0).setComponent(f, code % 2 === 0 ? 1 : -1);

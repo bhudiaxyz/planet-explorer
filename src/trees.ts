@@ -16,7 +16,7 @@ function pine(r: () => number, q: number) {
     0.5,
     0.1,
     new THREE.Color(CurrentPalette.treeBark[0]),
-    hq ? 6 : 5,
+    hq ? 6 : 5
   );
   const n = hq ? 8 : 4; // extra whorls at HQ for a denser layered silhouette
   for (let i = 0; i < n; i++) {
@@ -30,7 +30,7 @@ function pine(r: () => number, q: number) {
       N0,
       ch / 2,
       false,
-      true,
+      true
     );
   }
   return done(p);
@@ -47,7 +47,7 @@ function oak(r: () => number, q: number) {
     new THREE.Vector3(0.3 * (r() - 0.5), h * 0.6, 0.3 * (r() - 0.5)),
     0.7,
     0.45,
-    bark,
+    bark
   );
   cyl(p, new THREE.Vector3(0, h * 0.6, 0), new THREE.Vector3(0, h, 0), 0.45, 0.2, bark);
   const nb = hq ? 5 : 3;
@@ -59,14 +59,22 @@ function oak(r: () => number, q: number) {
         .add(
           new THREE.Vector3(Math.cos(a), 0.55, Math.sin(a))
             .normalize()
-            .multiplyScalar(2.4 + r() * 1.5),
+            .multiplyScalar(2.4 + r() * 1.5)
         );
     cyl(p, b, tip, 0.3, 0.1, bark);
     blob(p, tip.clone().add(new THREE.Vector3(0, 0.8, 0)), 2.2 + r() * 0.9, N0, 0.8, det);
     // secondary sub-clusters at HQ for denser, more naturalistic crown
     if (hq) {
       const a2 = a + 0.6 + r() * 0.4,
-        d2 = tip.clone().add(new THREE.Vector3(Math.cos(a2) * (1.0 + r() * 0.5), 0.4 + r() * 0.3, Math.sin(a2) * (1.0 + r() * 0.5)));
+        d2 = tip
+          .clone()
+          .add(
+            new THREE.Vector3(
+              Math.cos(a2) * (1.0 + r() * 0.5),
+              0.4 + r() * 0.3,
+              Math.sin(a2) * (1.0 + r() * 0.5)
+            )
+          );
       blob(p, d2, 1.3 + r() * 0.5, N0, 0.85, det);
     }
   }
@@ -87,7 +95,7 @@ function birch(r: () => number, q: number) {
     new THREE.Vector3(0.2 * (r() - 0.5), h, 0.2 * (r() - 0.5)),
     0.28,
     0.09,
-    bark,
+    bark
   );
   const nb = hq ? 5 : 2;
   for (let k = 0; k < nb; k++) {
@@ -96,7 +104,9 @@ function birch(r: () => number, q: number) {
       tip = b
         .clone()
         .add(
-          new THREE.Vector3(Math.cos(a), 0.8, Math.sin(a)).normalize().multiplyScalar(1.8 + r() * 0.6),
+          new THREE.Vector3(Math.cos(a), 0.8, Math.sin(a))
+            .normalize()
+            .multiplyScalar(1.8 + r() * 0.6)
         );
     cyl(p, b, tip, 0.12, 0.04, bark);
     blob(p, tip, 1.3 + r() * 0.6, N0, 0.9, det);
@@ -104,13 +114,20 @@ function birch(r: () => number, q: number) {
     if (hq && r() > 0.3) {
       const a2 = a + 0.4,
         b2 = new THREE.Vector3(0, h * (0.55 + 0.3 * r()), 0),
-        tip2 = b2.clone().add(new THREE.Vector3(Math.cos(a2), 0.6, Math.sin(a2)).normalize().multiplyScalar(1.2 + r() * 0.4));
+        tip2 = b2
+          .clone()
+          .add(
+            new THREE.Vector3(Math.cos(a2), 0.6, Math.sin(a2))
+              .normalize()
+              .multiplyScalar(1.2 + r() * 0.4)
+          );
       cyl(p, b2, tip2, 0.08, 0.03, bark);
       blob(p, tip2, 1.0 + r() * 0.4, N0, 0.95, det);
     }
   }
   blob(p, new THREE.Vector3(0, h + 0.5, 0), 1.9, N0, 1.1, det);
-  if (hq) blob(p, new THREE.Vector3((r() - 0.5) * 0.8, h + 0.0, (r() - 0.5) * 0.8), 1.5, N0, 1.0, det);
+  if (hq)
+    blob(p, new THREE.Vector3((r() - 0.5) * 0.8, h + 0.0, (r() - 0.5) * 0.8), 1.5, N0, 1.0, det);
   return done(p);
 }
 function palm(r: () => number, q: number) {
@@ -151,7 +168,7 @@ function palm(r: () => number, q: number) {
         new THREE.Color(CurrentPalette.cactusBase),
         1,
         0,
-        false,
+        false
       );
   return done(p);
 }
@@ -166,7 +183,7 @@ function fir(r: () => number, q: number) {
     0.45,
     0.1,
     new THREE.Color(CurrentPalette.treeBark[4]),
-    hq ? 6 : 5,
+    hq ? 6 : 5
   );
   const n = hq ? 9 : 6;
   for (let i = 0; i < n; i++) {
@@ -180,7 +197,7 @@ function fir(r: () => number, q: number) {
       N0,
       ch / 2,
       false,
-      true,
+      true
     );
   }
   return done(p);
@@ -198,9 +215,7 @@ function dead(r: () => number, q: number) {
       t1 = b
         .clone()
         .add(
-          new THREE.Vector3(Math.cos(a), 0.7, Math.sin(a))
-            .normalize()
-            .multiplyScalar(2 + r() * 1.5),
+          new THREE.Vector3(Math.cos(a), 0.7, Math.sin(a)).normalize().multiplyScalar(2 + r() * 1.5)
         );
     cyl(p, b, t1, 0.18, 0.05, bark);
     if (hq)
@@ -212,11 +227,11 @@ function dead(r: () => number, q: number) {
           .add(
             new THREE.Vector3(Math.cos(a + 0.8), 0.8, Math.sin(a + 0.8))
               .normalize()
-              .multiplyScalar(1.1),
+              .multiplyScalar(1.1)
           ),
         0.06,
         0.02,
-        bark,
+        bark
       );
   }
   return done(p);
@@ -230,7 +245,14 @@ function acacia(r: () => number, q: number) {
     bark = new THREE.Color(CurrentPalette.treeBark[6]),
     lean = (r() - 0.5) * 1.6;
   cyl(p, new THREE.Vector3(0, 0, 0), new THREE.Vector3(lean * 0.5, h * 0.6, 0), 0.55, 0.32, bark);
-  cyl(p, new THREE.Vector3(lean * 0.5, h * 0.6, 0), new THREE.Vector3(lean, h, 0), 0.32, 0.18, bark);
+  cyl(
+    p,
+    new THREE.Vector3(lean * 0.5, h * 0.6, 0),
+    new THREE.Vector3(lean, h, 0),
+    0.32,
+    0.18,
+    bark
+  );
   const nb = hq ? 4 : 2;
   for (let k = 0; k < nb; k++) {
     const a = k * (6.283 / nb) + r(),
@@ -241,7 +263,7 @@ function acacia(r: () => number, q: number) {
       2.8 + r(),
       N0,
       0.28,
-      det,
+      det
     );
   }
   blob(p, new THREE.Vector3(lean, h + 0.7, 0), 3.6, N0, 0.3, det);
@@ -259,7 +281,7 @@ function cypress(r: () => number, q: number) {
     0.4,
     0.25,
     new THREE.Color(CurrentPalette.treeBark[7]),
-    hq ? 6 : 4,
+    hq ? 6 : 4
   );
   add(
     p,
@@ -268,7 +290,7 @@ function cypress(r: () => number, q: number) {
     N0,
     h * 0.475,
     false,
-    true,
+    true
   );
   if (hq) {
     blob(p, new THREE.Vector3(0, h * 0.45, 0), 1.6, N0, 1.9, 0);
@@ -294,8 +316,14 @@ function willow(r: () => number, q: number) {
     const a = (k / nb) * 6.283 + r() * 0.5,
       d = new THREE.Vector3(Math.cos(a), 0, Math.sin(a)),
       base = new THREE.Vector3(lean * 0.4, h * 0.72, 0),
-      elbow = base.clone().addScaledVector(d, 2.2 + r() * 0.8).add(new THREE.Vector3(0, 1.0 + r() * 0.3, 0)),
-      tip = elbow.clone().addScaledVector(d, 1.0 + r() * 0.4).add(new THREE.Vector3(0, -2.5 - r() * 0.8, 0));
+      elbow = base
+        .clone()
+        .addScaledVector(d, 2.2 + r() * 0.8)
+        .add(new THREE.Vector3(0, 1.0 + r() * 0.3, 0)),
+      tip = elbow
+        .clone()
+        .addScaledVector(d, 1.0 + r() * 0.4)
+        .add(new THREE.Vector3(0, -2.5 - r() * 0.8, 0));
     cyl(p, base, elbow, 0.1, 0.06, bark, hq ? 4 : 3);
     cyl(p, elbow, tip, 0.06, 0.02, bark, hq ? 4 : 3);
     blob(p, tip, 1.3 + r() * 0.4, N0, 1.4, det); // sy > 1: elongated droop blob
@@ -315,7 +343,11 @@ function mangrove(r: () => number, q: number) {
     const a = (k / nroots) * 6.283 + r() * 0.4,
       spread = 1.4 + r() * 0.5,
       ground = new THREE.Vector3(Math.cos(a) * spread, 0, Math.sin(a) * spread),
-      arch = ground.clone().add(junction).multiplyScalar(0.5).add(new THREE.Vector3(0, 0.7, 0));
+      arch = ground
+        .clone()
+        .add(junction)
+        .multiplyScalar(0.5)
+        .add(new THREE.Vector3(0, 0.7, 0));
     cyl(p, ground, arch, 0.1, 0.09, bark, hq ? 5 : 3);
     cyl(p, arch, junction, 0.09, 0.13, bark, hq ? 5 : 3);
   }
@@ -328,80 +360,72 @@ function mangrove(r: () => number, q: number) {
   return done(p);
 }
 const SP = [pine, oak, birch, palm, fir, dead, acacia, cypress, willow, mangrove]; // species index: pine 0 · oak 1 · birch 2 · palm 3 · fir 4 · snag 5 · acacia 6 · cypress 7 · willow 8 · mangrove 9
-export const treeGeos = (seed: number, q = 1) =>
-  SP.map((f, i) => f(rng(seed + 55 + i * 31), q));
+export const treeGeos = (seed: number, q = 1) => SP.map((f, i) => f(rng(seed + 55 + i * 31), q));
 // base foliage colour per species (HSL in the working space); Forest multiplies in seasonal / blossom / drought variation per tree
-export const getLeafColors = () => CurrentPalette.treeLeavesHSL.map(([h, s, l]) => new THREE.Color().setHSL(h, s, l));
+export const getLeafColors = () =>
+  CurrentPalette.treeLeavesHSL.map(([h, s, l]) => new THREE.Color().setHSL(h, s, l));
 
 // ---- low-poly distance tier (a few dozen triangles)
 const lowPine = (r: () => number) => {
   const p: THREE.BufferGeometry[] = [],
     h = 11 + r() * 4;
-  cyl(p, new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, h * 0.5, 0), 0.5, 0.3, new THREE.Color(CurrentPalette.treeBark[0]), 3);
-  add(
+  cyl(
     p,
-    new THREE.ConeGeometry(3.2, h * 0.6, 6),
-    T(0, h * 0.4, 0),
-    N0,
-    h * 0.3,
-    false,
-    true,
+    new THREE.Vector3(0, 0, 0),
+    new THREE.Vector3(0, h * 0.5, 0),
+    0.5,
+    0.3,
+    new THREE.Color(CurrentPalette.treeBark[0]),
+    3
   );
-  add(
-    p,
-    new THREE.ConeGeometry(2, h * 0.45, 6),
-    T(0, h * 0.75, 0),
-    N0,
-    h * 0.2,
-    false,
-    true,
-  );
+  add(p, new THREE.ConeGeometry(3.2, h * 0.6, 6), T(0, h * 0.4, 0), N0, h * 0.3, false, true);
+  add(p, new THREE.ConeGeometry(2, h * 0.45, 6), T(0, h * 0.75, 0), N0, h * 0.2, false, true);
   return done(p);
 };
 const lowBlob = (r: () => number, h0: number, rad: number) => {
   const p: THREE.BufferGeometry[] = [],
     h = h0 + r() * 2;
-  cyl(p, new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, h, 0), 0.5, 0.25, new THREE.Color(CurrentPalette.treeBarkLow), 3);
+  cyl(
+    p,
+    new THREE.Vector3(0, 0, 0),
+    new THREE.Vector3(0, h, 0),
+    0.5,
+    0.25,
+    new THREE.Color(CurrentPalette.treeBarkLow),
+    3
+  );
   blob(p, new THREE.Vector3(0, h + rad * 0.5, 0), rad, N0, 0.85, 0);
   return done(p);
 };
 const lowPalm = (r: () => number) => {
   const p: THREE.BufferGeometry[] = [],
     h = 8 + r() * 4;
-  cyl(p, new THREE.Vector3(0, 0, 0), new THREE.Vector3(1.5, h, 0), 0.5, 0.25, new THREE.Color(CurrentPalette.treeBark[3]), 3);
-  add(
+  cyl(
     p,
-    new THREE.CylinderGeometry(3.6, 0.4, 0.9, 6),
-    T(1.5, h + 0.3, 0),
-    N0,
-    0.45,
-    false,
-    true,
+    new THREE.Vector3(0, 0, 0),
+    new THREE.Vector3(1.5, h, 0),
+    0.5,
+    0.25,
+    new THREE.Color(CurrentPalette.treeBark[3]),
+    3
   );
+  add(p, new THREE.CylinderGeometry(3.6, 0.4, 0.9, 6), T(1.5, h + 0.3, 0), N0, 0.45, false, true);
   return done(p);
 };
 const lowFir = (r: () => number) => {
   const p: THREE.BufferGeometry[] = [],
     h = 15 + r() * 5;
-  cyl(p, new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, h * 0.5, 0), 0.45, 0.25, new THREE.Color(CurrentPalette.treeBark[4]), 3);
-  add(
+  cyl(
     p,
-    new THREE.ConeGeometry(2.7, h * 0.7, 6),
-    T(0, h * 0.45, 0),
-    N0,
-    h * 0.35,
-    false,
-    true,
+    new THREE.Vector3(0, 0, 0),
+    new THREE.Vector3(0, h * 0.5, 0),
+    0.45,
+    0.25,
+    new THREE.Color(CurrentPalette.treeBark[4]),
+    3
   );
-  add(
-    p,
-    new THREE.ConeGeometry(1.5, h * 0.4, 6),
-    T(0, h * 0.78, 0),
-    N0,
-    h * 0.2,
-    false,
-    true,
-  );
+  add(p, new THREE.ConeGeometry(2.7, h * 0.7, 6), T(0, h * 0.45, 0), N0, h * 0.35, false, true);
+  add(p, new THREE.ConeGeometry(1.5, h * 0.4, 6), T(0, h * 0.78, 0), N0, h * 0.2, false, true);
   return done(p);
 };
 const lowDead = (r: () => number) => {
@@ -409,36 +433,60 @@ const lowDead = (r: () => number) => {
     h = 6 + r() * 3,
     bark = new THREE.Color(CurrentPalette.treeBark[5]);
   cyl(p, new THREE.Vector3(0, 0, 0), new THREE.Vector3(0.2, h, 0.1), 0.45, 0.12, bark, 3);
-  cyl(p, new THREE.Vector3(0.1, h * 0.6, 0), new THREE.Vector3(2, h * 0.9, 0.5), 0.18, 0.05, bark, 3);
+  cyl(
+    p,
+    new THREE.Vector3(0.1, h * 0.6, 0),
+    new THREE.Vector3(2, h * 0.9, 0.5),
+    0.18,
+    0.05,
+    bark,
+    3
+  );
   cyl(p, new THREE.Vector3(0.1, h * 0.7, 0), new THREE.Vector3(-1.8, h, -0.4), 0.16, 0.05, bark, 3);
   return done(p);
 };
 const lowAcacia = (r: () => number) => {
   const p: THREE.BufferGeometry[] = [],
     h = 5 + r() * 2.5;
-  cyl(p, new THREE.Vector3(0, 0, 0), new THREE.Vector3(0.5, h, 0), 0.5, 0.2, new THREE.Color(CurrentPalette.treeBark[6]), 3);
+  cyl(
+    p,
+    new THREE.Vector3(0, 0, 0),
+    new THREE.Vector3(0.5, h, 0),
+    0.5,
+    0.2,
+    new THREE.Color(CurrentPalette.treeBark[6]),
+    3
+  );
   blob(p, new THREE.Vector3(0.5, h + 0.6, 0), 4.2, N0, 0.3, 0);
   return done(p);
 };
 const lowCypress = (r: () => number) => {
   const p: THREE.BufferGeometry[] = [],
     h = 12 + r() * 5;
-  cyl(p, new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, h * 0.25, 0), 0.4, 0.25, new THREE.Color(CurrentPalette.treeBark[7]), 3);
-  add(
+  cyl(
     p,
-    new THREE.ConeGeometry(1.9, h * 0.95, 5),
-    T(0, h * 0.725, 0),
-    N0,
-    h * 0.475,
-    false,
-    true,
+    new THREE.Vector3(0, 0, 0),
+    new THREE.Vector3(0, h * 0.25, 0),
+    0.4,
+    0.25,
+    new THREE.Color(CurrentPalette.treeBark[7]),
+    3
   );
+  add(p, new THREE.ConeGeometry(1.9, h * 0.95, 5), T(0, h * 0.725, 0), N0, h * 0.475, false, true);
   return done(p);
 };
 const lowWillow = (r: () => number) => {
   const p: THREE.BufferGeometry[] = [],
     h = 7 + r() * 3;
-  cyl(p, new THREE.Vector3(0, 0, 0), new THREE.Vector3(0.3, h * 0.85, 0), 0.5, 0.18, new THREE.Color(CurrentPalette.treeBark[8]), 3);
+  cyl(
+    p,
+    new THREE.Vector3(0, 0, 0),
+    new THREE.Vector3(0.3, h * 0.85, 0),
+    0.5,
+    0.18,
+    new THREE.Color(CurrentPalette.treeBark[8]),
+    3
+  );
   blob(p, new THREE.Vector3(0.3, h * 0.88, 0), 3.2, N0, 0.88, 0); // wide, slightly drooping crown silhouette
   return done(p);
 };
@@ -448,7 +496,15 @@ const lowMangrove = (r: () => number) => {
     bark = new THREE.Color(CurrentPalette.treeBark[9]);
   for (let k = 0; k < 3; k++) {
     const a = (k / 3) * 6.283;
-    cyl(p, new THREE.Vector3(Math.cos(a) * 1.4, 0, Math.sin(a) * 1.4), new THREE.Vector3(0, h * 0.6, 0), 0.1, 0.15, bark, 3);
+    cyl(
+      p,
+      new THREE.Vector3(Math.cos(a) * 1.4, 0, Math.sin(a) * 1.4),
+      new THREE.Vector3(0, h * 0.6, 0),
+      0.1,
+      0.15,
+      bark,
+      3
+    );
   }
   cyl(p, new THREE.Vector3(0, h * 0.6, 0), new THREE.Vector3(0, h, 0), 0.18, 0.1, bark, 3);
   blob(p, new THREE.Vector3(0, h + 1.2, 0), 3.0, N0, 0.7, 0);

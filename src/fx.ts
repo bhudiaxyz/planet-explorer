@@ -92,7 +92,7 @@ const VW = (s: P) =>
     .replace("#include <common>", "#include <common>\nvarying vec3 vWp;")
     .replace(
       "#include <begin_vertex>",
-      "#include <begin_vertex>\nvWp=(modelMatrix*vec4(position,1.)).xyz;",
+      "#include <begin_vertex>\nvWp=(modelMatrix*vec4(position,1.)).xyz;"
     ));
 const bind = (shaderParams: P, uniformKeys: string[]) =>
   uniformKeys.forEach((k) => (shaderParams.uniforms[k] = (U as any)[k]));
@@ -130,7 +130,7 @@ export function terrainMat(
   cut: boolean,
   gpu = false,
   extraUniforms: Record<string, { value: any }> = {},
-  baked = false,
+  baked = false
 ) {
   const m = new THREE.MeshStandardMaterial({
     roughness: 0.95,
@@ -138,8 +138,7 @@ export function terrainMat(
   });
   if (gpu) (m as any).defines = { GPU_H: "" };
   else if (baked) (m as any).defines = { BASE_COL: "" };
-  m.customProgramCacheKey = () =>
-    (cut ? "c" : "n") + (gpu ? "g" : "b") + (baked ? "k" : "");
+  m.customProgramCacheKey = () => (cut ? "c" : "n") + (gpu ? "g" : "b") + (baked ? "k" : "");
   m.onBeforeCompile = (s) => {
     Object.assign(s.uniforms, U, T, extraUniforms);
     s.vertexShader = s.vertexShader
@@ -158,23 +157,23 @@ vec3 cpos(vec2 L,vec3 nA,vec3 uu,vec3 vv){return normalize(nA*uR+uu*(uCh.x+L.x)*
 attribute vec3 aCol;
 #else
 attribute float aE,aM;
-#endif`,
+#endif`
       )
       .replace("#include <beginnormal_vertex>", BEGIN)
       .replace(
         "#include <begin_vertex>",
-        "vec3 transformed=gP;vWp=(modelMatrix*vec4(transformed,1.)).xyz;",
+        "vec3 transformed=gP;vWp=(modelMatrix*vec4(transformed,1.)).xyz;"
       );
     s.fragmentShader = s.fragmentShader
       .replace(
         "#include <common>",
         `#include <common>
 varying vec3 vWp,vC;uniform float uTime,uOn,uR,uFade;uniform vec4 uRect,uFoot[48];uniform vec3 uN,uU,uV,uPl,uSun;uniform float uDayF,uCloudR,uAtOn;uniform samplerCube uCubeN,uCubeC;
-${NOISE}${IGN}${CLOUD_GLSL}`,
+${NOISE}${IGN}${CLOUD_GLSL}`
       )
       .replace(
         "#include <roughnessmap_fragment>",
-        "#include <roughnessmap_fragment>\nroughnessFactor=mix(roughnessFactor,.22,smoothstep(.12,.25,vC.b-vC.r));",
+        "#include <roughnessmap_fragment>\nroughnessFactor=mix(roughnessFactor,.22,smoothstep(.12,.25,vC.b-vC.r));"
       ) // glazed ice is glossy
       .replace(
         "#include <color_fragment>",
@@ -194,14 +193,18 @@ if (uAtOn > 0.) {
   diffuseColor.rgb = mix(diffuseColor.rgb, texture(uCubeC, atD).rgb, uAtOn);
 }
 #endif
-${cut ? `if (uOn > .5) {
+${
+  cut
+    ? `if (uOn > .5) {
   float dn = dot(vWp, uN);
   if (dn > 0.) {
     float a = dot(vWp, uU) / dn * uR / 1.5;
     float b = dot(vWp, uV) / dn * uR / 1.5;
     if (a > uRect.x && a < uRect.y && b > uRect.z && b < uRect.w) discard;
   }
-}` : ""}
+}`
+    : ""
+}
 float snowF = smoothstep(.72, .88, min(diffuseColor.r, min(diffuseColor.g, diffuseColor.b)));
 float dd = length(vViewPosition), gn;
 {
@@ -236,7 +239,7 @@ if (distance(vWp, uPl) < 26.) {
 }
 fp *= snowF;
 diffuseColor.rgb *= 1. - .4 * fp;
-gn -= fp * .9;`,
+gn -= fp * .9;`
       )
       .replace(
         "#include <normal_fragment_maps>",
@@ -251,7 +254,7 @@ if (uAtOn > 0.)
   float det = dot(dx, r1);
   normal = normalize(abs(det) * normal
          - .06 * (1. - smoothstep(60., 160., dd)) * sign(det) * (dFdx(gn) * r1 + dFdy(gn) * r2));
-}`,
+}`
       )
       .replace(
         "#include <emissivemap_fragment>",
@@ -266,7 +269,7 @@ if (snowF > .05 && uDayF > .05) {
   vec3  halfV   = normalize(sv + eyeDir);
   float spec    = pow(max(dot(normal, halfV), 0.), 12.) * facing;
   totalEmissiveRadiance += vec3(.92, .96, 1.) * spec * snowF * .55 * uDayF;
-}`,
+}`
       );
   };
   return m;
@@ -275,10 +278,7 @@ export function wind<T extends THREE.Material>(m: T, k: number): T {
   m.onBeforeCompile = (s) => {
     bind(s, ["uTime", "uWind"]);
     s.vertexShader = s.vertexShader
-      .replace(
-        "#include <common>",
-        "#include <common>\nuniform float uTime,uWind;",
-      )
+      .replace("#include <common>", "#include <common>\nuniform float uTime,uWind;")
       .replace(
         "#include <begin_vertex>",
         `
@@ -296,7 +296,7 @@ float _h   = max(lp.y, 0.0);
 lp.x      += _bx * _amt * _h;
 lp.z      += _bz * _amt * _h;
 vec3 transformed = lp;
-`,
+`
       );
   };
   return m;
@@ -304,16 +304,7 @@ vec3 transformed = lp;
 // Water: five travelling wave trains (analytic normals, wind-scaled, small trains fade with distance), whitecap foam on crests, sky Fresnel.
 export function waterFx(m: THREE.MeshStandardMaterial) {
   m.onBeforeCompile = (s) => {
-    bind(s, [
-      "uTime",
-      "uWind",
-      "uSky",
-      "uSun",
-      "uDayF",
-      "uCubeC",
-      "uAtOn",
-      "uN3",
-    ]);
+    bind(s, ["uTime", "uWind", "uSky", "uSun", "uDayF", "uCubeC", "uAtOn", "uN3"]);
     s.uniforms.uAmp = T.uAmp;
     s.uniforms.uPl = U.uPl;
     VW(s);
@@ -344,13 +335,13 @@ float ripple = sin(pdist * 2.5 - t * 5.0)
              * exp(-pdist * 0.12)
              * 0.35 * uWind;
 transformed += normalize(position) * ripple;
-`,
+`
     );
     s.fragmentShader = s.fragmentShader
       .replace(
         "#include <common>",
         "#include <common>\nvarying vec3 vWp;uniform float uTime,uWind,uDayF,uAtOn,uAmp;uniform vec3 uSky,uSun;uniform samplerCube uCubeC;\n" +
-          NOISE,
+          NOISE
       )
       .replace(
         "#include <normal_fragment_maps>",
@@ -429,7 +420,7 @@ transformed += normalize(position) * ripple;
   // sky Fresnel
   float fr = pow(1. - clamp(dot(normal, normalize(vViewPosition)), 0., 1.), 4.);
   diffuseColor.rgb = mix(diffuseColor.rgb, uSky * (.55 + .5 * uDayF), fr * .6);
-}`,
+}`
       );
   };
 }

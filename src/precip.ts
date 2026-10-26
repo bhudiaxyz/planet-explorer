@@ -11,10 +11,7 @@ export class Precip {
     const sd = new Float32Array(N * 3);
     for (let i = 0; i < sd.length; i++) sd[i] = Math.random();
     const g = new THREE.BufferGeometry()
-      .setAttribute(
-        "position",
-        new THREE.BufferAttribute(new Float32Array(N * 3), 3),
-      )
+      .setAttribute("position", new THREE.BufferAttribute(new Float32Array(N * 3), 3))
       .setAttribute("sd", new THREE.BufferAttribute(sd, 3));
     this.mat = new THREE.ShaderMaterial({
       transparent: true,
@@ -52,13 +49,7 @@ void main() {
     this.pts = new THREE.Points(g, this.mat);
     this.pts.frustumCulled = false;
   }
-  update(
-    cam: THREE.Camera,
-    up: THREE.Vector3,
-    snow: boolean,
-    amt: number,
-    alt: number,
-  ) {
+  update(cam: THREE.Camera, up: THREE.Vector3, snow: boolean, amt: number, alt: number) {
     const k = Math.min(1, Math.max(0, (alt - 50) / 30)),
       a2 = amt * (1 - k * k * (3 - 2 * k));
     this.pts.visible = a2 > 0.02;

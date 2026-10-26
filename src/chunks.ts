@@ -41,8 +41,10 @@ export class ChunkManager {
   private todoArr: [number, number][] = [];
   constructor(
     private group: THREE.Group,
-    private radius: () => number,
-  ) { this.buffers(); }
+    private radius: () => number
+  ) {
+    this.buffers();
+  }
 
   /** Drops every chunk. instant = false lets them fade out first. */
   clear(instant = true) {
@@ -70,19 +72,10 @@ export class ChunkManager {
       return;
     }
     if (altitude > makeAlt && !this.map.size) return; // hysteresis between make/clear altitudes
-    const currentFrame = frame(
-        playerDirection,
-        this.radius(),
-        CC,
-        this.scratchFrame,
-      ),
+    const currentFrame = frame(playerDirection, this.radius(), CC, this.scratchFrame),
       ci = Math.floor(currentFrame.cellI / CS),
       cj = Math.floor(currentFrame.cellJ / CS);
-    if (
-      currentFrame.face === this.lastFace &&
-      ci === this.lastChunkI &&
-      cj === this.lastChunkJ
-    )
+    if (currentFrame.face === this.lastFace && ci === this.lastChunkI && cj === this.lastChunkJ)
       return; // still inside the same centre chunk
     const want = this.wantSet,
       todo = this.todoArr;
@@ -94,7 +87,13 @@ export class ChunkManager {
         want.add(k);
         if (!this.map.has(k)) todo.push([ci + a, cj + b]);
       }
-    todo.sort((x, y) => { const dx = x[0]-ci, dy = x[1]-cj, ex = y[0]-ci, ey = y[1]-cj; return dx*dx+dy*dy - ex*ex-ey*ey; });
+    todo.sort((x, y) => {
+      const dx = x[0] - ci,
+        dy = x[1] - cj,
+        ex = y[0] - ci,
+        ey = y[1] - cj;
+      return dx * dx + dy * dy - ex * ex - ey * ey;
+    });
     let budget = this.map.size ? BUDGET : FIRST;
     for (const [a, b] of todo) {
       if (budget-- <= 0) break;
@@ -103,15 +102,11 @@ export class ChunkManager {
         a,
         b,
         `${currentFrame.face},${a},${b}`,
-        Math.max(Math.abs(a - ci), Math.abs(b - cj)) >= CR,
+        Math.max(Math.abs(a - ci), Math.abs(b - cj)) >= CR
       );
     }
     for (const m of this.map.values())
-      m.userData.lo =
-        Math.max(
-          Math.abs(m.userData.ci - ci),
-          Math.abs(m.userData.cj - cj),
-        ) >= CR; // target LOD; tick() geomorphs to it — only the outermost ring uses half-res
+      m.userData.lo = Math.max(Math.abs(m.userData.ci - ci), Math.abs(m.userData.cj - cj)) >= CR; // target LOD; tick() geomorphs to it — only the outermost ring uses half-res
     for (const k of want) if (!this.map.has(k)) return; // finish loading before retiring anything
     for (const [k, m] of this.map)
       if (!want.has(k)) {
@@ -128,8 +123,7 @@ export class ChunkManager {
     for (const m of this.map.values()) {
       const userData = m.userData,
         fadeUniform = userData.fade;
-      if (fadeUniform.value < 1)
-        fadeUniform.value = Math.min(1, fadeUniform.value + dt * 1.6);
+      if (fadeUniform.value < 1) fadeUniform.value = Math.min(1, fadeUniform.value + dt * 1.6);
       const targetLod = userData.lo ? 1 : 0,
         morphUniform = userData.morph;
       if (morphUniform.value !== targetLod)
@@ -139,9 +133,7 @@ export class ChunkManager {
       const isLowLod = !!userData.lo && morphUniform.value >= 1;
       if (userData.usingLo !== isLowLod) {
         userData.usingLo = isLowLod;
-        m.geometry.setIndex(
-          isLowLod ? this.shared!.idxLo : this.shared!.idx,
-        );
+        m.geometry.setIndex(isLowLod ? this.shared!.idxLo : this.shared!.idx);
       } // swap index once the surfaces coincide
     }
     for (let i = this.dying.length - 1; i >= 0; i--) {
@@ -164,15 +156,10 @@ export class ChunkManager {
       totalVertexCount = gridSize * gridSize + 4 * CS,
       perimeterVertexIds: number[] = []; // perimeter vertex ids in loop order (skirt vertices are duplicates of these)
     for (let a = 0; a < gridSize; a++) perimeterVertexIds.push(a);
-    for (let b = 1; b < gridSize; b++)
-      perimeterVertexIds.push(b * gridSize + gridSize - 1);
-    for (let a = gridSize - 2; a >= 0; a--)
-      perimeterVertexIds.push((gridSize - 1) * gridSize + a);
-    for (let b = gridSize - 2; b >= 1; b--)
-      perimeterVertexIds.push(b * gridSize);
-    const idx = new Uint32Array(
-      6 * CS * CS + 6 * perimeterVertexIds.length,
-    );
+    for (let b = 1; b < gridSize; b++) perimeterVertexIds.push(b * gridSize + gridSize - 1);
+    for (let a = gridSize - 2; a >= 0; a--) perimeterVertexIds.push((gridSize - 1) * gridSize + a);
+    for (let b = gridSize - 2; b >= 1; b--) perimeterVertexIds.push(b * gridSize);
+    const idx = new Uint32Array(6 * CS * CS + 6 * perimeterVertexIds.length);
     let t = 0;
     for (let b = 0; b < CS; b++)
       for (let a = 0; a < CS; a++) {
@@ -189,23 +176,14 @@ export class ChunkManager {
       t += 6;
     });
     const halfResCount = CS / 2,
-      lo = new Uint32Array(
-        6 * halfResCount * halfResCount + 3 * perimeterVertexIds.length,
-      );
+      lo = new Uint32Array(6 * halfResCount * halfResCount + 3 * perimeterVertexIds.length);
     t = 0; // half resolution (every second vertex); skirts hide LOD seams
     for (let b = 0; b < halfResCount; b++)
       for (let a = 0; a < halfResCount; a++) {
         const i0 = 2 * b * gridSize + 2 * a;
         lo.set(
-          [
-            i0,
-            i0 + 2,
-            i0 + 2 * gridSize,
-            i0 + 2,
-            i0 + 2 * gridSize + 2,
-            i0 + 2 * gridSize,
-          ],
-          t,
+          [i0, i0 + 2, i0 + 2 * gridSize, i0 + 2, i0 + 2 * gridSize + 2, i0 + 2 * gridSize],
+          t
         );
         t += 6;
       }
@@ -221,14 +199,9 @@ export class ChunkManager {
     const aL = new Float32Array(totalVertexCount * 2),
       aS = new Float32Array(totalVertexCount);
     for (let b = 0; b < gridSize; b++)
-      for (let a = 0; a < gridSize; a++)
-        aL.set([a, b], (b * gridSize + a) * 2);
+      for (let a = 0; a < gridSize; a++) aL.set([a, b], (b * gridSize + a) * 2);
     perimeterVertexIds.forEach((src, k) => {
-      aL.copyWithin(
-        (gridSize * gridSize + k) * 2,
-        src * 2,
-        src * 2 + 2,
-      );
+      aL.copyWithin((gridSize * gridSize + k) * 2, src * 2, src * 2 + 2);
       aS[gridSize * gridSize + k] = 1;
     });
     return (this.shared = {
@@ -240,17 +213,10 @@ export class ChunkManager {
     });
   }
 
-  private make(
-    fr: Frame,
-    ci: number,
-    cj: number,
-    key: string,
-    isLowLod: boolean,
-  ) {
+  private make(fr: Frame, ci: number, cj: number, key: string, isLowLod: boolean) {
     const gridSize = CS + 1,
       shared = this.buffers(),
-      faceCode =
-        fr.face * 2 + (fr.normal.getComponent(fr.face) < 0 ? 1 : 0);
+      faceCode = fr.face * 2 + (fr.normal.getComponent(fr.face) < 0 ? 1 : 0);
     let m = this.pool.pop();
     if (!m) {
       // new pool slot: material + two bake targets are created once and reused for every chunk
@@ -273,7 +239,7 @@ export class ChunkManager {
           uCh,
           uFade: fade,
           uMorph: morph,
-        }),
+        })
       );
       m.receiveShadow = true;
       m.matrixAutoUpdate = false;
@@ -298,10 +264,7 @@ export class ChunkManager {
         .addScaledVector(fr.tangentV, (cj * CS + CS / 2) * CC)
         .normalize()
         .multiplyScalar(R);
-    m.geometry.boundingSphere!.set(
-      chunkCenter,
-      CS * CC * 0.75 + S.amplitude * 1.5 + 10,
-    );
+    m.geometry.boundingSphere!.set(chunkCenter, CS * CC * 0.75 + S.amplitude * 1.5 + 10);
     this.group.add(m);
     this.map.set(key, m);
   }

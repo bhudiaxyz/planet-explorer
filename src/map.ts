@@ -5,7 +5,8 @@ import { type Landmark, LANDMARK_ICON } from "./landmarks";
 import type { Spot } from "./spots";
 import { U } from "./fx";
 
-const W = 1024, H = 512;
+const W = 1024,
+  H = 512;
 
 // emoji icon per landmark kind — matches visual style of scouted locations
 
@@ -29,19 +30,21 @@ export class MapOverlay {
 
   setSpots(spots: Spot[]) {
     // exclude landmark spots — they are drawn separately via this.landmarks
-    this.ungroupedSpots = spots.filter(s => !s.group || !(s.group in LANDMARK_ICON));
+    this.ungroupedSpots = spots.filter((s) => !s.group || !(s.group in LANDMARK_ICON));
   }
 
   constructor(
     private renderer: THREE.WebGLRenderer,
     private planet: Planet,
-    private player: Player,
+    private player: Player
   ) {
     this.bg = document.createElement("div");
     Object.assign(this.bg.style, {
-      position: "fixed", inset: "0",
+      position: "fixed",
+      inset: "0",
       background: "rgba(0,0,0,0.72)",
-      display: "none", zIndex: "39",
+      display: "none",
+      zIndex: "39",
     });
 
     this.canvas = document.createElement("canvas");
@@ -52,12 +55,14 @@ export class MapOverlay {
     this.container = document.createElement("div");
     Object.assign(this.container.style, {
       position: "fixed",
-      top: "50%", left: "50%",
+      top: "50%",
+      left: "50%",
       transform: "translate(-50%,-50%)",
       // clamp fills ~92 % of narrow screens (portrait phone) while capping at 960 px on desktop
       width: "clamp(300px, 92vw, 960px)",
       height: "clamp(150px, 46vw, 480px)",
-      display: "none", zIndex: "40",
+      display: "none",
+      zIndex: "40",
       border: "1px solid rgba(201,173,115,.4)",
       borderRadius: "4px",
       overflow: "hidden",
@@ -68,7 +73,8 @@ export class MapOverlay {
     document.body.appendChild(this.bg);
     document.body.appendChild(this.container);
 
-    const OW = 256, OH = 128;
+    const OW = 256,
+      OH = 128;
     this.nightCanvas = document.createElement("canvas");
     this.nightCanvas.width = OW;
     this.nightCanvas.height = OH;
@@ -76,13 +82,18 @@ export class MapOverlay {
     this.nightBuf = new Uint8ClampedArray(OW * OH * 4);
     this.nightImageData = new ImageData(OW, OH);
 
-    addEventListener("keydown", e => {
+    addEventListener("keydown", (e) => {
       if (e.code === "Escape" && this.visible) this.toggle();
     });
 
     // tap outside map (on bg) closes it — primary close path on touch devices
-    this.bg.addEventListener("click", () => { if (this.visible) this.toggle(); });
-    this.bg.addEventListener("touchend", e => { e.stopPropagation(); if (this.visible) this.toggle(); });
+    this.bg.addEventListener("click", () => {
+      if (this.visible) this.toggle();
+    });
+    this.bg.addEventListener("touchend", (e) => {
+      e.stopPropagation();
+      if (this.visible) this.toggle();
+    });
   }
 
   toggle() {
@@ -122,7 +133,7 @@ export class MapOverlay {
     });
     const mat = new THREE.ShaderMaterial({
       uniforms: {
-        uCube:  { value: atlas.rtC.texture },
+        uCube: { value: atlas.rtC.texture },
         uCubeN: { value: atlas.rtN.texture },
       },
       vertexShader: `void main() { gl_Position = vec4(position.xy, 0., 1.); }`,
@@ -175,23 +186,24 @@ export class MapOverlay {
 
     // bake landmarks + spots into a static canvas — avoids per-frame putImageData + label redraws
     const bc = document.createElement("canvas");
-    bc.width = W; bc.height = H;
+    bc.width = W;
+    bc.height = H;
     const bctx = bc.getContext("2d")!;
     bctx.putImageData(imgData, 0, 0);
     // Draw rivers — 3-pass glow + bright centre + name labels at midpoint
-    const rivers  = this.planet.riverSystem?.paths;
-    const rNames  = this.planet.riverSystem?.names;
+    const rivers = this.planet.riverSystem?.paths;
+    const rNames = this.planet.riverSystem?.names;
     if (rivers) {
       // Project a 3D path to canvas pixel coords, breaking at antimeridian
       const projectPath = (path: THREE.Vector3[]) => {
         const pts: Array<{ px: number; py: number; move: boolean }> = [];
         let prevLon = 0;
         for (let i = 0; i < path.length; i++) {
-          const pt  = path[i].clone().normalize();
+          const pt = path[i].clone().normalize();
           const lat = Math.asin(Math.max(-1, Math.min(1, pt.y)));
           const lon = Math.atan2(pt.z, pt.x);
           pts.push({
-            px: ((lon / (Math.PI * 2)) + 0.5) * W,
+            px: (lon / (Math.PI * 2) + 0.5) * W,
             py: (0.5 - lat / Math.PI) * H,
             move: i === 0 || Math.abs(lon - prevLon) > Math.PI,
           });
@@ -202,25 +214,27 @@ export class MapOverlay {
 
       const drawPaths = (strokeStyle: string, lineWidth: number, blur: number) => {
         bctx.strokeStyle = strokeStyle;
-        bctx.lineWidth   = lineWidth;
+        bctx.lineWidth = lineWidth;
         bctx.shadowColor = strokeStyle;
-        bctx.shadowBlur  = blur;
+        bctx.shadowBlur = blur;
         for (const path of rivers) {
           if (path.length < 2) continue;
           const pts = projectPath(path);
           bctx.beginPath();
           for (const { px, py, move } of pts) {
-            if (move) bctx.moveTo(px, py); else bctx.lineTo(px, py);
+            if (move) bctx.moveTo(px, py);
+            else bctx.lineTo(px, py);
           }
           bctx.stroke();
         }
       };
 
       bctx.save();
-      bctx.lineCap = "round"; bctx.lineJoin = "round";
+      bctx.lineCap = "round";
+      bctx.lineJoin = "round";
       drawPaths("rgba(40, 110, 230, 0.30)", 16, 20); // broad outer halo
-      drawPaths("rgba(80, 165, 255, 0.60)",  8, 10); // mid glow
-      drawPaths("rgba(160, 215, 255, 0.90)", 3,  4); // inner bright line
+      drawPaths("rgba(80, 165, 255, 0.60)", 8, 10); // mid glow
+      drawPaths("rgba(160, 215, 255, 0.90)", 3, 4); // inner bright line
       drawPaths("rgba(220, 245, 255, 1.00)", 1.5, 0); // crisp centre
       bctx.restore();
 
@@ -235,10 +249,11 @@ export class MapOverlay {
           const mid = path[Math.floor(path.length * 0.45)].clone().normalize();
           const lat = Math.asin(Math.max(-1, Math.min(1, mid.y)));
           const lon = Math.atan2(mid.z, mid.x);
-          const px  = ((lon / (Math.PI * 2)) + 0.5) * W;
-          const py  = (0.5 - lat / Math.PI) * H;
+          const px = (lon / (Math.PI * 2) + 0.5) * W;
+          const py = (0.5 - lat / Math.PI) * H;
           const name = rNames[ri] ?? "";
-          bctx.shadowColor = "rgba(0,20,60,0.9)"; bctx.shadowBlur = 5;
+          bctx.shadowColor = "rgba(0,20,60,0.9)";
+          bctx.shadowBlur = 5;
           bctx.fillStyle = "rgba(160, 220, 255, 0.9)";
           bctx.fillText(name, px, py - 5);
         }
@@ -251,7 +266,7 @@ export class MapOverlay {
       const d = lm.pos.clone().normalize();
       const lat = Math.asin(Math.max(-1, Math.min(1, d.y)));
       const lon = Math.atan2(d.z, d.x);
-      const px = ((lon / (Math.PI * 2)) + 0.5) * W;
+      const px = (lon / (Math.PI * 2) + 0.5) * W;
       const py = (0.5 - lat / Math.PI) * H;
       const icon = LANDMARK_ICON[lm.name] ?? "📍";
       bctx.fillStyle = "rgba(0,0,0,0.55)";
@@ -268,7 +283,7 @@ export class MapOverlay {
     for (const sp of this.ungroupedSpots) {
       const lat = Math.asin(Math.max(-1, Math.min(1, sp.dir.y)));
       const lon = Math.atan2(sp.dir.z, sp.dir.x);
-      const px = ((lon / (Math.PI * 2)) + 0.5) * W;
+      const px = (lon / (Math.PI * 2) + 0.5) * W;
       const py = (0.5 - lat / Math.PI) * H;
       bctx.fillStyle = "rgba(0,0,0,0.55)";
       bctx.fillText(sp.icon, px + 1, py + 6);
@@ -289,19 +304,26 @@ export class MapOverlay {
     // skip pixel rebuild if sun hasn't moved noticeably
     if (sun.distanceToSquared(this.lastSun) > 1e-6) {
       this.lastSun.copy(sun);
-      const OW = this.nightCanvas.width, OH = this.nightCanvas.height;
+      const OW = this.nightCanvas.width,
+        OH = this.nightCanvas.height;
       const buf = this.nightBuf;
       for (let y = 0; y < OH; y++) {
         const lat = (0.5 - y / OH) * Math.PI;
-        const cosLat = Math.cos(lat), sinLat = Math.sin(lat);
+        const cosLat = Math.cos(lat),
+          sinLat = Math.sin(lat);
         for (let x = 0; x < OW; x++) {
           const lon = (x / OW - 0.5) * Math.PI * 2;
-          const dx = cosLat * Math.cos(lon), dy = sinLat, dz = cosLat * Math.sin(lon);
+          const dx = cosLat * Math.cos(lon),
+            dy = sinLat,
+            dz = cosLat * Math.sin(lon);
           const dot = dx * sun.x + dy * sun.y + dz * sun.z;
           const t = 1 - Math.max(0, Math.min(1, (dot + 0.07) / 0.14));
           const alpha = Math.round(t * 148);
           const i = (y * OW + x) * 4;
-          buf[i] = 0; buf[i+1] = 0; buf[i+2] = 8; buf[i+3] = alpha;
+          buf[i] = 0;
+          buf[i + 1] = 0;
+          buf[i + 2] = 8;
+          buf[i + 3] = alpha;
         }
       }
       this.nightImageData.data.set(buf);
@@ -328,7 +350,9 @@ export class MapOverlay {
 
   private drawCompass() {
     const ctx = this.ctx;
-    const cx = W - 46, cy = 46, r = 28;
+    const cx = W - 46,
+      cy = 46,
+      r = 28;
     ctx.save();
     ctx.shadowColor = "rgba(0,0,0,0.8)";
     ctx.shadowBlur = 6;
@@ -360,12 +384,12 @@ export class MapOverlay {
   }
 
   private drawDot() {
-    const px = ((this.dotLon / (Math.PI * 2)) + 0.5) * W;
+    const px = (this.dotLon / (Math.PI * 2) + 0.5) * W;
     const py = (0.5 - this.dotLat / Math.PI) * H;
     const ctx = this.ctx;
     ctx.save();
     ctx.translate(px, py);
-    ctx.rotate(this.dotHeading * Math.PI / 180);
+    ctx.rotate((this.dotHeading * Math.PI) / 180);
     ctx.shadowColor = "rgba(0,0,0,0.9)";
     ctx.shadowBlur = 4;
     ctx.fillStyle = "#ee8844";
@@ -384,10 +408,11 @@ export class MapOverlay {
     this.dotLat = Math.asin(Math.max(-1, Math.min(1, up.y)));
     this.dotLon = Math.atan2(up.z, up.x);
     const fwd = this.player.forward;
-    const eastX = -Math.sin(this.dotLon), eastZ = Math.cos(this.dotLon);
+    const eastX = -Math.sin(this.dotLon),
+      eastZ = Math.cos(this.dotLon);
     const northX = -Math.sin(this.dotLat) * Math.cos(this.dotLon),
-          northY = Math.cos(this.dotLat),
-          northZ = -Math.sin(this.dotLat) * Math.sin(this.dotLon);
+      northY = Math.cos(this.dotLat),
+      northZ = -Math.sin(this.dotLat) * Math.sin(this.dotLon);
     const e = fwd.x * eastX + fwd.z * eastZ;
     const n = fwd.x * northX + fwd.y * northY + fwd.z * northZ;
     this.dotHeading = Math.atan2(e, n) * (180 / Math.PI);

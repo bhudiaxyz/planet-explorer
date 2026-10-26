@@ -6,13 +6,7 @@ import { T, TERRAIN_GLSL } from "./terrain";
 import { makeRT, draw, QUAD_VS, readRT } from "./bake";
 import { U, TINT_GLSL, IGN } from "./fx";
 import { CFG } from "./config";
-import {
-  PLANTS,
-  type PlantSpec,
-  type Tier,
-  decideGLSL,
-  lookGLSL,
-} from "./plants";
+import { PLANTS, type PlantSpec, type Tier, decideGLSL, lookGLSL } from "./plants";
 
 // GPU ground cover. Layer = one plant type at one distance tier. Placement is decided in a bake pass (one texel per instance cell) that reruns only when the
 // lattice centre moves; the per-frame vertex shader reads that texel, rebuilds orientation/scale/tint from hashes (catalog `look`), applies wind, lean, player
@@ -116,18 +110,14 @@ class Layer {
     for (const k in geo.attributes) g.setAttribute(k, geo.attributes[k]);
     const cells: number[] = [];
     for (let y = -K; y <= K; y++)
-      for (let x = -K; x <= K; x++)
-        if (x * x + y * y <= K * K) cells.push(x, y); // only cells inside the disc are instanced
-    g.setAttribute(
-      "aCell",
-      new THREE.InstancedBufferAttribute(new Float32Array(cells), 2),
-    );
+      for (let x = -K; x <= K; x++) if (x * x + y * y <= K * K) cells.push(x, y); // only cells inside the disc are instanced
+    g.setAttribute("aCell", new THREE.InstancedBufferAttribute(new Float32Array(cells), 2));
     g.instanceCount = cells.length / 2;
     // Scale LOD distances with the disc radius so the fade band always fits inside the disc.
     // Without this, a 0.8× disc on medium GPU ends at ~128 m while outerGone stays at 152 m,
     // creating a dead zone that causes a visible edge-pop.
     const lodMul = plantRadiusMul();
-    const [outerFull, outerGone, innerGone, innerFull] = tier.lod.map(v => v * lodMul),
+    const [outerFull, outerGone, innerGone, innerFull] = tier.lod.map((v) => v * lodMul),
       f = (v: number) => v.toFixed(2);
     const defines = {
       KIND: spec.kind,
@@ -185,26 +175,26 @@ void main() {
       shaderParams.vertexShader = shaderParams.vertexShader
         .replace(
           "#include <common>",
-          `#include <common>\nattribute vec2 aCell;uniform vec3 uSC,uPl,uSun;uniform float uK,uTime,uWind,uSway,uVeg;uniform sampler2D uP;varying float vOuterF,vInnerF;\n${TERRAIN_GLSL}`,
+          `#include <common>\nattribute vec2 aCell;uniform vec3 uSC,uPl,uSun;uniform float uK,uTime,uWind,uSway,uVeg;uniform sampler2D uP;varying float vOuterF,vInnerF;\n${TERRAIN_GLSL}`
         )
         .replace("#include <beginnormal_vertex>", BEGIN)
         .replace("#include <begin_vertex>", "vec3 transformed=gP;")
         .replace(
           "#include <project_vertex>",
-          "#include <project_vertex>\nif(kill)gl_Position=vec4(2.,2.,2.,1.);",
+          "#include <project_vertex>\nif(kill)gl_Position=vec4(2.,2.,2.,1.);"
         );
       shaderParams.fragmentShader = shaderParams.fragmentShader
         .replace(
           "#include <common>",
-          `#include <common>\nuniform vec3 uSun;uniform float uDayF;varying float vOuterF,vInnerF;\n${IGN}`,
+          `#include <common>\nuniform vec3 uSun;uniform float uDayF;varying float vOuterF,vInnerF;\n${IGN}`
         )
         .replace(
           "#include <alphatest_fragment>",
-          "#include <alphatest_fragment>\nif(vOuterF<1.&&ign(gl_FragCoord.xy)>vOuterF)discard;\nif(vInnerF<1.&&ign(gl_FragCoord.xy+vec2(17.,31.))>vInnerF)discard;",
+          "#include <alphatest_fragment>\nif(vOuterF<1.&&ign(gl_FragCoord.xy)>vOuterF)discard;\nif(vInnerF<1.&&ign(gl_FragCoord.xy+vec2(17.,31.))>vInnerF)discard;"
         )
         .replace(
           "#include <emissivemap_fragment>",
-          `#include <emissivemap_fragment>\n{vec3 sv=normalize((viewMatrix*vec4(uSun,0.)).xyz);float tr=pow(clamp(dot(-normalize(vViewPosition),sv),0.,1.),3.)*uDayF;totalEmissiveRadiance+=diffuseColor.rgb*tr*${spec.kind === 0 ? ".9" : ".3"};}\n${TINT_GLSL}`,
+          `#include <emissivemap_fragment>\n{vec3 sv=normalize((viewMatrix*vec4(uSun,0.)).xyz);float tr=pow(clamp(dot(-normalize(vViewPosition),sv),0.,1.),3.)*uDayF;totalEmissiveRadiance+=diffuseColor.rgb*tr*${spec.kind === 0 ? ".9" : ".3"};}\n${TINT_GLSL}`
         );
     };
     this.mesh = new THREE.Mesh(g, m);
@@ -216,18 +206,13 @@ void main() {
   /** Rebakes placement when the lattice centre moved. Returns true if a bake happened (so the caller can budget bakes per frame). */
   update(playerDirection: THREE.Vector3, planetRadius: number, allowBake = true): boolean {
     const fr = frame(playerDirection, planetRadius, this.cell, this.scratchFrame);
-    if (
-      fr.face === this.lastFace &&
-      fr.cellI === this.lastCellI &&
-      fr.cellJ === this.lastCellJ
-    )
+    if (fr.face === this.lastFace && fr.cellI === this.lastCellI && fr.cellJ === this.lastCellJ)
       return false;
     if (!allowBake) return false;
     this.lastFace = fr.face;
     this.lastCellI = fr.cellI;
     this.lastCellJ = fr.cellJ;
-    const faceCode =
-      fr.face * 2 + (fr.normal.getComponent(fr.face) < 0 ? 1 : 0);
+    const faceCode = fr.face * 2 + (fr.normal.getComponent(fr.face) < 0 ? 1 : 0);
     this.uSC.value.set(fr.cellI, fr.cellJ, faceCode);
     draw(this.rt, this.bake);
     if (this.collide) {
@@ -260,8 +245,8 @@ export class Scatter {
   constructor(private pl: Planet) {
     for (const spec of PLANTS)
       for (const tier of spec.tiers) {
-        if (tier.far && gpuTier !== 'high') continue;   // far tiers: high GPU only
-        if (!tier.near && gpuTier === 'low') continue;  // mid tiers: medium+ only
+        if (tier.far && gpuTier !== "high") continue; // far tiers: high GPU only
+        if (!tier.near && gpuTier === "low") continue; // mid tiers: medium+ only
         const l = new Layer(spec, tier);
         if (spec.collide && tier.near) {
           l.collide = true;
@@ -272,28 +257,26 @@ export class Scatter {
       }
   }
   /** Invalidate all layer placement caches — call when palette changes to rebake vertex colours. */
-  rebuild() { this.dirty = true; }
+  rebuild() {
+    this.dirty = true;
+  }
   update(playerDirection: THREE.Vector3, alt: number, dt = 0.016) {
     U.uVeg.value = 1 - smoothstep(CFG.vegetation.altFadeStart, CFG.vegetation.altFadeEnd, alt);
     this.group.visible = alt < CFG.vegetation.altCullAbove;
-    let budget = gpuTier === 'low' ? Math.max(2, Math.round(2 * dt * 60)) : Math.max(2, Math.round(4 * dt * 60));
+    let budget =
+      gpuTier === "low"
+        ? Math.max(2, Math.round(2 * dt * 60))
+        : Math.max(2, Math.round(4 * dt * 60));
     if (this.dirty) {
       this.layers.forEach((l) => (l.lastFace = -1));
       this.dirty = false;
-      budget = gpuTier === 'low' ? 14 : gpuTier === 'medium' ? 20 : this.layers.length;
+      budget = gpuTier === "low" ? 14 : gpuTier === "medium" ? 20 : this.layers.length;
     }
     if (alt >= 255) return;
     const n = this.layers.length;
     const s = this.roundRobinIndex;
     this.roundRobinIndex = (s + 1) % n; // at most 4 placement bakes per frame, round-robin
     for (let i = 0; i < n; i++)
-      if (
-        this.layers[(s + i) % n].update(
-          playerDirection,
-          this.pl.radius,
-          budget > 0,
-        )
-      )
-        budget--;
+      if (this.layers[(s + i) % n].update(playerDirection, this.pl.radius, budget > 0)) budget--;
   }
 }

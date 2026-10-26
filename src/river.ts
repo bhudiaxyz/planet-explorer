@@ -31,28 +31,36 @@ function chaikin(pts: THREE.Vector3[], rounds: number): THREE.Vector3[] {
 // Path tracing (tracePath / tracePathToTarget inner loop)
 const _scratch = {
   path: {
-    up:    new THREE.Vector3(), east:  new THREE.Vector3(),
-    north: new THREE.Vector3(), ref:   new THREE.Vector3(),
-    off:   new THREE.Vector3(), nbr:   new THREE.Vector3(),
+    up: new THREE.Vector3(),
+    east: new THREE.Vector3(),
+    north: new THREE.Vector3(),
+    ref: new THREE.Vector3(),
+    off: new THREE.Vector3(),
+    nbr: new THREE.Vector3(),
   },
   // Tributary junction math (~7 allocs × 12 tributaries per build)
   trib: {
-    jPt:   new THREE.Vector3(), fPrev: new THREE.Vector3(),
-    fNext: new THREE.Vector3(), fDir:  new THREE.Vector3(),
-    right: new THREE.Vector3(), start: new THREE.Vector3(),
+    jPt: new THREE.Vector3(),
+    fPrev: new THREE.Vector3(),
+    fNext: new THREE.Vector3(),
+    fDir: new THREE.Vector3(),
+    right: new THREE.Vector3(),
+    start: new THREE.Vector3(),
   },
   // Source-finding loop (up to 500 attempts)
   src: new THREE.Vector3(),
   // addMeanders (one alloc per path point → now zero)
   meander: {
-    sn:      new THREE.Vector3(),
+    sn: new THREE.Vector3(),
     tangent: new THREE.Vector3(),
-    right:   new THREE.Vector3(),
+    right: new THREE.Vector3(),
   },
   // _buildGeometry ribbon edges (two allocs per vertex → now zero)
   geo: {
-    tangent: new THREE.Vector3(), normal:   new THREE.Vector3(),
-    right:   new THREE.Vector3(), left:     new THREE.Vector3(),
+    tangent: new THREE.Vector3(),
+    normal: new THREE.Vector3(),
+    right: new THREE.Vector3(),
+    left: new THREE.Vector3(),
     rightPt: new THREE.Vector3(),
   },
 };
@@ -63,18 +71,21 @@ const _scratch = {
 
 function addMeanders(pts: THREE.Vector3[], rand: () => number, ampMul = 1): THREE.Vector3[] {
   if (pts.length < 4) return pts;
-  const phase  = rand() * Math.PI * 2;
+  const phase = rand() * Math.PI * 2;
   const phase2 = rand() * Math.PI * 2;
-  const freq1  = 0.08 + rand() * 0.07; // primary wave — controls spacing
-  const freq2  = freq1 * 1.7 + rand() * 0.04; // secondary wave — breaks uniformity
-  const amp    = (5  + rand() * 6) * ampMul;  // max lateral offset in metres
+  const freq1 = 0.08 + rand() * 0.07; // primary wave — controls spacing
+  const freq2 = freq1 * 1.7 + rand() * 0.04; // secondary wave — breaks uniformity
+  const amp = (5 + rand() * 6) * ampMul; // max lateral offset in metres
   return pts.map((pt, i) => {
-    const t   = i / (pts.length - 1);
-    const env = Math.min(t / 0.20, 1) * Math.min((1 - t) / 0.15, 1); // fade at ends
+    const t = i / (pts.length - 1);
+    const env = Math.min(t / 0.2, 1) * Math.min((1 - t) / 0.15, 1); // fade at ends
     // Two overlapping frequencies → irregular natural bends; C2: amplitude rises near mouth
     const terrainFactor = 0.4 + t * 0.6;
-    const disp = (Math.sin(i * freq1 + phase) * 0.7 + Math.sin(i * freq2 + phase2) * 0.3)
-                  * amp * env * terrainFactor;
+    const disp =
+      (Math.sin(i * freq1 + phase) * 0.7 + Math.sin(i * freq2 + phase2) * 0.3) *
+      amp *
+      env *
+      terrainFactor;
     if (Math.abs(disp) < 0.01) return pt;
     const { sn, tangent, right } = _scratch.meander;
     sn.copy(pt).normalize();
@@ -92,12 +103,11 @@ function riverName(index: number): string {
 }
 
 // Hoisted — rebuilt per call previously, wasting 1080+ short-lived arrays on a full planet build
-const DIRS = [0, 1, 2, 3, 4, 5, 6, 7].map(i => (i * Math.PI) / 4);
+const DIRS = [0, 1, 2, 3, 4, 5, 6, 7].map((i) => (i * Math.PI) / 4);
 
-const yieldFrame = () => new Promise<void>(r => setTimeout(r));
+const yieldFrame = () => new Promise<void>((r) => setTimeout(r));
 
 type LakeDef = { center: THREE.Vector3; radius: number; aspect: number };
-
 
 // ---- Shaders ------------------------------------------------------------------
 
@@ -203,13 +213,15 @@ export class RiverSystem {
     this.mesh.removeFromParent();
   }
 
-  private async _generatePaths(planet: Planet): Promise<{ paths: THREE.Vector3[][], scales: number[], lakes: LakeDef[] }> {
+  private async _generatePaths(
+    planet: Planet
+  ): Promise<{ paths: THREE.Vector3[][]; scales: number[]; lakes: LakeDef[] }> {
     const R = planet.radius;
     const cfg = CFG.river;
     // Reduce CPU path work on low-tier mobile (fewer rivers, shorter paths)
-    const tierCount = gpuTier === 'low' ? Math.max(2, Math.ceil(cfg.count / 2)) : cfg.count;
-    const tierMaxSteps = gpuTier === 'low' ? Math.ceil(cfg.maxSteps * 0.6) : cfg.maxSteps;
-    const tierTributaries = gpuTier === 'low' ? 1 : cfg.tributaries;
+    const tierCount = gpuTier === "low" ? Math.max(2, Math.ceil(cfg.count / 2)) : cfg.count;
+    const tierMaxSteps = gpuTier === "low" ? Math.ceil(cfg.maxSteps * 0.6) : cfg.maxSteps;
+    const tierTributaries = gpuTier === "low" ? 1 : cfg.tributaries;
     const rand = rng(S.seed + 9999);
     const cosMin = Math.cos((cfg.minSourceSpacingDeg * Math.PI) / 180);
 
@@ -218,7 +230,10 @@ export class RiverSystem {
     let _lastYield = performance.now();
     const mayYield = async () => {
       const t = performance.now();
-      if (t - _lastYield >= 4) { await yieldFrame(); _lastYield = performance.now(); }
+      if (t - _lastYield >= 4) {
+        await yieldFrame();
+        _lastYield = performance.now();
+      }
     };
 
     // Find main river sources: high elevation, high moisture, well spaced
@@ -236,36 +251,41 @@ export class RiverSystem {
       const moist = planet.moistureAt(_scratch.src);
       if (elev < cfg.sourceMinElev) continue;
       if (moist < cfg.sourceMinMoisture) continue;
-      if (sources.some(s => s.dot(_scratch.src) > cosMin)) continue;
+      if (sources.some((s) => s.dot(_scratch.src) > cosMin)) continue;
       sources.push(_scratch.src.clone());
     }
 
     // River archetypes: stream = narrow/gentle, river = normal, wide = broad/meandering
-    const ARCHETYPES = ['stream', 'river', 'river', 'river', 'wide'] as const;
-    type Arch = typeof ARCHETYPES[number];
-    const archW = (a: Arch) => a === 'stream' ? 0.38 : a === 'wide' ? 1.45 : 1.0;
-    const archM = (a: Arch) => a === 'stream' ? 0.25 : a === 'wide' ? 1.90 : 1.0;
+    const ARCHETYPES = ["stream", "river", "river", "river", "wide"] as const;
+    type Arch = (typeof ARCHETYPES)[number];
+    const archW = (a: Arch) => (a === "stream" ? 0.38 : a === "wide" ? 1.45 : 1.0);
+    const archM = (a: Arch) => (a === "stream" ? 0.25 : a === "wide" ? 1.9 : 1.0);
 
     const mainPaths: THREE.Vector3[][] = [];
-    const mainScales: number[] = [], mainMeanders: number[] = [];
+    const mainScales: number[] = [],
+      mainMeanders: number[] = [];
     const tribPaths: THREE.Vector3[][] = [];
-    const tribScales: number[] = [], tribMeanders: number[] = [];
+    const tribScales: number[] = [],
+      tribMeanders: number[] = [];
     // Tributaries use shorter paths — they're side branches, not full rivers
     const tribMaxSteps = Math.ceil(tierMaxSteps * 0.6);
 
     for (const src of sources) {
       await mayYield();
       const arch = ARCHETYPES[Math.floor(rand() * ARCHETYPES.length)];
-      const ws = archW(arch), ms = archM(arch);
+      const ws = archW(arch),
+        ms = archM(arch);
       const main = this._tracePath(src, planet, R, tierMaxSteps);
       if (main.length < 5) continue;
-      mainPaths.push(main); mainScales.push(ws); mainMeanders.push(ms);
+      mainPaths.push(main);
+      mainScales.push(ws);
+      mainMeanders.push(ms);
 
       // Tributaries: evenly spread junctions across 20–65% of the main path
       for (let t = 0; t < tierTributaries; t++) {
         await mayYield();
         // Spread junctions evenly so tributaries don't all cluster at one point
-        const frac = 0.20 + (t / Math.max(tierTributaries - 1, 1)) * 0.45 + (rand() - 0.5) * 0.08;
+        const frac = 0.2 + (t / Math.max(tierTributaries - 1, 1)) * 0.45 + (rand() - 0.5) * 0.08;
         const junctionIdx = Math.min(Math.floor(frac * main.length), main.length - 2);
 
         // Use the flow direction at the junction (not world-up) — works everywhere on sphere
@@ -276,20 +296,32 @@ export class RiverSystem {
         _scratch.trib.right.crossVectors(_scratch.trib.fDir, _scratch.trib.jPt).normalize();
 
         // Alternate left/right, vary angle 15–30°
-        const side  = t % 2 === 0 ? 1 : -1;
+        const side = t % 2 === 0 ? 1 : -1;
         const angle = (15 + rand() * 15) * (Math.PI / 180) * side;
         // Step upstream and sideways from the junction to find a plausible tributary source
-        _scratch.trib.start.copy(_scratch.trib.jPt)
+        _scratch.trib.start
+          .copy(_scratch.trib.jPt)
           .addScaledVector(_scratch.trib.right, Math.sin(angle) * 0.18)
           .addScaledVector(_scratch.trib.fDir.negate(), 0.08) // negate in-place; _scratch.trib.fDir not used after
           .normalize();
 
-        const tElev = planet.elevationAt(_scratch.trib.start.x, _scratch.trib.start.y, _scratch.trib.start.z, false);
+        const tElev = planet.elevationAt(
+          _scratch.trib.start.x,
+          _scratch.trib.start.y,
+          _scratch.trib.start.z,
+          false
+        );
         if (tElev > cfg.sourceMinElev * 0.4) {
-          const trib = this._tracePathToTarget(_scratch.trib.start, main[junctionIdx], planet, R, tribMaxSteps);
+          const trib = this._tracePathToTarget(
+            _scratch.trib.start,
+            main[junctionIdx],
+            planet,
+            R,
+            tribMaxSteps
+          );
           if (trib.length >= 4) {
             tribPaths.push(trib);
-            tribScales.push(ws * 0.55);   // tributaries narrower than their main river
+            tribScales.push(ws * 0.55); // tributaries narrower than their main river
             tribMeanders.push(ms * 0.7);
           }
         }
@@ -303,48 +335,54 @@ export class RiverSystem {
     const overlaps = (candidate: THREE.Vector3[], pool: THREE.Vector3[][], maxFrac: number) => {
       let n = 0;
       for (const pt of candidate)
-        if (pool.some(acc => acc.some(op => pt.distanceToSquared(op) < thSq))) n++;
+        if (pool.some((acc) => acc.some((op) => pt.distanceToSquared(op) < thSq))) n++;
       return n / candidate.length >= maxFrac;
     };
 
     // Main rivers: keep all; only cull a main if >50% of it duplicates an earlier main.
     const accepted: THREE.Vector3[][] = [];
-    const acceptedScales: number[] = [], acceptedMeanders: number[] = [];
+    const acceptedScales: number[] = [],
+      acceptedMeanders: number[] = [];
     for (let i = 0; i < mainPaths.length; i++) {
-      if (!overlaps(mainPaths[i], accepted, 0.50)) {
-        accepted.push(mainPaths[i]); acceptedScales.push(mainScales[i]); acceptedMeanders.push(mainMeanders[i]);
+      if (!overlaps(mainPaths[i], accepted, 0.5)) {
+        accepted.push(mainPaths[i]);
+        acceptedScales.push(mainScales[i]);
+        acceptedMeanders.push(mainMeanders[i]);
       }
     }
     // Tributaries: stricter — cull if >40% overlaps any accepted path (main or trib).
     for (let i = 0; i < tribPaths.length; i++) {
-      if (!overlaps(tribPaths[i], accepted, 0.40)) {
-        accepted.push(tribPaths[i]); acceptedScales.push(tribScales[i]); acceptedMeanders.push(tribMeanders[i]);
+      if (!overlaps(tribPaths[i], accepted, 0.4)) {
+        accepted.push(tribPaths[i]);
+        acceptedScales.push(tribScales[i]);
+        acceptedMeanders.push(tribMeanders[i]);
       }
     }
 
     // Lakes: 0–2 still water bodies in moist, low-lying depressions above sea level.
     // Skipped on low tier (no fancy shader there anyway).
     const lakes: LakeDef[] = [];
-    if (gpuTier !== 'low') {
+    if (gpuTier !== "low") {
       const lakeThSq = 120 * 120;
       let pa = 0;
       while (lakes.length < 2 && pa++ < 120) {
-        const u2 = rand() * 2 - 1, phi2 = rand() * Math.PI * 2;
+        const u2 = rand() * 2 - 1,
+          phi2 = rand() * Math.PI * 2;
         const r2 = Math.sqrt(1 - u2 * u2);
         _scratch.src.set(r2 * Math.cos(phi2), u2, r2 * Math.sin(phi2));
         const elev = planet.elevationAt(_scratch.src.x, _scratch.src.y, _scratch.src.z, false);
         if (elev < 0.005 || elev > 0.07) continue;
         if (planet.moistureAt(_scratch.src) < 0.45) continue;
         const ctr = _scratch.src.clone().multiplyScalar(R);
-        if (accepted.some(p => p.some(pt => ctr.distanceToSquared(pt) < lakeThSq))) continue;
-        if (lakes.some(pd => pd.center.distanceToSquared(ctr) < lakeThSq)) continue;
+        if (accepted.some((p) => p.some((pt) => ctr.distanceToSquared(pt) < lakeThSq))) continue;
+        if (lakes.some((pd) => pd.center.distanceToSquared(ctr) < lakeThSq)) continue;
         lakes.push({ center: ctr, radius: 50 + rand() * 70, aspect: 0.55 + rand() * 0.9 });
       }
     }
 
     // Low tier: skip meanders + Chaikin (saves CPU + memory)
     // Medium/high: add sinusoidal meanders then smooth with Chaikin
-    if (gpuTier === 'low') return { paths: accepted, scales: acceptedScales, lakes };
+    if (gpuTier === "low") return { paths: accepted, scales: acceptedScales, lakes };
     const rounds = 2;
     return {
       paths: accepted.map((p, i) => chaikin(addMeanders(p, rand, acceptedMeanders[i]), rounds)),
@@ -353,7 +391,12 @@ export class RiverSystem {
     };
   }
 
-  private _tracePath(source: THREE.Vector3, planet: Planet, R: number, maxSteps: number = CFG.river.maxSteps): THREE.Vector3[] {
+  private _tracePath(
+    source: THREE.Vector3,
+    planet: Planet,
+    R: number,
+    maxSteps: number = CFG.river.maxSteps
+  ): THREE.Vector3[] {
     const cfg = CFG.river;
     const stepRad = cfg.stepSize / R;
 
@@ -370,17 +413,25 @@ export class RiverSystem {
       if (curElev <= 0) break; // reached ocean/lake — stop here
 
       _scratch.path.up.copy(cur);
-      if (Math.abs(_scratch.path.up.y) < 0.9) _scratch.path.ref.set(1, 0, 0); else _scratch.path.ref.set(0, 0, 1);
+      if (Math.abs(_scratch.path.up.y) < 0.9) _scratch.path.ref.set(1, 0, 0);
+      else _scratch.path.ref.set(0, 0, 1);
       _scratch.path.east.crossVectors(_scratch.path.up, _scratch.path.ref).normalize();
       _scratch.path.north.crossVectors(_scratch.path.east, _scratch.path.up).normalize();
 
       let bestScore = Infinity;
       let bestDir: THREE.Vector3 | null = null;
       for (const angle of DIRS) {
-        _scratch.path.off.copy(_scratch.path.east).multiplyScalar(Math.cos(angle) * stepRad)
+        _scratch.path.off
+          .copy(_scratch.path.east)
+          .multiplyScalar(Math.cos(angle) * stepRad)
           .addScaledVector(_scratch.path.north, Math.sin(angle) * stepRad);
         _scratch.path.nbr.copy(cur).add(_scratch.path.off).normalize();
-        const nElev = planet.elevationAt(_scratch.path.nbr.x, _scratch.path.nbr.y, _scratch.path.nbr.z, false);
+        const nElev = planet.elevationAt(
+          _scratch.path.nbr.x,
+          _scratch.path.nbr.y,
+          _scratch.path.nbr.z,
+          false
+        );
         // momentum: small bonus for continuing in the same direction, prevents zigzag on flat terrain
         const momentum = prevDir ? (1 - _scratch.path.nbr.dot(prevDir)) * 0.012 : 0;
         const score = nElev + momentum;
@@ -403,7 +454,7 @@ export class RiverSystem {
     target: THREE.Vector3,
     planet: Planet,
     R: number,
-    maxSteps: number = CFG.river.maxSteps,
+    maxSteps: number = CFG.river.maxSteps
   ): THREE.Vector3[] {
     const cfg = CFG.river;
     const stepRad = cfg.stepSize / R;
@@ -422,17 +473,25 @@ export class RiverSystem {
       if (curElev <= 0) break; // hit water — stop
 
       _scratch.path.up.copy(cur);
-      if (Math.abs(_scratch.path.up.y) < 0.9) _scratch.path.ref.set(1, 0, 0); else _scratch.path.ref.set(0, 0, 1);
+      if (Math.abs(_scratch.path.up.y) < 0.9) _scratch.path.ref.set(1, 0, 0);
+      else _scratch.path.ref.set(0, 0, 1);
       _scratch.path.east.crossVectors(_scratch.path.up, _scratch.path.ref).normalize();
       _scratch.path.north.crossVectors(_scratch.path.east, _scratch.path.up).normalize();
 
       let bestScore = Infinity;
       let bestDir: THREE.Vector3 | null = null;
       for (const angle of DIRS) {
-        _scratch.path.off.copy(_scratch.path.east).multiplyScalar(Math.cos(angle) * stepRad)
+        _scratch.path.off
+          .copy(_scratch.path.east)
+          .multiplyScalar(Math.cos(angle) * stepRad)
           .addScaledVector(_scratch.path.north, Math.sin(angle) * stepRad);
         _scratch.path.nbr.copy(cur).add(_scratch.path.off).normalize();
-        const nElev = planet.elevationAt(_scratch.path.nbr.x, _scratch.path.nbr.y, _scratch.path.nbr.z, false);
+        const nElev = planet.elevationAt(
+          _scratch.path.nbr.x,
+          _scratch.path.nbr.y,
+          _scratch.path.nbr.z,
+          false
+        );
         const distToTarget = _scratch.path.nbr.distanceTo(targetN);
         const score = nElev * 0.7 + distToTarget * 0.3;
         if (score < bestScore) {
@@ -448,7 +507,11 @@ export class RiverSystem {
     return path;
   }
 
-  private _buildGeometry(paths: THREE.Vector3[][], scales: number[], lakes: LakeDef[]): THREE.BufferGeometry {
+  private _buildGeometry(
+    paths: THREE.Vector3[][],
+    scales: number[],
+    lakes: LakeDef[]
+  ): THREE.BufferGeometry {
     const cfg = CFG.river;
     const positions: number[] = [];
     const normals: number[] = [];
@@ -471,15 +534,24 @@ export class RiverSystem {
         const t = i / (N - 1);
         // Taper from zero at source (first 15%) and back to zero at mouth (last 15%); widen quadratically between
         const taper = Math.min(t / 0.15, 1) * (t > 0.85 ? (1 - t) / 0.15 : 1);
-        const width = (cfg.widthStart + (cfg.widthEnd - cfg.widthStart) * (t * t)) * taper * scales[pi];
+        const width =
+          (cfg.widthStart + (cfg.widthEnd - cfg.widthStart) * (t * t)) * taper * scales[pi];
         const halfW = width * 0.5;
 
         // Sphere normal = outward unit direction from centre
         _scratch.geo.normal.copy(path[i]).normalize();
 
         // Tangent: direction of flow
-        if (i < N - 1) _scratch.geo.tangent.copy(path[i + 1]).sub(path[i]).normalize();
-        else _scratch.geo.tangent.copy(path[i]).sub(path[i - 1]).normalize();
+        if (i < N - 1)
+          _scratch.geo.tangent
+            .copy(path[i + 1])
+            .sub(path[i])
+            .normalize();
+        else
+          _scratch.geo.tangent
+            .copy(path[i])
+            .sub(path[i - 1])
+            .normalize();
 
         // Ribbon right = tangent × sphereNormal (cross gives perpendicular on sphere surface)
         _scratch.geo.right.crossVectors(_scratch.geo.tangent, _scratch.geo.normal).normalize();
@@ -517,8 +589,8 @@ export class RiverSystem {
     const LAKE_SEGS = 48;
     for (const lake of lakes) {
       const norm = lake.center.clone().normalize();
-      const ref  = Math.abs(norm.y) < 0.9 ? new THREE.Vector3(0, 1, 0) : new THREE.Vector3(1, 0, 0);
-      const east  = new THREE.Vector3().crossVectors(norm, ref).normalize();
+      const ref = Math.abs(norm.y) < 0.9 ? new THREE.Vector3(0, 1, 0) : new THREE.Vector3(1, 0, 0);
+      const east = new THREE.Vector3().crossVectors(norm, ref).normalize();
       const north = new THREE.Vector3().crossVectors(east, norm).normalize();
 
       const base = positions.length / 3;
@@ -530,8 +602,9 @@ export class RiverSystem {
       // Perimeter vertices
       for (let i = 0; i < LAKE_SEGS; i++) {
         const a = (i / LAKE_SEGS) * Math.PI * 2;
-        const pt = lake.center.clone()
-          .addScaledVector(east,  Math.cos(a) * lake.radius)
+        const pt = lake.center
+          .clone()
+          .addScaledVector(east, Math.cos(a) * lake.radius)
           .addScaledVector(north, Math.sin(a) * lake.radius * lake.aspect);
         positions.push(pt.x, pt.y, pt.z);
         normals.push(norm.x, norm.y, norm.z);
@@ -540,19 +613,19 @@ export class RiverSystem {
 
       // Fan triangles: centre + consecutive perimeter pairs
       for (let i = 0; i < LAKE_SEGS; i++)
-        indices.push(base, base + 1 + i, base + 1 + (i + 1) % LAKE_SEGS);
+        indices.push(base, base + 1 + i, base + 1 + ((i + 1) % LAKE_SEGS));
     }
 
     const geo = new THREE.BufferGeometry();
     geo.setAttribute("position", new THREE.BufferAttribute(new Float32Array(positions), 3));
-    geo.setAttribute("normal",   new THREE.BufferAttribute(new Float32Array(normals), 3));
-    geo.setAttribute("uv",       new THREE.BufferAttribute(new Float32Array(uvs), 2));
+    geo.setAttribute("normal", new THREE.BufferAttribute(new Float32Array(normals), 3));
+    geo.setAttribute("uv", new THREE.BufferAttribute(new Float32Array(uvs), 2));
     geo.setIndex(indices);
     return geo;
   }
 
   private _buildMaterial(): THREE.Material {
-    if (gpuTier === 'low') {
+    if (gpuTier === "low") {
       return new THREE.MeshBasicMaterial({
         color: 0x4a7a9b,
         transparent: true,
@@ -562,7 +635,7 @@ export class RiverSystem {
       });
     }
 
-    const highDetail = gpuTier === 'high' ? 1.0 : 0.0;
+    const highDetail = gpuTier === "high" ? 1.0 : 0.0;
 
     return new THREE.ShaderMaterial({
       transparent: true,

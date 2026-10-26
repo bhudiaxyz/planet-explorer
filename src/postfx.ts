@@ -25,21 +25,21 @@ export class PostFX {
   constructor(
     private renderer: THREE.WebGLRenderer,
     scene: THREE.Scene,
-    camera: THREE.Camera,
+    camera: THREE.Camera
   ) {
     const rt = new THREE.WebGLRenderTarget(innerWidth, innerHeight, {
       type: THREE.HalfFloatType,
-      samples: gpuTier === 'low' ? 0 : gpuTier === 'medium' ? 2 : 4,
+      samples: gpuTier === "low" ? 0 : gpuTier === "medium" ? 2 : 4,
     });
     rt.depthTexture = new THREE.DepthTexture(innerWidth, innerHeight);
     rt.depthTexture.format = THREE.DepthFormat;
-    rt.depthTexture.type   = THREE.FloatType;
+    rt.depthTexture.type = THREE.FloatType;
     this.composer = new EffectComposer(renderer, rt);
     this.bloom = new UnrealBloomPass(
       new THREE.Vector2(innerWidth / 2, innerHeight / 2),
-      gpuTier === 'low' ? 0.3 : 0.45,
-      gpuTier === 'low' ? 0.35 : 0.5,
-      0.75,
+      gpuTier === "low" ? 0.3 : 0.45,
+      gpuTier === "low" ? 0.35 : 0.5,
+      0.75
     );
     const clean = new ShaderPass({
       uniforms: { tDiffuse: { value: null } },
@@ -62,7 +62,7 @@ void main() {
     this.composer.addPass(new RenderPass(scene, camera));
     this.composer.addPass(clean);
     this.composer.addPass(this.aerial.pass);
-    this.bloom.enabled = gpuTier !== 'low';
+    this.bloom.enabled = gpuTier !== "low";
     this.composer.addPass(this.bloom);
     this.composer.addPass(new OutputPass());
     this.pixelRatio = this.pendingPixelRatio = renderer.getPixelRatio();
@@ -91,10 +91,18 @@ void main() {
     this.timeSinceLastScaleChange += dt;
     const cap = Math.min(this.devicePixelRatio, S.renderScale);
     // downscale reacts quickly (0.5 s) to catch sudden load spikes (e.g. descent into terrain)
-    if (this.timeSinceLastScaleChange > 0.5 && this.smoothedFrameTime > 0.03 && this.pixelRatio > 0.5)
+    if (
+      this.timeSinceLastScaleChange > 0.5 &&
+      this.smoothedFrameTime > 0.03 &&
+      this.pixelRatio > 0.5
+    )
       this.pendingPixelRatio = Math.max(0.5, this.pixelRatio - 0.15);
     // upscale is cautious (3 s) to avoid oscillation on borderline hardware
-    else if (this.timeSinceLastScaleChange > 3 && this.smoothedFrameTime < 0.0185 && this.pixelRatio < cap)
+    else if (
+      this.timeSinceLastScaleChange > 3 &&
+      this.smoothedFrameTime < 0.0185 &&
+      this.pixelRatio < cap
+    )
       this.pendingPixelRatio = Math.min(cap, this.pixelRatio + 0.1);
   }
 }

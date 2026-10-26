@@ -15,7 +15,7 @@ export class Footprints {
   private scratchRight = new THREE.Vector3();
   constructor(
     private player: Player,
-    private planet: Planet,
+    private planet: Planet
   ) {}
   update(dt: number) {
     U.uFoot.value.forEach((f, i) => {
@@ -29,14 +29,10 @@ export class Footprints {
     }
     const playerPos = this.scratchPos.copy(pl.dir).multiplyScalar(pl.groundRadius);
     U.uPl.value.copy(playerPos);
-    if (pl.verticalVelocity !== 0 || playerPos.distanceTo(this.last) <= 0.9)
-      return;
+    if (pl.verticalVelocity !== 0 || playerPos.distanceTo(this.last) <= 0.9) return;
     const elevation = this.planet.elev(pl.dir);
     this.last.copy(playerPos);
-    if (
-      elevation > 0 &&
-      this.planet.temp(pl.dir, elevation) < S.snowline + 0.02
-    ) {
+    if (elevation > 0 && this.planet.temp(pl.dir, elevation) < S.snowline + 0.02) {
       // only in snow, alternating left/right foot every ~0.9 m
       this.side = -this.side;
       const footPos = this.scratchRight

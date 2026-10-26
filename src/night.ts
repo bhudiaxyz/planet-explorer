@@ -53,10 +53,7 @@ void main() {
   gl_FragColor = vec4(col * I, I);
 }`,
   });
-  mesh = new THREE.Mesh(
-    new THREE.IcosahedronGeometry(16000, gpuTier === 'low' ? 2 : 3),
-    this.mat,
-  );
+  mesh = new THREE.Mesh(new THREE.IcosahedronGeometry(16000, gpuTier === "low" ? 2 : 3), this.mat);
   constructor(scene: THREE.Scene) {
     this.mesh.frustumCulled = false;
     scene.add(this.mesh);
@@ -65,17 +62,14 @@ void main() {
     cameraPosition: THREE.Vector3,
     upDirection: THREE.Vector3,
     intensity: number,
-    time: number,
+    time: number
   ) {
     this.mesh.visible = intensity > 0.01;
     if (!this.mesh.visible) return;
     this.mesh.position.copy(cameraPosition);
     const uniforms = this.mat.uniforms,
       forwardAxis = scratchForwardAxis
-        .crossVectors(
-          upDirection,
-          Math.abs(upDirection.x) < 0.9 ? AXIS_X : AXIS_Z,
-        )
+        .crossVectors(upDirection, Math.abs(upDirection.x) < 0.9 ? AXIS_X : AXIS_Z)
         .normalize();
     uniforms.uT.value = time;
     uniforms.uAmt.value = intensity;
@@ -89,14 +83,11 @@ export class Fireflies {
   pts: THREE.Points;
   mat: THREE.ShaderMaterial;
   constructor(scene: THREE.Scene, _pl?: unknown) {
-    const FIREFLY_COUNT = gpuTier === 'low' ? 50 : gpuTier === 'medium' ? 120 : 220;
+    const FIREFLY_COUNT = gpuTier === "low" ? 50 : gpuTier === "medium" ? 120 : 220;
     const seedData = new Float32Array(FIREFLY_COUNT * 4);
     for (let i = 0; i < seedData.length; i++) seedData[i] = Math.random();
     const g = new THREE.BufferGeometry()
-      .setAttribute(
-        "position",
-        new THREE.BufferAttribute(new Float32Array(FIREFLY_COUNT * 3), 3),
-      )
+      .setAttribute("position", new THREE.BufferAttribute(new Float32Array(FIREFLY_COUNT * 3), 3))
       .setAttribute("sd", new THREE.BufferAttribute(seedData, 4));
     this.mat = new THREE.ShaderMaterial({
       transparent: true,
@@ -141,7 +132,13 @@ void main() {
     this.pts.frustumCulled = false;
     scene.add(this.pts);
   }
-  update(_deltaTime: number, time: number, cameraPosition: THREE.Vector3, intensity: number, dayF = 0) {
+  update(
+    _deltaTime: number,
+    time: number,
+    cameraPosition: THREE.Vector3,
+    intensity: number,
+    dayF = 0
+  ) {
     this.mat.uniforms.uT.value = time;
     this.mat.uniforms.uAmt.value = intensity;
     this.mat.uniforms.uDay.value = dayF;
@@ -153,16 +150,16 @@ export class Bioluminescence {
   pts: THREE.Points;
   mat: THREE.ShaderMaterial;
   constructor(scene: THREE.Scene) {
-    const BIO_COUNT = gpuTier === 'low' ? 12 : gpuTier === 'medium' ? 28 : 50;
+    const BIO_COUNT = gpuTier === "low" ? 12 : gpuTier === "medium" ? 28 : 50;
     const sd = new Float32Array(BIO_COUNT * 4);
     for (let i = 0; i < sd.length; i++) sd[i] = Math.random();
     const geo = new THREE.BufferGeometry()
       .setAttribute("position", new THREE.BufferAttribute(new Float32Array(BIO_COUNT * 3), 3))
-      .setAttribute("sd",       new THREE.BufferAttribute(sd, 4));
+      .setAttribute("sd", new THREE.BufferAttribute(sd, 4));
     this.mat = new THREE.ShaderMaterial({
       transparent: true,
-      depthWrite:  false,
-      blending:    THREE.AdditiveBlending,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
       uniforms: { ...T, uT: { value: 0 }, uCam: { value: new THREE.Vector3() }, uNight: U.uNight },
       vertexShader: `
 ${TERRAIN_GLSL}
@@ -213,26 +210,26 @@ void main() {
 export class GalacticBand {
   mesh: THREE.Points;
   constructor(scene: THREE.Scene) {
-    const BAND_COUNT = gpuTier === 'low' ? 140 : gpuTier === 'medium' ? 280 : 500;
+    const BAND_COUNT = gpuTier === "low" ? 140 : gpuTier === "medium" ? 280 : 500;
     const pos = new Float32Array(BAND_COUNT * 3);
     const gal = new Float32Array(BAND_COUNT); // 0 = galactic core, 1 = anti-core
     for (let i = 0; i < BAND_COUNT; i++) {
       const lon = (i / BAND_COUNT) * Math.PI * 2;
       const lat = (Math.random() - 0.5) * 0.22;
-      const r   = 999;
-      pos[i * 3]     = r * Math.cos(lat) * Math.cos(lon);
+      const r = 999;
+      pos[i * 3] = r * Math.cos(lat) * Math.cos(lon);
       pos[i * 3 + 1] = r * Math.sin(lat);
       pos[i * 3 + 2] = r * Math.cos(lat) * Math.sin(lon);
       gal[i] = Math.abs(lon - Math.PI) / Math.PI;
     }
     const geo = new THREE.BufferGeometry()
       .setAttribute("position", new THREE.BufferAttribute(pos, 3))
-      .setAttribute("aGal",     new THREE.BufferAttribute(gal, 1));
+      .setAttribute("aGal", new THREE.BufferAttribute(gal, 1));
     const mat = new THREE.ShaderMaterial({
       transparent: true,
-      depthWrite:  false,
-      blending:    THREE.AdditiveBlending,
-      uniforms:    { uOpacity: U.uNight },
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      uniforms: { uOpacity: U.uNight },
       vertexShader: `
 attribute float aGal;
 varying  float vGal, vLat;

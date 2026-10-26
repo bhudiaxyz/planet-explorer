@@ -40,13 +40,12 @@ export class Player {
   constructor(
     private cam: THREE.PerspectiveCamera,
     private planet: Planet,
-    dom: HTMLElement,
+    dom: HTMLElement
   ) {
     if (!isTouchDevice) {
       dom.addEventListener("click", () => dom.requestPointerLock());
       addEventListener("mousemove", (e) => {
-        if (document.pointerLockElement === dom)
-          this.look(e.movementX, e.movementY);
+        if (document.pointerLockElement === dom) this.look(e.movementX, e.movementY);
       });
     }
     addEventListener("keydown", (e) => {
@@ -65,15 +64,10 @@ export class Player {
       candidateDir = new THREE.Vector3();
     for (let i = 0; i < 2000; i++) {
       candidateDir.set(rand() * 2 - 1, rand() * 2 - 1, rand() * 2 - 1);
-      if (
-        candidateDir.lengthSq() > 1 ||
-        candidateDir.lengthSq() < 0.01
-      )
-        continue;
+      if (candidateDir.lengthSq() > 1 || candidateDir.lengthSq() < 0.01) continue;
       candidateDir.normalize();
       const e = this.planet.elev(candidateDir);
-      if (e > 0.04 && e < 0.25 && this.planet.temp(candidateDir, e) > 0.45)
-        break;
+      if (e > 0.04 && e < 0.25 && this.planet.temp(candidateDir, e) > 0.45) break;
     }
     this.mode = "walk";
     this.boost = 0;
@@ -100,10 +94,7 @@ export class Player {
   }
   refresh() {
     if (this.mode === "walk")
-      this.groundRadius = Math.max(
-        this.groundRadius,
-        this.planet.radiusAt(this.dir),
-      );
+      this.groundRadius = Math.max(this.groundRadius, this.planet.radiusAt(this.dir));
   }
   toggle() {
     if (this.mode === "walk") {
@@ -167,10 +158,7 @@ export class Player {
     const mouseSensitivity = 0.0022;
     if (this.mode === "walk" || this.mode === "drone") {
       this.forward.applyAxisAngle(this.up, -dx * mouseSensitivity);
-      this.pitch = Math.max(
-        -1.5,
-        Math.min(1.5, this.pitch - dy * mouseSensitivity),
-      );
+      this.pitch = Math.max(-1.5, Math.min(1.5, this.pitch - dy * mouseSensitivity));
     } else {
       this.cam.rotateY(-dx * mouseSensitivity);
       this.cam.rotateX(-dy * mouseSensitivity);
@@ -179,17 +167,15 @@ export class Player {
   // scratch vectors only: no per-frame allocations
   update(dt: number) {
     const camera = this.cam,
-      sprint =
-        this.touchSprint || this.isKeyDown("ShiftLeft") || this.isKeyDown("ShiftRight"),
-      moveAxis   = this.touchMove   + this.isKeyDown("KeyW") - this.isKeyDown("KeyS"),
+      sprint = this.touchSprint || this.isKeyDown("ShiftLeft") || this.isKeyDown("ShiftRight"),
+      moveAxis = this.touchMove + this.isKeyDown("KeyW") - this.isKeyDown("KeyS"),
       strafeAxis = this.touchStrafe + this.isKeyDown("KeyD") - this.isKeyDown("KeyA");
     if (this.mode === "walk") {
       if (this.groundRadius < 1) return;
       const up = this.up.copy(this.dir),
         planetRadius = this.planet.radius;
       this.forward.addScaledVector(up, -this.forward.dot(up));
-      if (this.forward.lengthSq() < 1e-6)
-        this.forward.crossVectors(up, AXIS_X);
+      if (this.forward.lengthSq() < 1e-6) this.forward.crossVectors(up, AXIS_X);
       this.forward.normalize();
       const right = scratchRight.crossVectors(this.forward, up),
         isUnderwater = this.groundRadius < planetRadius - 0.5;
@@ -199,12 +185,7 @@ export class Player {
           .addScaledVector(this.forward, moveAxis)
           .addScaledVector(right, strafeAxis)
           .normalize()
-          .multiplyScalar(
-            ((sprint ? 20 : 9) *
-              (isUnderwater ? 0.5 : 1) *
-              dt) /
-              this.groundRadius,
-          );
+          .multiplyScalar(((sprint ? 20 : 9) * (isUnderwater ? 0.5 : 1) * dt) / this.groundRadius);
         this.dir.add(scratchStep).normalize();
       }
       let groundRadius = this.planet.radiusAt(this.dir),
@@ -213,7 +194,7 @@ export class Player {
         boostTarget = this.col.resolve(
           this.dir,
           this.groundRadius - groundRadius,
-          this.groundRadius,
+          this.groundRadius
         );
         groundRadius = this.planet.radiusAt(this.dir);
       }
@@ -223,23 +204,16 @@ export class Player {
           : boostTarget;
       up.copy(this.dir);
       const floorRadius =
-        groundRadius < planetRadius - 0.5
-          ? planetRadius - 1.2
-          : groundRadius + this.boost;
+        groundRadius < planetRadius - 0.5 ? planetRadius - 1.2 : groundRadius + this.boost;
       this.verticalVelocity -= 28 * dt;
-      if (
-        this.groundRadius <= floorRadius + 0.05 &&
-        (this.touchJump || this.isKeyDown("Space"))
-      )
+      if (this.groundRadius <= floorRadius + 0.05 && (this.touchJump || this.isKeyDown("Space")))
         this.verticalVelocity = 10;
       this.groundRadius += this.verticalVelocity * dt;
       if (this.groundRadius <= floorRadius) {
         this.groundRadius = floorRadius;
         this.verticalVelocity = 0;
       }
-      camera.position
-        .copy(this.dir)
-        .multiplyScalar(this.groundRadius + EYE_HEIGHT);
+      camera.position.copy(this.dir).multiplyScalar(this.groundRadius + EYE_HEIGHT);
       camera.up.copy(up);
       scratchLookAt
         .copy(this.forward)
@@ -267,18 +241,25 @@ export class Player {
       // Space/C adjusts target hover height (suppressed while landing)
       if (this.landing) {
         const ascend = (this.touchJump ? 1 : 0) + this.isKeyDown("Space");
-        if (ascend) { this.landing = false; } // abort landing if player pulls up
-        else { this.droneHoverHeight = Math.max(0, this.droneHoverHeight - 8 * dt); }
+        if (ascend) {
+          this.landing = false;
+        } // abort landing if player pulls up
+        else {
+          this.droneHoverHeight = Math.max(0, this.droneHoverHeight - 8 * dt);
+        }
       } else {
-        const vInput = (this.touchJump ? 1 : 0) - (this.touchDescend ? 1 : 0)
-          + this.isKeyDown("Space") - this.isKeyDown("KeyC");
+        const vInput =
+          (this.touchJump ? 1 : 0) -
+          (this.touchDescend ? 1 : 0) +
+          this.isKeyDown("Space") -
+          this.isKeyDown("KeyC");
         this.droneHoverHeight = Math.max(3, this.droneHoverHeight + vInput * speed * dt);
       }
 
       // re-derive up after horizontal move (direction may have shifted)
       droneUp.copy(dronePos).normalize();
       const terrainR = this.planet.radiusAt(droneUp);
-      const targetR  = terrainR + this.droneHoverHeight;
+      const targetR = terrainR + this.droneHoverHeight;
       const currentR = dronePos.length();
       // smooth terrain-following; faster correction when below target
       const t = currentR < targetR ? Math.min(1, dt * 6) : Math.min(1, dt * 3);
@@ -306,20 +287,26 @@ export class Player {
         flyUp = scratchUp.copy(flyPos).normalize();
       const terrainRFly = this.planet.radiusAt(flyUp),
         flyAltitude = flyPos.length() - terrainRFly,
-        flySpeed =
-          Math.max(20, flyAltitude * 1.5) * (sprint ? 4 : 1);
+        flySpeed = Math.max(20, flyAltitude * 1.5) * (sprint ? 4 : 1);
       scratchMove
         .set(0, 0, 0)
         .addScaledVector(flyForward, moveAxis)
         .addScaledVector(flyRight, strafeAxis)
         .addScaledVector(
           flyUp,
-          (this.touchJump ? 1 : 0) - (this.touchDescend ? 1 : 0) + this.isKeyDown("Space") - this.isKeyDown("KeyC"),
+          (this.touchJump ? 1 : 0) -
+            (this.touchDescend ? 1 : 0) +
+            this.isKeyDown("Space") -
+            this.isKeyDown("KeyC")
         );
-      if (scratchMove.lengthSq())
-        flyPos.addScaledVector(scratchMove.normalize(), flySpeed * dt);
+      if (scratchMove.lengthSq()) flyPos.addScaledVector(scratchMove.normalize(), flySpeed * dt);
       camera.rotateZ(
-        (this.isKeyDown("KeyE") + (this.touchRollRight ? 1 : 0) - this.isKeyDown("KeyQ") - (this.touchRollLeft ? 1 : 0)) * dt * 1.2,
+        (this.isKeyDown("KeyE") +
+          (this.touchRollRight ? 1 : 0) -
+          this.isKeyDown("KeyQ") -
+          (this.touchRollLeft ? 1 : 0)) *
+          dt *
+          1.2
       );
       flyUp.copy(flyPos).normalize();
       if (flyPos.length() < terrainRFly + 3) flyPos.setLength(terrainRFly + 3);

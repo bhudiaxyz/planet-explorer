@@ -50,32 +50,17 @@ export class Noise3 {
       lerp(
         lerp(grad(perm[AA], x, y, z), grad(perm[BA], x - 1, y, z), u),
         lerp(grad(perm[AB], x, y - 1, z), grad(perm[BB], x - 1, y - 1, z), u),
-        v,
+        v
       ),
       lerp(
-        lerp(
-          grad(perm[AA + 1], x, y, z - 1),
-          grad(perm[BA + 1], x - 1, y, z - 1),
-          u,
-        ),
-        lerp(
-          grad(perm[AB + 1], x, y - 1, z - 1),
-          grad(perm[BB + 1], x - 1, y - 1, z - 1),
-          u,
-        ),
-        v,
+        lerp(grad(perm[AA + 1], x, y, z - 1), grad(perm[BA + 1], x - 1, y, z - 1), u),
+        lerp(grad(perm[AB + 1], x, y - 1, z - 1), grad(perm[BB + 1], x - 1, y - 1, z - 1), u),
+        v
       ),
-      w,
+      w
     );
   }
-  fbm(
-    x: number,
-    y: number,
-    z: number,
-    octaves: number,
-    lacunarity: number,
-    persistence: number,
-  ) {
+  fbm(x: number, y: number, z: number, octaves: number, lacunarity: number, persistence: number) {
     let sum = 0,
       amplitude = 1,
       frequency = 1,

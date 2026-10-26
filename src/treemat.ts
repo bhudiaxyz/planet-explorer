@@ -40,26 +40,26 @@ if (vLd < uLod.z - 20. || dot(normalize(wpL), cameraPosition / crL) < length(wpL
     s.vertexShader = s.vertexShader
       .replace(
         "#include <common>",
-        "#include <common>\nvarying float vLd;varying vec3 vWt;uniform vec4 uLod;attribute float aLeaf;",
+        "#include <common>\nvarying float vLd;varying vec3 vWt;uniform vec4 uLod;attribute float aLeaf;"
       )
       .replace(
         "#include <color_vertex>",
-        "#include <color_vertex>\nvColor.rgb=color*mix(vec3(1.),instanceColor,aLeaf);",
+        "#include <color_vertex>\nvColor.rgb=color*mix(vec3(1.),instanceColor,aLeaf);"
       )
       .replace(
         "#include <project_vertex>",
         "#include <project_vertex>\nvWt=(modelMatrix*instanceMatrix*vec4(transformed,1.)).xyz;vLd=length(vWt-cameraPosition);" +
-          cull,
+          cull
       );
     s.fragmentShader = s.fragmentShader
       .replace(
         "#include <common>",
         "#include <common>\nvarying float vLd;varying vec3 vWt;uniform vec4 uLod;uniform vec3 uSun,uCw;uniform float uDayF,uSnow,uAmp,uR;" +
-          IGN,
+          IGN
       )
       .replace(
         "#include <color_fragment>",
-        `#include <color_fragment>\nfloat lodA=smoothstep(uLod.x,uLod.y,vLd),lodB=smoothstep(uLod.z,uLod.w,vLd),lodN=ign(gl_FragCoord.xy);${keep}`,
+        `#include <color_fragment>\nfloat lodA=smoothstep(uLod.x,uLod.y,vLd),lodB=smoothstep(uLod.z,uLod.w,vLd),lodN=ign(gl_FragCoord.xy);${keep}`
       )
       .replace(
         "#include <emissivemap_fragment>",
@@ -75,7 +75,7 @@ if (vLd < uLod.z - 20. || dot(normalize(wpL), cameraPosition / crL) < length(wpL
   float upf = smoothstep(.15, .7, dot(normal, (viewMatrix * vec4(nw, 0.)).xyz));
   diffuseColor.rgb = mix(diffuseColor.rgb, uCw * .95, sn * upf * .85);
 }
-` + TINT_GLSL,
+` + TINT_GLSL
       );
   };
   return m;

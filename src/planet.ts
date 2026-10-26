@@ -91,14 +91,13 @@ void main() {
         wz * f,
         fine ? o : Math.min(o, 5),
         S.lacunarity,
-        S.persistence,
+        S.persistence
       ),
-      hills =
-        noise.get(wx * f * 3.1 + 9, wy * f * 3.1, wz * f * 3.1) * 0.06;
+      hills = noise.get(wx * f * 3.1 + 9, wy * f * 3.1, wz * f * 3.1) * 0.06;
     const mountainMask = smoothstep(
       -0.1,
       0.35,
-      noise2.get(wx * f * 0.6 + 7, wy * f * 0.6, wz * f * 0.6),
+      noise2.get(wx * f * 0.6 + 7, wy * f * 0.6, wz * f * 0.6)
     );
     const ridgedNoise = Math.max(
       0,
@@ -110,9 +109,9 @@ void main() {
             wz * f * 1.5,
             Math.min(o, 5),
             S.lacunarity,
-            S.persistence,
-          ) * 2,
-        ),
+            S.persistence
+          ) * 2
+        )
     );
     let elevation =
       baseFbm * 1.1 +
@@ -120,17 +119,11 @@ void main() {
       S.mountains *
         mountainMask *
         (ridgedNoise * ridgedNoise * 0.8 +
-          (fine
-            ? ridgedNoise *
-              0.06 *
-              noise.get(x * f * 25, y * f * 25, z * f * 25)
-            : 0)) -
+          (fine ? ridgedNoise * 0.06 * noise.get(x * f * 25, y * f * 25, z * f * 25) : 0)) -
       S.seaLevel;
     if (fine)
       elevation +=
-        noise.get(x * f * 18, y * f * 18, z * f * 18) *
-          0.014 *
-          (1 + mountainMask) +
+        noise.get(x * f * 18, y * f * 18, z * f * 18) * 0.014 * (1 + mountainMask) +
         noise.get(x * f * 60, y * f * 60, z * f * 60) * 0.004;
     if (fine && elevation > 0 && elevation < 0.09)
       elevation +=
@@ -149,7 +142,7 @@ void main() {
     return this.noise2.get(
       d.x * S.frequency * 2.2 + 30,
       d.y * S.frequency * 2.2,
-      d.z * S.frequency * 2.2,
+      d.z * S.frequency * 2.2
     );
   }
   temp(d: THREE.Vector3, e: number) {
@@ -175,8 +168,7 @@ void main() {
         .normalize();
       return (
         this.radius +
-        this.elevationAt(sampleDir.x, sampleDir.y, sampleDir.z, false) *
-          S.amplitude -
+        this.elevationAt(sampleDir.x, sampleDir.y, sampleDir.z, false) * S.amplitude -
         DROP
       );
     };
@@ -191,8 +183,10 @@ void main() {
     if (this.base?.N === N) return this.base;
     const pos: number[] = [],
       idx: number[] = [];
-    const _n = new THREE.Vector3(), _u = new THREE.Vector3(),
-      _v = new THREE.Vector3(), _p = new THREE.Vector3();
+    const _n = new THREE.Vector3(),
+      _u = new THREE.Vector3(),
+      _v = new THREE.Vector3(),
+      _p = new THREE.Vector3();
     for (const f of [
       [0, 0, 1],
       [0, 0, -1],
@@ -278,24 +272,24 @@ void main() {
       }
       const normalArray = new Float32Array(vertexCount * 3);
       for (let i = 0; i < vertexCount; i++) {
-        normalArray[i * 3]     = normalReadback[i * 4];
+        normalArray[i * 3] = normalReadback[i * 4];
         normalArray[i * 3 + 1] = normalReadback[i * 4 + 1];
         normalArray[i * 3 + 2] = normalReadback[i * 4 + 2];
       }
       const colorReadback = await bakePoints(baseMesh.dirs, 4, {
-        nrm: normalArray,
-        em: elevMoistArray,
-      }),
+          nrm: normalArray,
+          em: elevMoistArray,
+        }),
         colorArray = new Float32Array(vertexCount * 3);
       for (let i = 0; i < vertexCount; i++) {
-        colorArray[i * 3]     = colorReadback[i * 4];
+        colorArray[i * 3] = colorReadback[i * 4];
         colorArray[i * 3 + 1] = colorReadback[i * 4 + 1];
         colorArray[i * 3 + 2] = colorReadback[i * 4 + 2];
       }
       geo.setAttribute("normal", new THREE.BufferAttribute(normalArray, 3));
-      geo.setAttribute("aCol",   new THREE.BufferAttribute(colorArray, 3));
-      geo.setAttribute("aE",     new THREE.BufferAttribute(elevations, 1));
-      geo.setAttribute("aM",     new THREE.BufferAttribute(moistures, 1));
+      geo.setAttribute("aCol", new THREE.BufferAttribute(colorArray, 3));
+      geo.setAttribute("aE", new THREE.BufferAttribute(elevations, 1));
+      geo.setAttribute("aM", new THREE.BufferAttribute(moistures, 1));
       const terrain = new THREE.Mesh(geo, terrainMat(false, false, {}, true));
       terrain.receiveShadow = false;
       this.group.add(terrain);
@@ -325,13 +319,21 @@ void main() {
     this.cloudRadius = this.radius + Math.max(110, S.amplitude * 1.3 + 50);
     U.uCloudR.value = this.cloudRadius; // clouds float above the highest peaks
     const waterMesh = new THREE.Mesh(
-        new THREE.SphereGeometry(this.radius, gpuTier === 'low' ? 32 : 64, gpuTier === 'low' ? 24 : 48),
-        this.water,
+        new THREE.SphereGeometry(
+          this.radius,
+          gpuTier === "low" ? 32 : 64,
+          gpuTier === "low" ? 24 : 48
+        ),
+        this.water
       ),
       cloudMesh = this.clouds.make(this.cloudRadius),
       atmosphereMesh = new THREE.Mesh(
-        new THREE.SphereGeometry(this.cloudRadius * 1.05, gpuTier === 'low' ? 24 : 48, gpuTier === 'low' ? 16 : 32),
-        this.atmosphere,
+        new THREE.SphereGeometry(
+          this.cloudRadius * 1.05,
+          gpuTier === "low" ? 24 : 48,
+          gpuTier === "low" ? 16 : 32
+        ),
+        this.atmosphere
       );
     waterMesh.renderOrder = 1;
     cloudMesh.renderOrder = 10;
@@ -357,8 +359,7 @@ void main() {
     this.landmarks.tick(this.elapsedTime);
     if (this.atlas) {
       if (!this.atlas.done) this.atlas.step();
-      else if (U.uAtOn.value < 1)
-        U.uAtOn.value = Math.min(1, U.uAtOn.value + dt * 1.5);
+      else if (U.uAtOn.value < 1) U.uAtOn.value = Math.min(1, U.uAtOn.value + dt * 1.5);
     }
     this.chunks.tick(dt);
   }

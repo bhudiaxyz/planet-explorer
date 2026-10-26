@@ -17,19 +17,29 @@ export const CFG = {
   // ground-cover tiers: [full-size until, gone beyond, inner gone below, inner full above]  (see vegetation.ts for the lifecycle rules)
   plantLod: {
     // small ground cover (grass, flowers, ferns, reeds, sedge, mushrooms)
-    near:    [40, 65,  0,  0.5],
-    mid:     [74, 106, 6,  26],
-    far:     [90, 200, 36, 62],   // wide 110m outer fade — was 45m, prevents pop on large ground cover
-    flower:  [50, 70,  0,  0.5],
-    mush:    [30, 50,  0,  0.5],
+    near: [40, 65, 0, 0.5],
+    mid: [74, 106, 6, 26],
+    far: [90, 200, 36, 62], // wide 110m outer fade — was 45m, prevents pop on large ground cover
+    flower: [50, 70, 0, 0.5],
+    mush: [30, 50, 0, 0.5],
     // medium shrub-height objects (shrubs, alpine scrub, cactus, dead scrub)
-    shrub:   [54, 88,  0,  0.5],
-    shrubMid:[70, 152, 16, 44],   // wide 82m outer fade — was 52m
+    shrub: [54, 88, 0, 0.5],
+    shrubMid: [70, 152, 16, 44], // wide 82m outer fade — was 52m
     // large rocks, slabs, frost rocks, boulders
-    rock:    [55, 110, 0,  0.5],
-    rockMid: [70, 195, 14, 46],   // wide 125m outer fade — was 77m
+    rock: [55, 110, 0, 0.5],
+    rockMid: [70, 195, 14, 46], // wide 125m outer fade — was 77m
   },
-  plantRadius: { near: 65, mid: 104, far: 204, flower: 68, mush: 48, shrub: 88, shrubMid: 160, rock: 120, rockMid: 210 },
+  plantRadius: {
+    near: 65,
+    mid: 104,
+    far: 204,
+    flower: 68,
+    mush: 48,
+    shrub: 88,
+    shrubMid: 160,
+    rock: 120,
+    rockMid: 210,
+  },
   forest: { count: 14000, minSpacing: 2.4, tries: 12 },
   shadow: { size: 1024, half: 120, hz: 30 },
 
@@ -83,16 +93,16 @@ export const CFG = {
     metalness: 0.1,
   },
   river: {
-    count: 4,                // main rivers per planet
-    tributaries: 3,          // tributaries per main river
-    sourceMinElev: 0.12,     // min elevation unit for source (above seaLevel)
+    count: 4, // main rivers per planet
+    tributaries: 3, // tributaries per main river
+    sourceMinElev: 0.12, // min elevation unit for source (above seaLevel)
     sourceMinMoisture: 0.15, // min moisture for source
     minSourceSpacingDeg: 40, // degrees — prevents rivers clustering together
-    stepSize: 10,            // metres per gradient-descent step
-    maxSteps: 260,           // max steps before path is abandoned (~2600m, ~60% of circumference)
-    widthStart: 2,           // ribbon width (metres) at source
-    widthEnd: 9,             // ribbon width (metres) at mouth/sea
-    surfaceOffset: 0.3,      // metres above terrain surface (avoids z-fighting)
+    stepSize: 10, // metres per gradient-descent step
+    maxSteps: 260, // max steps before path is abandoned (~2600m, ~60% of circumference)
+    widthStart: 2, // ribbon width (metres) at source
+    widthEnd: 9, // ribbon width (metres) at mouth/sea
+    surfaceOffset: 0.3, // metres above terrain surface (avoids z-fighting)
   },
 } as const;
 

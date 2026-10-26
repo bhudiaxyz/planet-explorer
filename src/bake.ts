@@ -7,8 +7,7 @@ let renderer: THREE.WebGLRenderer | null = null;
 export const setRenderer = (r: THREE.WebGLRenderer) => {
   renderer = r;
 };
-export const canBake = () =>
-  !!renderer && renderer.extensions.has("EXT_color_buffer_float");
+export const canBake = () => !!renderer && renderer.extensions.has("EXT_color_buffer_float");
 const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2));
 quad.frustumCulled = false;
 const quadScene = new THREE.Scene();
@@ -22,10 +21,7 @@ export const makeRT = (w: number, h: number) =>
     depthBuffer: false,
     generateMipmaps: false,
   });
-function renderToTarget(
-  rt: THREE.WebGLRenderTarget,
-  scene: THREE.Scene,
-) {
+function renderToTarget(rt: THREE.WebGLRenderTarget, scene: THREE.Scene) {
   const prev = renderer!.getRenderTarget();
   renderer!.setRenderTarget(rt);
   renderer!.render(scene, quadCamera);
@@ -79,7 +75,7 @@ export function bakeChunk(
   rtC: THREE.WebGLRenderTarget,
   i0: number,
   j0: number,
-  face: number,
+  face: number
 ) {
   uCh.value.set(i0, j0, face);
   draw(rt, chunkNormalMat);
@@ -161,14 +157,22 @@ const _bakeMats = new Map<number, BakeEntry>();
 function getBakeMat(mode: number, texWidth: number, texHeight: number): THREE.ShaderMaterial {
   let e = _bakeMats.get(mode);
   if (!e) {
-    const uW = { value: texWidth }, uH = { value: texHeight };
+    const uW = { value: texWidth },
+      uH = { value: texHeight };
     e = {
-      uW, uH,
+      uW,
+      uH,
       mat: new THREE.ShaderMaterial({
         defines: { MODE: mode },
         depthTest: false,
         depthWrite: false,
-        uniforms: { ...T, uW, uH, uRes: { value: S.resolution }, uStep: { value: 1.57 / S.resolution } },
+        uniforms: {
+          ...T,
+          uW,
+          uH,
+          uRes: { value: S.resolution },
+          uStep: { value: 1.57 / S.resolution },
+        },
         vertexShader: PV,
         fragmentShader: `varying vec4 vO;\nvoid main(){gl_FragColor=vO;}`,
       }),
@@ -192,7 +196,7 @@ _bakePointScene.add(_bakeMesh);
 export async function bakePoints(
   dirs: Float32Array,
   mode: number,
-  extra?: { nrm: Float32Array; em: Float32Array },
+  extra?: { nrm: Float32Array; em: Float32Array }
 ): Promise<Float32Array> {
   const pointCount = dirs.length / 3,
     texWidth = 2048,
@@ -201,7 +205,7 @@ export async function bakePoints(
   _bakeGeo.setAttribute("position", new THREE.BufferAttribute(dirs, 3));
   if (extra) {
     _bakeGeo.setAttribute("nrm", new THREE.BufferAttribute(extra.nrm, 3));
-    _bakeGeo.setAttribute("em",  new THREE.BufferAttribute(extra.em,  2));
+    _bakeGeo.setAttribute("em", new THREE.BufferAttribute(extra.em, 2));
   } else {
     _bakeGeo.deleteAttribute("nrm");
     _bakeGeo.deleteAttribute("em");
@@ -212,8 +216,7 @@ export async function bakePoints(
   const r: any = renderer!;
   if (typeof r.readRenderTargetPixelsAsync === "function")
     await r.readRenderTargetPixelsAsync(rt, 0, 0, texWidth, texHeight, results);
-  else
-    renderer!.readRenderTargetPixels(rt, 0, 0, texWidth, texHeight, results);
+  else renderer!.readRenderTargetPixels(rt, 0, 0, texWidth, texHeight, results);
   rt.dispose();
   return results;
 }
@@ -223,7 +226,7 @@ export function readRT(
   renderTarget: THREE.WebGLRenderTarget,
   width: number,
   height: number,
-  callback: (a: Float32Array) => void,
+  callback: (a: Float32Array) => void
 ) {
   const pixelBuffer = new Float32Array(width * height * 4),
     rendererAny: any = renderer;
@@ -233,14 +236,7 @@ export function readRT(
       .then(() => callback(pixelBuffer))
       .catch(() => {});
   else {
-    renderer!.readRenderTargetPixels(
-      renderTarget,
-      0,
-      0,
-      width,
-      height,
-      pixelBuffer,
-    );
+    renderer!.readRenderTargetPixels(renderTarget, 0, 0, width, height, pixelBuffer);
     callback(pixelBuffer);
   }
 }
