@@ -73,16 +73,25 @@ function addMeanders(pts: THREE.Vector3[], rand: () => number, ampMul = 1): THRE
   if (pts.length < 4) return pts;
   const phase = rand() * Math.PI * 2;
   const phase2 = rand() * Math.PI * 2;
-  const freq1 = 0.08 + rand() * 0.07; // primary wave — controls spacing
-  const freq2 = freq1 * 1.7 + rand() * 0.04; // secondary wave — breaks uniformity
-  const amp = (5 + rand() * 6) * ampMul; // max lateral offset in metres
+  const freq1 = 0.08 + rand() * 0.07; // primary wave — controls bend spacing in metres
+  const ratio = 1.4 + rand() * 0.6; // item 9: secondary ratio varies 1.4–2.0× per river
+  const freq2 = freq1 * ratio + rand() * 0.04;
+  const amp = (5 + rand() * 6) * ampMul;
+
+  // item 7: precompute arc lengths so bend frequency is consistent regardless of step density
+  const arcLen: number[] = [0];
+  for (let i = 1; i < pts.length; i++) arcLen.push(arcLen[i - 1] + pts[i].distanceTo(pts[i - 1]));
+  const totalLen = arcLen[arcLen.length - 1] || 1;
+
   return pts.map((pt, i) => {
     const t = i / (pts.length - 1);
-    const env = Math.min(t / 0.2, 1) * Math.min((1 - t) / 0.15, 1); // fade at ends
-    // Two overlapping frequencies → irregular natural bends; C2: amplitude rises near mouth
+    const s = arcLen[i] / totalLen;
+    // item 8: noise-based envelope — sin(s·π) naturally fades to 0 at both ends; second term
+    // breaks the symmetric peak into irregular undulation without losing the end-fades.
+    const env = Math.pow(Math.sin(s * Math.PI), 0.7) * (0.7 + 0.3 * Math.sin(s * Math.PI * 2.3 + 0.9));
     const terrainFactor = 0.4 + t * 0.6;
     const disp =
-      (Math.sin(i * freq1 + phase) * 0.7 + Math.sin(i * freq2 + phase2) * 0.3) *
+      (Math.sin(arcLen[i] * freq1 + phase) * 0.7 + Math.sin(arcLen[i] * freq2 + phase2) * 0.3) *
       amp *
       env *
       terrainFactor;
@@ -141,14 +150,14 @@ void main() {
     lakeDist = length(cameraPosition - vWorldPos);
     if (lakeDist > 700.0) discard;
   }
-  float flowSpeed = mix(0.9, 0.2, clamp(vUv.y, 0.0, 1.0));
+  float edgeMask = smoothstep(0.0, 0.25, vUv.x) * (1.0 - smoothstep(0.75, 1.0, vUv.x));
+  // item 12: centre flows faster than banks (natural hydraulics); lake speed unaffected
+  float flowSpeed = mix(0.9, 0.2, clamp(vUv.y, 0.0, 1.0)) * (isLake ? 1.0 : 1.0 + edgeMask * 0.4);
   // Lake: expanding concentric ripple rings outward from centre (vUv.x=0.5→1.0).
   // River: normal downstream flow.
   float v = isLake
     ? fract((vUv.x - 0.5) * 7.0 - uTime * 0.5)
     : fract(vUv.y - uTime * flowSpeed);
-
-  float edgeMask = smoothstep(0.0, 0.25, vUv.x) * (1.0 - smoothstep(0.75, 1.0, vUv.x));
   vec3 deepColor    = vec3(0.02, 0.10, 0.26);
   vec3 shallowColor = vec3(0.08, 0.50, 0.56);
   vec3 baseColor = mix(shallowColor, deepColor, edgeMask);
@@ -263,10 +272,12 @@ export class RiverSystem {
 
     const mainPaths: THREE.Vector3[][] = [];
     const mainScales: number[] = [],
-      mainMeanders: number[] = [];
+      mainMeanders: number[] = [],
+      mainArchetypes: string[] = [];
     const tribPaths: THREE.Vector3[][] = [];
     const tribScales: number[] = [],
-      tribMeanders: number[] = [];
+      tribMeanders: number[] = [],
+      tribArchetypes: string[] = [];
     // Tributaries use shorter paths — they're side branches, not full rivers
     const tribMaxSteps = Math.ceil(tierMaxSteps * 0.6);
 
@@ -280,6 +291,7 @@ export class RiverSystem {
       mainPaths.push(main);
       mainScales.push(ws);
       mainMeanders.push(ms);
+      mainArchetypes.push(arch);
 
       // Tributaries: evenly spread junctions across 20–65% of the main path
       for (let t = 0; t < tierTributaries; t++) {
@@ -323,6 +335,7 @@ export class RiverSystem {
             tribPaths.push(trib);
             tribScales.push(ws * 0.55); // tributaries narrower than their main river
             tribMeanders.push(ms * 0.7);
+            tribArchetypes.push(arch);
           }
         }
       }
@@ -342,12 +355,14 @@ export class RiverSystem {
     // Main rivers: keep all; only cull a main if >50% of it duplicates an earlier main.
     const accepted: THREE.Vector3[][] = [];
     const acceptedScales: number[] = [],
-      acceptedMeanders: number[] = [];
+      acceptedMeanders: number[] = [],
+      acceptedArchetypes: string[] = [];
     for (let i = 0; i < mainPaths.length; i++) {
       if (!overlaps(mainPaths[i], accepted, 0.5)) {
         accepted.push(mainPaths[i]);
         acceptedScales.push(mainScales[i]);
         acceptedMeanders.push(mainMeanders[i]);
+        acceptedArchetypes.push(mainArchetypes[i]);
       }
     }
     // Tributaries: stricter — cull if >40% overlaps any accepted path (main or trib).
@@ -356,6 +371,7 @@ export class RiverSystem {
         accepted.push(tribPaths[i]);
         acceptedScales.push(tribScales[i]);
         acceptedMeanders.push(tribMeanders[i]);
+        acceptedArchetypes.push(tribArchetypes[i]);
       }
     }
 
@@ -382,13 +398,17 @@ export class RiverSystem {
 
     // Low tier: skip meanders + Chaikin (saves CPU + memory)
     // Medium/high: add sinusoidal meanders then smooth with Chaikin
+    // item 11: streams get 3 Chaikin rounds for tighter curves; all others get 2
+    // P7: yield between paths so this ~60k-operation synchronous block doesn't block the main thread
     if (gpuTier === "low") return { paths: accepted, scales: acceptedScales, lakes };
-    const rounds = 2;
-    return {
-      paths: accepted.map((p, i) => chaikin(addMeanders(p, rand, acceptedMeanders[i]), rounds)),
-      scales: acceptedScales,
-      lakes,
-    };
+    const smoothed: THREE.Vector3[][] = [];
+    for (let i = 0; i < accepted.length; i++) {
+      await mayYield();
+      smoothed.push(
+        chaikin(addMeanders(accepted[i], rand, acceptedMeanders[i]), acceptedArchetypes[i] === "stream" ? 3 : 2)
+      );
+    }
+    return { paths: smoothed, scales: acceptedScales, lakes };
   }
 
   private _tracePath(
@@ -599,13 +619,14 @@ export class RiverSystem {
       normals.push(norm.x, norm.y, norm.z);
       uvs.push(0.5, 2.0);
 
-      // Perimeter vertices
+      // Perimeter vertices — item 10: two non-integer sine terms displace radius for organic shorelines
       for (let i = 0; i < LAKE_SEGS; i++) {
         const a = (i / LAKE_SEGS) * Math.PI * 2;
+        const noiseR = 1.0 + 0.12 * Math.sin(a * 3.7 + 0.5) + 0.07 * Math.sin(a * 7.1 + 1.8);
         const pt = lake.center
           .clone()
-          .addScaledVector(east, Math.cos(a) * lake.radius)
-          .addScaledVector(north, Math.sin(a) * lake.radius * lake.aspect);
+          .addScaledVector(east, Math.cos(a) * lake.radius * noiseR)
+          .addScaledVector(north, Math.sin(a) * lake.radius * lake.aspect * noiseR);
         positions.push(pt.x, pt.y, pt.z);
         normals.push(norm.x, norm.y, norm.z);
         uvs.push(1.0, 2.0);

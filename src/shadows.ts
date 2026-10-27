@@ -106,7 +106,10 @@ export class Shadows {
     if ((this.timer += dt) > 1 / hz) {
       this.timer = 0;
       if (this.moon) this.moon.castShadow = this.moonStrength > 0.01;
-      this.renderer.shadowMap.needsUpdate = true;
+      // P5: skip shadow re-render when both sun and moon shadows are invisible — saves a full
+      // shadow pass every ~33 ms (e.g. when the player is high up or deep in night transition).
+      if (this.strength > 0.005 || this.moonStrength > 0.005)
+        this.renderer.shadowMap.needsUpdate = true;
     }
   }
 }

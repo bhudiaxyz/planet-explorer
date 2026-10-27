@@ -35,12 +35,9 @@ export class PostFX {
     rt.depthTexture.format = THREE.DepthFormat;
     rt.depthTexture.type = THREE.FloatType;
     this.composer = new EffectComposer(renderer, rt);
-    this.bloom = new UnrealBloomPass(
-      new THREE.Vector2(innerWidth / 2, innerHeight / 2),
-      gpuTier === "low" ? 0.3 : 0.45,
-      gpuTier === "low" ? 0.35 : 0.5,
-      0.75
-    );
+    // P1: allocate bloom at full quality; only added to the composer on medium/high to avoid
+    // committing ~2.5 MB of HalfFloat RTs on low-tier devices where it's never rendered.
+    this.bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth / 2, innerHeight / 2), 0.45, 0.5, 0.75);
     const clean = new ShaderPass({
       uniforms: { tDiffuse: { value: null } },
       vertexShader: `
@@ -61,9 +58,11 @@ void main() {
     this.aerial = new AerialPass(rt.depthTexture!);
     this.composer.addPass(new RenderPass(scene, camera));
     this.composer.addPass(clean);
-    this.composer.addPass(this.aerial.pass);
-    this.bloom.enabled = gpuTier !== "low";
-    this.composer.addPass(this.bloom);
+    // P2: aerial haze pass skipped on low tier — full-screen depth read + exp() wastes fill-rate
+    // on Mali/Adreno 3xx for ~8% max haze that's barely visible at low resolution.
+    if (gpuTier !== "low") this.composer.addPass(this.aerial.pass);
+    // P1: bloom pass only added when it will be used; avoids allocating its 5 HalfFloat RTs on low tier.
+    if (gpuTier !== "low") this.composer.addPass(this.bloom);
     this.composer.addPass(new OutputPass());
     this.pixelRatio = this.pendingPixelRatio = renderer.getPixelRatio();
     this.devicePixelRatio = devicePixelRatio;
@@ -81,13 +80,13 @@ void main() {
     if (this.pendingPixelRatio !== this.pixelRatio) {
       this.pixelRatio = this.pendingPixelRatio;
       this.timeSinceLastScaleChange = 0;
-      this.bloom.enabled = true;
+      this.bloom.enabled = gpuTier !== "low";
       this.renderer.setPixelRatio(this.pixelRatio);
+      // P3: setPixelRatio already triggers internal setSize on all passes — the explicit call is redundant.
       this.composer.setPixelRatio(this.pixelRatio);
-      this.composer.setSize(innerWidth, innerHeight);
     }
     this.composer.render();
-    this.smoothedFrameTime += (dt - this.smoothedFrameTime) * 0.05;
+    this.smoothedFrameTime += (dt - this.smoothedFrameTime) * 0.08;
     this.timeSinceLastScaleChange += dt;
     const cap = Math.min(this.devicePixelRatio, S.renderScale);
     // downscale reacts quickly (0.5 s) to catch sudden load spikes (e.g. descent into terrain)

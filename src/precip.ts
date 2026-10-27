@@ -7,7 +7,7 @@ const FW = new THREE.Vector3(),
 export class Precip {
   pts: THREE.Points;
   mat: THREE.ShaderMaterial;
-  constructor(N = 3500) {
+  constructor(N: number) {
     const sd = new Float32Array(N * 3);
     for (let i = 0; i < sd.length; i++) sd[i] = Math.random();
     const g = new THREE.BufferGeometry()

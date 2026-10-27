@@ -488,7 +488,8 @@ const perKind = (f: "pre" | "gate" | "result" | "look") =>
     .map((p) => `#if KIND==${p.kind}\n${p[f]}\n#endif`)
     .join("\n");
 export const lookGLSL = () => perKind("look");
-export const decideGLSL = () => `#define REJECT return vec4(-9999.,0.,0.,0.)
+export const decideGLSL = () => `uniform float CELLSZ,PMUL,TSN;
+#define REJECT return vec4(-9999.,0.,0.,0.)
 vec4 decide(float I,float J,float F){float h1=hs(I,J,F),h2=hs(I,J,F+9.),h3=hs(I,J,F+17.),h4=hs(I,J,F+31.),h5=hs(I,J,F+53.),h6=hs(I,J,F+71.);
 vec3 nA,uu,vv;basis(F,nA,uu,vv);vec3 P=nA*uR+uu*(I+h1-.5)*CELLSZ+vv*(J+h2-.5)*CELLSZ,d=normalize(P);
 float cf=1.,fo=0.,m0=0.,pt=0.;

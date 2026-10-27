@@ -43,7 +43,7 @@ ref_images/
 *.tar
 *.gz
 
-# Keep only the public README; omit working notes
+# Keep only the public README & DESIGN; omit working notes
 *.md
 !README.md
 !DESIGN.md

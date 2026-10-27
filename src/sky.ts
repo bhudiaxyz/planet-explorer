@@ -35,7 +35,9 @@ export class Sky {
   ) {
     const starCount = gpuTier === "low" ? 900 : gpuTier === "medium" ? 1600 : SKY.starCount;
     const precipCount = gpuTier === "low" ? 1200 : gpuTier === "medium" ? 2200 : SKY.precipCount;
-    const nebulaCount = gpuTier === "low" ? 5 : gpuTier === "medium" ? 9 : SKY.nebulaCount;
+    // P4: nebulae are fill-rate expensive on low tier (up to 512×512 per point); only visible
+    // at night in clear weather — skipping them entirely has no visible impact at low resolution.
+    const nebulaCount = gpuTier === "low" ? 0 : gpuTier === "medium" ? 9 : SKY.nebulaCount;
     this.lastPrecipPos = new Float32Array(precipCount * 3);
     this.prevPrecipPos = new Float32Array(precipCount * 3);
     scene.add(this.light, this.moon, this.ambientLight);
@@ -170,7 +172,8 @@ void main() {
     dawnMesh.frustumCulled = false;
     for (const o of [this.stars, this.nebulae, this.precip, this.disc, this.moonDisc])
       o.frustumCulled = false;
-    scene.add(this.disc, this.moonDisc, this.stars, this.nebulae, this.precip, dawnMesh);
+    scene.add(this.disc, this.moonDisc, this.stars, this.precip, dawnMesh);
+    if (NC > 0) scene.add(this.nebulae);
   }
   update(dt: number, cam: THREE.Camera, up: THREE.Vector3, alt: number, temp: number) {
     if (!Number.isFinite(alt) || !Number.isFinite(temp)) return;

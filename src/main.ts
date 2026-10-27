@@ -36,7 +36,9 @@ export function pushSeedUrl(word: string) {
 // ---- GPU tier detection (offscreen probe so antialias can be set correctly) ------
 {
   const probe = document.createElement("canvas");
-  const gl = probe.getContext("webgl2") ?? probe.getContext("webgl");
+  // Request high-performance so dual-GPU laptops probe the discrete GPU, matching the main renderer.
+  const ctxOpts: WebGLContextAttributes = { powerPreference: "high-performance" };
+  const gl = probe.getContext("webgl2", ctxOpts) ?? probe.getContext("webgl", ctxOpts);
   if (gl) {
     setGpuTier(detectGpuTier(gl as WebGLRenderingContext));
     // Release context immediately — browsers cap the number of live WebGL contexts.
@@ -61,8 +63,11 @@ if (gpuTier === "low") {
   S.renderScale = 0.75;
   S.octaves = 5;
 } else {
-  // Mobile high (e.g. S22 Ultra, iPhone 15 Pro): cap DPR at 2 — renders 4× fewer pixels than
-  // native 3× DPR with no quality loss visible at phone distances.
+  // High tier: 320 gives 36% fewer base-mesh vertices than the default 400 with no visible
+  // difference at flight/orbital altitude; the chunk system supplies close-up detail.
+  S.resolution = 320;
+  // Mobile high (e.g. S22 Ultra, iPhone 15 Pro): lower resolution, higher render scale for
+  // native-feeling sharpness; cap DPR at 2 — renders 4× fewer pixels than native 3× DPR.
   if (isMobileHigh) {
     S.resolution = 256;
     S.renderScale = 2.0;
@@ -98,7 +103,7 @@ const scene = new THREE.Scene(),
 
   // Rivers and scouting run concurrently — findSpots does its terrain scan while rivers build,
   // then awaits riversReady before reading planet.riverSystem for river teleport entries.
-  const riversPromise = planet.buildRivers();
+  const riversPromise = planet.buildRivers().catch(() => {});
   const spotsPromise = findSpots(planet, riversPromise);
 
   await setStep(2, "Setting up world");
@@ -109,13 +114,13 @@ const scene = new THREE.Scene(),
   const scatter = new Scatter(planet);
   const collider = new Collider(planet, scatter);
   const shadows = new Shadows(renderer, sky.light, gpuTier !== "high", sky.moon);
-  const aurora = new Aurora(scene);
+  const aurora = new Aurora(scene, camera);
   const fireflies = new Fireflies(scene);
   const galacticBand = new GalacticBand(scene);
   const biolumi = new Bioluminescence(scene);
   const footprints = gpuTier === "low" ? null : new Footprints(player, planet);
   const postFX = new PostFX(renderer, scene, camera);
-  postFX.aerial.setCamera(camera.near, camera.far);
+  if (gpuTier !== "low") postFX.aerial.setCamera(camera.near, camera.far);
   scene.add(scatter.group, sky.light.target);
   player.col = collider;
 
@@ -130,7 +135,7 @@ const scene = new THREE.Scene(),
     clearTimeout(rebuildTimer);
     rebuildTimer = window.setTimeout(async () => {
       await planet.build();
-      const newRiversPromise = planet.buildRivers();
+      const newRiversPromise = planet.buildRivers().catch(() => {});
       mapOverlay.reset();
       scatter.dirty = true;
       collider.dirty = true;
@@ -228,15 +233,13 @@ const scene = new THREE.Scene(),
   await setStep(4, "Compiling shaders");
   await renderer.compileAsync(scene, camera).catch(() => {});
 
-  // Render one warm-up frame off-screen — uploads geometry/textures to GPU without painting to canvas.
+  // Render one warm-up frame — uploads geometry/textures to GPU and pre-compiles all
+  // EffectComposer pass shaders. Routing through postFX ensures aerial/bloom/output passes
+  // compile here (during labelled loading) rather than lazy-compiling on the first visible frame.
   await setStep(5, "Warming up");
   sky.update(0, camera, player.up, player.alt, 0.5);
   planet.update(player.up, player.alt);
-  const _warmTarget = new THREE.WebGLRenderTarget(1, 1);
-  renderer.setRenderTarget(_warmTarget);
-  renderer.render(scene, camera);
-  renderer.setRenderTarget(null);
-  _warmTarget.dispose();
+  postFX.render(0);
   // Frame loop must be running before the RAF wait so the first visible frame
   // is already rendered when showSplash reveals the canvas (memory: project_startup_sequence)
   let lastFrameTime = performance.now(),
@@ -256,6 +259,7 @@ const scene = new THREE.Scene(),
     if (Math.abs(near - camera.near) > camera.near * 0.02) {
       camera.near = near;
       camera.updateProjectionMatrix();
+      if (gpuTier !== "low") postFX.aerial.setCamera(camera.near, camera.far);
     }
 
     sky.update(dt, camera, player.up, player.alt, tempAt());

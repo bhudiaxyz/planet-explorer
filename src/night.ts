@@ -53,10 +53,19 @@ void main() {
   gl_FragColor = vec4(col * I, I);
 }`,
   });
-  mesh = new THREE.Mesh(new THREE.IcosahedronGeometry(16000, gpuTier === "low" ? 2 : 3), this.mat);
-  constructor(scene: THREE.Scene) {
+  // Q3: level 2 on all tiers — aurora is purely fragment-shader driven; extra vertices only add VS cost.
+  mesh = new THREE.Mesh(new THREE.IcosahedronGeometry(16000, 2), this.mat);
+  private readonly _parented: boolean;
+  // P8: pass camera to parent the shell to it, eliminating the per-frame position copy and matrix recompose.
+  constructor(scene: THREE.Scene, camera?: THREE.Camera) {
     this.mesh.frustumCulled = false;
-    scene.add(this.mesh);
+    if (camera) {
+      camera.add(this.mesh);
+      this._parented = true;
+    } else {
+      scene.add(this.mesh);
+      this._parented = false;
+    }
   }
   update(
     cameraPosition: THREE.Vector3,
@@ -66,7 +75,7 @@ void main() {
   ) {
     this.mesh.visible = intensity > 0.01;
     if (!this.mesh.visible) return;
-    this.mesh.position.copy(cameraPosition);
+    if (!this._parented) this.mesh.position.copy(cameraPosition);
     const uniforms = this.mat.uniforms,
       forwardAxis = scratchForwardAxis
         .crossVectors(upDirection, Math.abs(upDirection.x) < 0.9 ? AXIS_X : AXIS_Z)
@@ -111,7 +120,8 @@ void main() {
   vec3 p = uCam + (mod(sd.xyz * 80. - uCam, 80.) - 40.)
          + vec3(sin(uT * .7 + sd.x * 30.), cos(uT * .6 + sd.y * 30.), sin(uT * .5 + sd.z * 30.)) * .8;
   vec3  d  = normalize(p);
-  vec3  w  = d * (uR + e3(d, true) * uAmp + .4 + sd.w * 2.4 + sin(uT * .6 + sd.w * 40.) * .4);
+  // P9: fine=false saves 3 noise evaluations per firefly per frame; <1 m height difference, imperceptible.
+  vec3  w  = d * (uR + e3(d, false) * uAmp + .4 + sd.w * 2.4 + sin(uT * .6 + sd.w * 40.) * .4);
   float ph = .5 + .5 * sin(uT * 2. + sd.w * 6.283);
   float amt = max(uAmt, uDay * .07);
   vA = ph * amt * (1. - smoothstep(25., 40., distance(w, uCam)));

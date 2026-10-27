@@ -119,28 +119,32 @@ class Layer {
     const lodMul = plantRadiusMul();
     const [outerFull, outerGone, innerGone, innerFull] = tier.lod.map((v) => v * lodMul),
       f = (v: number) => v.toFixed(2);
+    // Only structural (#if) flags stay as defines — uniform tiers of the same KIND/DISP/PUSH/MOSS
+    // share one compiled shader program instead of one per tier (~45 → ~15 unique programs).
     const defines = {
       KIND: spec.kind,
-      PMUL: tier.pmul.toFixed(1),
-      CELLSZ: f(tier.cell),
-      WK: spec.wind.toFixed(3),
-      TSN: spec.hardy ? ".02" : ".14",
-      TO_FULL: outerFull.toFixed(1),
-      TO_GONE: outerGone.toFixed(1),
-      TI_GONE: innerGone.toFixed(1),
-      TI_FULL: innerFull.toFixed(1),
-      SCW: f(tier.sw),
-      SCH: f(tier.sh),
-      LEAN: f(spec.lean),
       DISP: spec.disp ? 1 : 0,
       PUSH: spec.push ? 1 : 0,
       MOSS: spec.moss ? 1 : 0,
+    };
+    const numUniforms = {
+      PMUL: { value: tier.pmul },
+      CELLSZ: { value: tier.cell },
+      WK: { value: spec.wind },
+      TSN: { value: spec.hardy ? 0.02 : 0.14 },
+      TO_FULL: { value: outerFull },
+      TO_GONE: { value: outerGone },
+      TI_GONE: { value: innerGone },
+      TI_FULL: { value: innerFull },
+      SCW: { value: tier.sw },
+      SCH: { value: tier.sh },
+      LEAN: { value: spec.lean },
     };
     this.rt = makeRT(n, n);
     const uK = { value: K };
     this.bake = new THREE.ShaderMaterial({
       defines,
-      uniforms: { ...T, uSC: this.uSC, uK },
+      uniforms: { ...T, uSC: this.uSC, uK, ...numUniforms },
       vertexShader: QUAD_VS,
       fragmentShader: `
 uniform vec3 uSC;
@@ -171,11 +175,12 @@ void main() {
         uSC: this.uSC,
         uK,
         uP: { value: this.rt.texture },
+        ...numUniforms,
       });
       shaderParams.vertexShader = shaderParams.vertexShader
         .replace(
           "#include <common>",
-          `#include <common>\nattribute vec2 aCell;uniform vec3 uSC,uPl,uSun;uniform float uK,uTime,uWind,uSway,uVeg;uniform sampler2D uP;varying float vOuterF,vInnerF;\n${TERRAIN_GLSL}`
+          `#include <common>\nattribute vec2 aCell;uniform vec3 uSC,uPl,uSun;uniform float uK,uTime,uWind,uSway,uVeg,CELLSZ,WK,TO_FULL,TO_GONE,TI_GONE,TI_FULL,SCW,SCH,LEAN;uniform sampler2D uP;varying float vOuterF,vInnerF;\n${TERRAIN_GLSL}`
         )
         .replace("#include <beginnormal_vertex>", BEGIN)
         .replace("#include <begin_vertex>", "vec3 transformed=gP;")
@@ -263,10 +268,9 @@ export class Scatter {
   update(playerDirection: THREE.Vector3, alt: number, dt = 0.016) {
     U.uVeg.value = 1 - smoothstep(CFG.vegetation.altFadeStart, CFG.vegetation.altFadeEnd, alt);
     this.group.visible = alt < CFG.vegetation.altCullAbove;
-    let budget =
-      gpuTier === "low"
-        ? Math.max(2, Math.round(2 * dt * 60))
-        : Math.max(2, Math.round(4 * dt * 60));
+    // P6: fixed per-tier budget avoids the inverse dt scaling where a struggling GPU (low fps)
+    // gets a doubled budget and stresses itself further. The round-robin spreads bakes across frames.
+    let budget = gpuTier === "low" ? 2 : gpuTier === "medium" ? 3 : 4;
     if (this.dirty) {
       this.layers.forEach((l) => (l.lastFace = -1));
       this.dirty = false;
@@ -275,8 +279,9 @@ export class Scatter {
     if (alt >= 255) return;
     const n = this.layers.length;
     const s = this.roundRobinIndex;
-    this.roundRobinIndex = (s + 1) % n; // at most 4 placement bakes per frame, round-robin
     for (let i = 0; i < n; i++)
       if (this.layers[(s + i) % n].update(playerDirection, this.pl.radius, budget > 0)) budget--;
+    // P10: increment after the loop so layer s is processed first (highest priority this frame).
+    this.roundRobinIndex = (s + 1) % n;
   }
 }

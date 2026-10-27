@@ -236,9 +236,15 @@ void main() {
       this.atlas.reset();
       U.uAtOn.value = 0;
     }
+    // P11: recursively dispose all geometries in the group so nested objects (landmark children,
+    // water/atmosphere spheres) don't leave GPU buffers alive until GC on mobile.
+    const disposeObject = (obj: THREE.Object3D) => {
+      for (const child of obj.children) disposeObject(child);
+      (obj as THREE.Mesh).geometry?.dispose();
+    };
     for (const c of [...this.group.children]) {
       this.group.remove(c);
-      (c as THREE.Mesh).geometry?.dispose();
+      disposeObject(c);
     }
     const baseMesh = this.getBase(S.resolution),
       vertexCount = baseMesh.dirs.length / 3,
