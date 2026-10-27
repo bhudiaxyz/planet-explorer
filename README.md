@@ -57,18 +57,18 @@ npm run build      # type-check + production bundle
 
 - **Spherical world on a flat renderer.** Nothing in Three.js knows the world is a sphere. The player's up vector follows the surface normal each frame; all positions are plain 3D Cartesian coordinates. No special coordinate transforms, no seams.
 
-- **GPU scatter.** Each plant tier bakes a placement texture in GLSL that encodes elevation, moisture, slope and cluster density per cell. The vertex shader reads that texture and collapses rejected instances to a single degenerate point — the CPU never touches per-instance data after bake.
+- **GPU scatter.** Each plant type bakes its placement data to a texture once; the GPU uses it to position every instance without any CPU involvement after the bake. Rejected instances cost nothing — they never reach the rasteriser.
 
-- **Aurora as a single draw call.** The aurora is a large shell around the camera. The fragment shader generates curtain bands, ray structure and animated movement entirely in the GPU using noise, with no per-ray geometry. Intensity scales with night darkness and polar latitude.
+- **Aurora as a single draw call.** The aurora is a large translucent shell centred on the camera. All curtain bands, vertical ray structure and time animation are generated entirely on the GPU — one mesh, one draw call, no per-ray geometry. Intensity scales with night darkness and polar latitude.
 
-- **Two distinct night-light systems.** Fireflies drift above humid terrain in an area around the camera, green-yellow in colour, and disappear in rain. Bioluminescent motes float along coastlines and wet lowlands, sampling the terrain function to stay on damp ground; their colour shifts from teal-blue at the poles to warm orange near the equator.
+- **Two distinct night-light systems.** Fireflies drift above humid terrain around the camera, green-yellow in colour, and disappear in rain. Bioluminescent motes float along coastlines and wet lowlands, staying on damp ground; their colour shifts from teal-blue at the poles to warm orange near the equator.
 
 - **Trochoidal water.** The ocean surface uses three overlapping wave trains with analytically computed normals. Wave size scales with wind speed so the ocean responds to weather. A fourth wave ring ripples outward from the player.
 
-- **Instance-local wind bend.** Each tree's wind sway direction and phase are derived from its world position so neighbouring trees sway differently. Trunks stay fixed; crowns sway — all in the vertex shader.
+- **Instance-local wind bend.** Each tree's wind sway direction and phase are derived from its world position so neighbouring trees sway differently. Trunks stay fixed while crowns sway — computed entirely on the GPU with no per-tree CPU work.
 
 ## Performance notes
 
-Quality is assigned at startup by GPU tier and adapts dynamically at runtime. The *render scale* slider in the settings panel overrides the upper limit. Other levers: forest density, grass density in `plants.ts`, and `CFG` in `config.ts` (`chunk.budget`, `shadow.half`, `treeLod`).
+Quality is assigned at startup by GPU tier and adapts dynamically at runtime. The *render scale* slider in the settings panel overrides the upper limit. Other levers: forest density, grass density (in the Biomes panel), and advanced constants in `config.ts`.
 
 Startup runs five steps: terrain → world setup → scouting → shader compile → ready. Scouting runs concurrently with world setup; shader compilation is deferred until all GPU baking is done. The frame loop starts before the "Click to enter" prompt so the first visible frame is already rendered when you click.

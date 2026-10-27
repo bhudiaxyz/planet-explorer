@@ -423,7 +423,42 @@ The asymmetry prevents oscillation: load spikes (descent into dense terrain) rea
 
 ---
 
-## 11. Adding a plant kind
+## 11. Settings & Locations panels (`gui.ts`)
+
+### Settings panel (right side)
+
+Created by `new GUI({ title: "Planet settings", … })` using lil-gui. lil-gui sets `z-index: 1001` on `.lil-gui.root` by default, so it renders above all page content including the loading splash.
+
+**Startup state:** `gui.close()` is called immediately after creation — the panel starts collapsed to its title bar and must be opened by the user (or via G).
+
+**Item order** (top to bottom as rendered):
+1. 🎲 New random world — picks a random seed + weather, rebuilds
+2. 🪐 Planet palette — dropdown over 13 palettes; triggers rebuild + vegetation refresh
+3. **Terrain** folder — seed word, radius, resolution, amplitude, frequency, octaves, persistence, lacunarity, mountains, seaLevel
+4. **Biomes** folder — forest density, snowline, per-biome colour pickers (sand/grass/forest/rock/snow/water)
+5. **Sky & weather** folder — timeOfDay (live), dayLength, wind, windSway, cloudiness, renderScale, weather; `touchLookSensitivity` added on touch devices only
+6. Cycle walk / drone / fly (F)
+7. Land (L)
+
+**G key** toggles both the settings panel and the Locations panel together (shows if hidden, hides if shown).
+
+### Locations panel (left side)
+
+Created only when `spots.length > 0`. Width: 110 px (desktop) / 120 px (touch).
+
+**Positioning:**
+```ts
+position: "fixed", top: "78px", left: "10px", zIndex: "49"
+```
+`z-index: 49` places it **below** the loading splash (`z-index: 50`). The panel is invisible while the splash is opaque and fades in naturally as the splash transitions to `opacity: 0` on entry. This prevents a visible grey band on the left during the loading screen.
+
+**Structure:** ungrouped spots (fixed poles, terrain features) render flat; grouped spots (landmark types, rivers) go into collapsible subfolders that start closed.
+
+**Touch:** panel width 120 px, `--widget-height: 44px`, `maxHeight: calc(100dvh - 90px)`, `overflowY: auto`, and hidden by default (`locs.hide()`). The ☰ button in the HUD shows/hides it.
+
+---
+
+## 12. Adding a plant kind
 
 1. Add a geometry builder to `plantgeo.ts` (foliage) or `rockgeo.ts` (rocks). Mark leaf faces `leaf = true` if the shader should tint them.
 2. Add one `plant({name, tiers, gate, look})` entry to `plants.ts`. Nothing else needs editing.
