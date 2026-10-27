@@ -1,8 +1,8 @@
 import * as THREE from "three";
-import { rng } from "./noise";
-import { CurrentPalette } from "./palette";
+import { rng } from "../core/noise";
+import { CurrentPalette } from "../core/palette";
 import { N0, add, T, cyl, blob, done, frond } from "./geoutil";
-export { treeMats } from "./treemat";
+export { treeMats } from "../render/treemat";
 
 // ---- species builders; q = 1 detailed tier, q = 0.5 medium tier (same seed → same height/lean, so tiers match in silhouette). Foliage hue comes from LEAF × per-tree variation.
 function pine(r: () => number, q: number) {

@@ -1,6 +1,6 @@
 import * as THREE from "three";
-import { U } from "./fx";
-import { CurrentPalette } from "./palette";
+import { U } from "../render/fx";
+import { CurrentPalette } from "../core/palette";
 const FW = new THREE.Vector3(),
   RR = new THREE.Vector3();
 // Rain/snow computed entirely in the vertex shader: seeds fall and wrap inside a camera-anchored box; the CPU only uploads a few uniforms.

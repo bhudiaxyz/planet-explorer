@@ -2,10 +2,10 @@ import * as THREE from "three";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import type { Planet } from "./planet";
 import type { Obs } from "./collision";
-import { rng } from "./noise";
-import { S } from "./config";
-import { CurrentPalette } from "./palette";
-import { LANDMARK_NAMES_BY_KIND } from "./names";
+import { rng } from "../core/noise";
+import { S } from "../core/config";
+import { CurrentPalette } from "../core/palette";
+import { LANDMARK_NAMES_BY_KIND } from "../core/names";
 const UP = new THREE.Vector3(0, 1, 0);
 export type Landmark = { name: string; label: string; pos: THREE.Vector3 };
 

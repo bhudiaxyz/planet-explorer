@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { CFG } from "./config";
+import { CFG } from "../core/config";
 import {
   grassGeo,
   shrubGeo,

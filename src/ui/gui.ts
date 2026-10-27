@@ -1,13 +1,13 @@
 import GUI from "lil-gui";
-import { S, WEATHER_TYPE, type Settings } from "./config";
-import { pushSeedUrl, currentSeedWord } from "./main";
-import { genSeedWord } from "./util";
-import { isTouchDevice } from "./touch";
-import { PALETTES, biomeColors, setPalette } from "./palette";
-import type { Planet } from "./planet";
-import type { Player } from "./player";
-import type { PostFX } from "./postfx";
-import type { Spot } from "./spots";
+import { S, WEATHER_TYPE, type Settings } from "../core/config";
+import { pushSeedUrl, currentSeedWord } from "../main";
+import { genSeedWord } from "../core/util";
+import { isTouchDevice } from "../player/touch";
+import { PALETTES, biomeColors, setPalette } from "../core/palette";
+import type { Planet } from "../world/planet";
+import type { Player } from "../player/player";
+import type { PostFX } from "../render/postfx";
+import type { Spot } from "../world/spots";
 
 interface Ctx {
   planet: Planet;

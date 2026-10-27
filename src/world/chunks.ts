@@ -1,8 +1,8 @@
 import * as THREE from "three";
-import { S, CFG } from "./config";
-import { terrainMat } from "./fx";
-import { makeRT, bakeChunk } from "./bake";
-import { frame, type Frame } from "./utilgeo";
+import { S, CFG } from "../core/config";
+import { terrainMat } from "../render/fx";
+import { makeRT, bakeChunk } from "../render/bake";
+import { frame, type Frame } from "../core/utilgeo";
 const {
   cells: CS,
   cell: CC,

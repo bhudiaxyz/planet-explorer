@@ -1,10 +1,10 @@
 import * as THREE from "three";
 import type { Planet } from "./planet";
-import { S, CFG } from "./config";
-import { U } from "./fx";
-import { gpuTier } from "./gputier";
-import { rng } from "./noise";
-import { RIVER_NAMES } from "./names";
+import { S, CFG } from "../core/config";
+import { U } from "../render/fx";
+import { gpuTier } from "../render/gputier";
+import { rng } from "../core/noise";
+import { RIVER_NAMES } from "../core/names";
 
 // Chaikin corner-cutting: replaces each segment with two points at 1/4 and 3/4,
 // preserving the first and last point so source/mouth stay in place.

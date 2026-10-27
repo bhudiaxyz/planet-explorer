@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { wind, U, IGN, TINT_GLSL } from "./fx";
-import { S, CFG } from "./config";
+import { S, CFG } from "../core/config";
 import { T as TU } from "./terrain";
 
 // Three tree tiers (0 detailed · 1 medium · 2 low-poly) cross-fade with strictly complementary screen-door dither over uLod = (H0,H1,M0,M1) metres:

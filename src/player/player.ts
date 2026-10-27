@@ -1,8 +1,8 @@
 import * as THREE from "three";
-import { Planet } from "./planet";
-import { S } from "./config";
-import { rng } from "./noise";
-import type { Collider } from "./collision";
+import { Planet } from "../world/planet";
+import { S } from "../core/config";
+import { rng } from "../core/noise";
+import type { Collider } from "../world/collision";
 import { isTouchDevice } from "./touch";
 const EYE_HEIGHT = 2.4,
   scratchRight = new THREE.Vector3(),

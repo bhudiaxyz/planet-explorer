@@ -1,9 +1,9 @@
 import * as THREE from "three";
-import type { Planet } from "./planet";
-import type { Player } from "./player";
-import { type Landmark, LANDMARK_ICON } from "./landmarks";
-import type { Spot } from "./spots";
-import { U } from "./fx";
+import type { Planet } from "../world/planet";
+import type { Player } from "../player/player";
+import { type Landmark, LANDMARK_ICON } from "../world/landmarks";
+import type { Spot } from "../world/spots";
+import { U } from "../render/fx";
 
 const W = 1024,
   H = 512;

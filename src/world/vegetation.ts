@@ -1,11 +1,11 @@
 import * as THREE from "three";
 import type { Planet } from "./planet";
-import { frame, smoothstep } from "./utilgeo";
-import { gpuTier, plantRadiusMul } from "./gputier";
-import { T, TERRAIN_GLSL } from "./terrain";
-import { makeRT, draw, QUAD_VS, readRT } from "./bake";
-import { U, TINT_GLSL, IGN } from "./fx";
-import { CFG } from "./config";
+import { frame, smoothstep } from "../core/utilgeo";
+import { gpuTier, plantRadiusMul } from "../render/gputier";
+import { T, TERRAIN_GLSL } from "../render/terrain";
+import { makeRT, draw, QUAD_VS, readRT } from "../render/bake";
+import { U, TINT_GLSL, IGN } from "../render/fx";
+import { CFG } from "../core/config";
 import { PLANTS, type PlantSpec, type Tier, decideGLSL, lookGLSL } from "./plants";
 
 // GPU ground cover. Layer = one plant type at one distance tier. Placement is decided in a bake pass (one texel per instance cell) that reruns only when the

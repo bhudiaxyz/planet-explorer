@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { U, NOISE, CLOUD_GLSL } from "./fx";
+import { U, NOISE, CLOUD_GLSL } from "../render/fx";
 import type { Sky } from "./sky";
 // Drifting clouds: a planet-anchored shell above the peaks. Density is 3-octave noise advected by wind; self-shadowing comes from a second
 // sample toward the sun; sunset tint from the cloud's own sun elevation; distance haze when inside the atmosphere. One cheap fragment shader.

@@ -1,7 +1,7 @@
 import * as THREE from "three";
-import { U } from "./fx";
-import { S } from "./config";
-import type { Player } from "./player";
+import { U } from "../render/fx";
+import { S } from "../core/config";
+import type { Player } from "../player/player";
 import type { Planet } from "./planet";
 const FOOTPRINT_COUNT = 48;
 

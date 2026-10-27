@@ -1,6 +1,6 @@
 import * as THREE from "three";
-import { smoothstep } from "./utilgeo";
-import { S } from "./config";
+import { smoothstep } from "../core/utilgeo";
+import { S } from "../core/config";
 import type { Planet } from "./planet";
 
 /** CPU mirror of the GPU treeDensity() — forestMask × groveMask × moisture.

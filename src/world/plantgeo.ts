@@ -1,6 +1,6 @@
 import * as THREE from "three";
-import { rng } from "./noise";
-import { CurrentPalette } from "./palette";
+import { rng } from "../core/noise";
+import { CurrentPalette } from "../core/palette";
 import { UP, N0, add, T, cyl, blob, done } from "./geoutil";
 
 export function grassGeo(blades: number, segs: number, wScale = 1) {

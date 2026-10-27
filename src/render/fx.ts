@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { T, TERRAIN_GLSL, BIOME_GLSL } from "./terrain";
-import { CFG } from "./config";
-import { CurrentPalette } from "./palette";
+import { CFG } from "../core/config";
+import { CurrentPalette } from "../core/palette";
 const CELL = CFG.chunk.cell.toFixed(2),
   SKIRT = CFG.chunk.skirt.toFixed(1);
 // uGLod = ground-cover LOD (near tier grows 28→12 m, far tier shrinks away 11→5 m)

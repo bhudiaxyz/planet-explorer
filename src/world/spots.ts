@@ -1,9 +1,9 @@
 import * as THREE from "three";
 import type { Planet } from "./planet";
 import { LANDMARK_ICON } from "./landmarks";
-import { SPOT_NAMES } from "./names";
-import { rng } from "./noise";
-import { S } from "./config";
+import { SPOT_NAMES } from "../core/names";
+import { rng } from "../core/noise";
+import { S } from "../core/config";
 import { treeDensityCPU } from "./treeutil";
 
 export type Spot = { name: string; icon: string; dir: THREE.Vector3; group?: string };

@@ -1,12 +1,12 @@
 import * as THREE from "three";
 import type { Planet } from "./planet";
-import { smoothstep } from "./utilgeo";
+import { smoothstep } from "../core/utilgeo";
 import { treeDensityCPU } from "./treeutil"; // shared with spots.ts
-import { rng } from "./noise";
-import { S, CFG } from "./config";
+import { rng } from "../core/noise";
+import { S, CFG } from "../core/config";
 import { treeGeos, lowGeos, treeMats, getLeafColors } from "./trees";
-import { canBake, bakePoints } from "./bake";
-import { gpuTier } from "./gputier";
+import { canBake, bakePoints } from "../render/bake";
+import { gpuTier } from "../render/gputier";
 import type { Obs } from "./collision";
 const UP = new THREE.Vector3(0, 1, 0);
 const _lod = CFG.treeLod;

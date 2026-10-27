@@ -1,6 +1,6 @@
 import nipplejs from "nipplejs";
 import type { Player } from "./player";
-import { S } from "./config";
+import { S } from "../core/config";
 
 export const isTouchDevice = "ontouchstart" in window;
 

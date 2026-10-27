@@ -1,6 +1,6 @@
 import * as THREE from "three";
-import { rng } from "./noise";
-import { CurrentPalette } from "./palette";
+import { rng } from "../core/noise";
+import { CurrentPalette } from "../core/palette";
 import { T, add, done } from "./geoutil";
 
 export function rockGeo() {

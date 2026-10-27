@@ -1,6 +1,6 @@
 import * as THREE from "three";
-import type { Noise3 } from "./noise";
-import { biomeColors } from "./palette";
+import type { Noise3 } from "../core/noise";
+import { biomeColors } from "../core/palette";
 // Shared terrain-function uniforms. The permutation tables of the CPU noise are uploaded as a 512×2 float texture,
 // so the GLSL height field is the same function the CPU samples for physics, trees and placement.
 const permutationTexture = new THREE.DataTexture(

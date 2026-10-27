@@ -1,10 +1,10 @@
 import * as THREE from "three";
 import { Planet, smoothstep } from "./planet";
-import { S, CFG } from "./config";
-import { CurrentPalette } from "./palette";
+import { S, CFG } from "../core/config";
+import { CurrentPalette } from "../core/palette";
 import { Precip } from "./precip";
-import { U } from "./fx";
-import { gpuTier } from "./gputier";
+import { U } from "../render/fx";
+import { gpuTier } from "../render/gputier";
 const { sky: SKY, atmosphere: ATM, lights: LGT } = CFG;
 export class Sky {
   sun = new THREE.Vector3(1, 0, 0);

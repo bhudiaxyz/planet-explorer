@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import type { Planet } from "./planet";
 import type { Scatter } from "./vegetation";
-import { basisFromCode } from "./utilgeo";
+import { basisFromCode } from "../core/utilgeo";
 const Y = new THREE.Vector3(0, 1, 0),
   X = new THREE.Vector3(1, 0, 0),
   PR = 0.4; // PR = player radius (m)
