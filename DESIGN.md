@@ -153,13 +153,16 @@ Touch = unknown mobile → conservative `low`. No touch = unknown desktop → op
 | Render scale | 0.60 | 0.75 | 2.0 (DPR cap) | 1.0 / 1.5 (Retina) |
 | Terrain octaves | 4 | 5 | 6 | 6 |
 | Camera far plane | 20 000 m | 30 000 m | 40 000 m | 40 000 m |
-| MSAA | off | on | on | on |
+| MSAA samples | 0 | 2 | 4 | 4 |
+| Shadow map size | 256 px | 512 px | 1024 px | 1024 px |
+| Shadow Hz | 20 | 30 | 60 | 60 |
+| Shadow frustum | 65% | 100% | 100% | 100% |
 | Aerial haze pass | off | on | on | on |
 | Bloom pass | off (skipped) | on | on | on |
 | Footprints | off | on | on | on |
 | Plant radius multiplier | 0.50 | 0.65 | 1.0 | 1.0 |
-| Shadow Hz | 20 | 30 | 60 | 60 |
-| Shadow frustum | 65% | 100% | 100% | 100% |
+| Forest count multiplier | 0.30 | 0.55 | 0.80 | 0.80 |
+| Nebula count | 0 | 9 | 14 | 14 |
 | Firefly count | 50 | 120 | 220 | 220 |
 | Bio-mote count | 12 | 28 | 50 | 50 |
 | River meanders | off | on | on | on |
@@ -205,6 +208,12 @@ Two `fract` and one `dot` — no texture lookup, no integer trickery. Produces v
 ### `basis()` — cube-face frame from a float
 
 The GPU scatter system encodes cube face identity as a single float constant `uSC.z`. The vertex shader recovers face normal + two tangents via `fc / 2` and `fc % 2` integer decode. One consistent local frame per tile, no per-face branching in the draw call.
+
+### Cube-map planet surface
+
+The coarse planet mesh uses cube maps (512² per face, mipmapped) baked once from the full terrain function. The bake renders elevation/moisture, normals and biome colours to three separate render targets via `bakePoints()`, reading results back to the CPU for vertex attribute upload. This replaces an older per-vertex colour approach that produced a visible triangle grid and shimmer as the camera moved. The cube map matches the detail chunks at all altitudes because both sample the same `e3()` function.
+
+Two bake passes run in parallel at the start of `planet.build()` — elevation/moisture (`mode 0`) and normals (`mode 3`) — since they are independent. The colour pass (`mode 4`) runs after, as it requires the normal readback as input.
 
 ---
 
