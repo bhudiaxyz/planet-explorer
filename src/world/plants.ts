@@ -364,7 +364,7 @@ export const PLANTS: PlantSpec[] = [
   plant({
     name: "cactus",
     kind: 10,
-    wind: 0.05,
+    wind: 0,
     hardy: true,
     collide: true,
     lean: 0.08,
