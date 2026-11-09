@@ -10,7 +10,7 @@ Developer reference for the procedural planet explorer. Covers architecture deci
 src/
 ├── main.ts               ← entry point, startup sequence, frame loop
 ├── core/
-│   ├── config.ts         ← S (live settings) + CFG (engineering constants)
+│   ├── config.ts         ← S (live settings) + CFG (engineering constants) + seed-word state
 │   ├── noise.ts          ← CPU Perlin noise (shared permutation table with GPU)
 │   ├── palette.ts        ← 13 Solar System planet palettes
 │   ├── names.ts          ← pronounceable seed-word generator
@@ -53,6 +53,26 @@ src/
     └── map.ts            ← fullscreen equirectangular planet map
 ```
 
+### Module map
+
+| Area | Directory / file | Role |
+|------|-----------------|------|
+| Entry | `main.ts` | Wires everything; runs the startup sequence, rebuilds and frame loop. |
+| Core utilities | `core/` | Config constants + seed state (`config`), noise, palettes, seed words, geometry math. |
+| GPU tier | `render/gputier.ts` | Classifies the GPU (probed in `main.ts` before renderer creation) as high / medium / low. |
+| Rendering | `render/` | Shared uniforms and shaders (`fx`), GPU bake helpers (`bake`), terrain material (`terrain`), post-processing chain (`postfx`, `aerialfx`), sun/moon shadows (`shadows`), tree material (`treemat`). |
+| Planet | `world/planet.ts`, `world/chunks.ts` | Coarse planet mesh with cube-map surface; streamed high-detail terrain chunks. |
+| Sky & atmosphere | `world/sky.ts`, `world/skyfx.ts`, `world/night.ts`, `world/precip.ts` | Sun/moon/weather state, cloud shell, aurora/fireflies/bioluminescence, GPU rain/snow. |
+| Rivers & lakes | `world/river.ts` | Valley-tracing paths, meanders, tributaries, lakes; single animated water shader. |
+| Trees | `world/forest.ts`, `world/trees.ts`, `world/treeutil.ts`, `world/geoutil.ts` | Clustered placement, three LOD levels, per-tree hue and shape variation. |
+| Ground cover | `world/plants.ts`, `world/vegetation.ts`, `world/plantgeo.ts`, `world/rockgeo.ts` | 15 plant kinds with biome-specific placement gates. |
+| Landmarks | `world/landmarks.ts` | 24 landmarks across 8 procedural types, placed at build time. |
+| Player | `player/player.ts`, `player/touch.ts`, `world/collision.ts`, `world/footprints.ts` | Walk / drone / fly controller; collision; snow footprints; virtual joystick. |
+| Locations | `world/spots.ts` | Terrain beauty-spot scanner; results populate the Locations panel and map. |
+| UI | `ui/gui.ts`, `ui/map.ts` | lil-gui settings + Locations panel; fullscreen equirectangular planet map. |
+
+Runtime dependencies: `three`, `lil-gui`, `nipplejs`. Build: Vite + TypeScript (`tsc --noEmit` type-check, then `vite build`; `three` is split into its own chunk).
+
 **Key architectural decisions:**
 
 - **Shared terrain function.** `noise.ts` (CPU) and `terrain.ts` (GLSL) implement the same `e3()` domain-warped fBm using the same permutation table. Walking physics, collision, river tracing and GPU rendering all see the same world — no approximation seams.
@@ -88,11 +108,19 @@ main.ts (async IIFE):
 - The warm-up calls `postFX.render(0)` rather than a direct `renderer.render()` into a 1×1 target. This pre-compiles all EffectComposer pass shaders (aerial / bloom / output) during the labelled loading step rather than lazily on the first visible frame. It also uploads all geometry and texture buffers to the GPU.
 - The animation loop starts **before** the RAF yield. This guarantees the compositor has already been given a fully-rendered frame before the "Click to enter" button is shown, so clicking in is visually instant.
 
+### Rebuilds (new seed / terrain settings)
+
+`rebuild(respawn)` is debounced (120 ms) and **chained** on a single promise: each rebuild runs `planet.build()` → `buildRivers()` → map reset → scatter/collider dirty → respawn or refresh → `findSpots()` only after the previous one finishes. `build()` awaits GPU bakes, so two overlapping rebuilds would otherwise both add terrain and river meshes to the same group. Failures are logged and don't break the chain.
+
+`planet.build()` frees only the materials it created on the previous build (terrain + landmark materials, tracked in `buildMats`). Water, cloud, atmosphere and tree materials are reused across builds and are not freed.
+
 ---
 
 ## 3. GPU tier detection (`render/gputier.ts`)
 
 ### Probe canvas
+
+The probe lives at the top of `main.ts`; `gputier.ts` exports `detectGpuTier(gl)` (classification) and the `gpuTier` value every system reads.
 
 ```ts
 const probe = document.createElement("canvas");   // never appended to DOM
@@ -155,20 +183,28 @@ Touch = unknown mobile → conservative `low`. No touch = unknown desktop → op
 | Camera far plane | 20 000 m | 30 000 m | 40 000 m | 40 000 m |
 | MSAA samples | 0 | 2 | 4 | 4 |
 | Shadow map size | 256 px | 512 px | 1024 px | 1024 px |
-| Shadow Hz | 20 | 30 | 60 | 60 |
+| Shadow Hz | 20 | 30 | 30 | 30 |
 | Shadow frustum | 65% | 100% | 100% | 100% |
 | Aerial haze pass | off | on | on | on |
 | Bloom pass | off (skipped) | on | on | on |
 | Footprints | off | on | on | on |
+| Ground-cover LOD tiers | near only | near + mid | near + mid + far | near + mid + far |
 | Plant radius multiplier | 0.50 | 0.65 | 1.0 | 1.0 |
+| Tree LOD distance multiplier | 0.45 | 0.65 | 1.0 | 1.0 |
 | Forest count multiplier | 0.30 | 0.55 | 0.80 | 0.80 |
+| Star count | 900 | 1600 | 2500 | 2500 |
+| Rain/snow particle count | 1200 | 2200 | 3500 | 3500 |
 | Nebula count | 0 | 9 | 14 | 14 |
+| Galactic band points | 140 | 280 | 500 | 500 |
 | Firefly count | 50 | 120 | 220 | 220 |
 | Bio-mote count | 12 | 28 | 50 | 50 |
-| River meanders | off | on | on | on |
+| Main rivers / tributaries each | half (min 2) / 1 | 4 / 3 | 4 / 3 | 4 / 3 |
+| River trace length | 60% steps | full | full | full |
+| River meanders + smoothing | off | on | on | on |
 | Lake generation | off | on | on | on |
+| Water material | `MeshBasicMaterial` | shader | shader + high-detail | shader + high-detail |
 
-**Note on bloom:** On low tier the `UnrealBloomPass` is never added to the EffectComposer — `addPass` is skipped entirely, not just `bloom.enabled = false`. `UnrealBloomPass` allocates ~2.5 MB of HalfFloat render targets on construction; skipping `addPass` means those allocations never happen.
+The moon's shadow map is half the size of the sun's on every tier. See §10 for why low tier skips the aerial and bloom passes entirely.
 
 ---
 
@@ -300,6 +336,25 @@ Only structural `#if` flags (`KIND`, `DISP`, `PUSH`, `MOSS`) are compiled as `#d
 
 One 8-bit texel per instance cell. A bake-pass shader evaluates elevation, moisture, slope and cluster density in GLSL, writing either a height value (accepted) or a sentinel (rejected). The vertex shader reads the texel; rejected instances are collapsed to `vec3(0)` — a degenerate point the GPU clips away with zero fill-rate cost.
 
+### LOD bands (`CFG.plantLod`, `CFG.plantRadius`)
+
+Each tier is `[full-size until, gone beyond, inner gone below, inner full above]` metres; the radius is the draw-lattice radius before the tier multiplier (§3).
+
+| Band | Used by | LOD | Radius |
+|---|---|---|---|
+| `near` / `mid` | grass, ferns, reeds, tall sedge | `[60,90,0,0.5]` / `[74,106,3,14]` | 90 / 104 |
+| `flower` | flowers (single tier) | `[65,90,0,0.5]` | 90 |
+| `mush` | mushrooms (single tier) | `[30,50,0,0.5]` | 48 |
+| `shrub` / `shrubMid` | shrubs, alpine scrub, cactus, dead scrub | `[75,110,0,0.5]` / `[70,152,5,22]` | 110 / 160 |
+| `rock` / `rockMid` | rocks, rock slabs, frost rocks, boulders, crystals | `[80,140,0,0.5]` / `[70,195,5,22]` | 140 / 210 |
+| `far` | third tier of every multi-tier kind | `[90,200,12,36]` | 204 |
+
+Far tiers draw on high tier only; mid tiers on medium and above.
+
+### Wind
+
+Each kind has a `wind` weight (uniform `WK`) multiplied by the global `S.windSway`. Rigid kinds — cactus, rocks, crystals — use `wind: 0`.
+
 ### Density fields
 
 - `treeDensity(dir)`: shared by trees, ferns and mushrooms — understory follows the forest.
@@ -314,9 +369,12 @@ Both the outer fade (plant appearing at range limit) and inner fade (plant disap
 
 ## 7. Tree system (`world/forest.ts`, `world/trees.ts`)
 
-- Three LOD tiers: hi-poly close, mid-poly mid-altitude, low-poly billboard-like at distance.
-- LOD levels cross-fade over ~0.4 s as altitude changes — no discrete pop.
+- Three LOD tiers: 0 detailed (shadow-casting), 1 medium, 2 low-poly.
+- **Distance cross-fade:** tiers blend over `CFG.treeLod = [H0, H1, M0, M1] = [40, 70, 130, 170]` m (scaled by tier, see §3) with strictly complementary IGN screen-door dither: with `a = smoothstep(H0, H1, d)` and `b = smoothstep(M0, M1, d)`, tier 0 keeps `noise ≥ a`, tier 1 keeps `b ≤ noise < a`, tier 2 keeps `noise < b`. No holes, no double coverage, no pops.
+- **Static far set:** the low-poly tier holds every tree and is never rebuilt; its vertex shader collapses instances near the camera or on the far side of the planet. Only the detailed (≤ H1 + 15 m) and medium (H0 − 15 … M1 + 15 m) sets are rebuilt as you move, from per-tree matrices composed once and cached.
+- **Altitude near-mode:** detailed/medium sets are enabled below 380 m and dropped above 420 m (hysteresis), and their strength fades in/out over ~0.4 s (`nearFadeSpeed`).
 - Per-tree hue and shape seeded from instance world position for variety.
+- The low-poly tier has no wind (never close enough to see sway), which removes sin/cos work from ~1 M vertices per frame.
 
 **Instance-local wind bend:** The wind function hashes the tree's world position (from `instanceMatrix[3]`) to derive a unique phase and bend direction per tree. The height term `max(lp.y, 0.0)` ensures only the upper mesh deforms — trunks stay fixed, crowns sway. Computed entirely in the vertex shader.
 
@@ -368,7 +426,11 @@ UnrealBloomPass     → half-resolution bloom    ← skipped on low tier (addPas
 OutputPass          → tone-map + gamma to canvas
 ```
 
-On low tier, aerial and bloom passes are never added to the composer — `addPass` is not called. `UnrealBloomPass` allocates ~2.5 MB of HalfFloat render targets on construction even when disabled; skipping `addPass` entirely avoids that allocation.
+On low tier, aerial and bloom passes are never added to the composer — `addPass` is not called — so their HalfFloat render targets (~2.5 MB for bloom) are never committed or rendered.
+
+The MSAA sample count of the HDR target is tier-gated (0 / 2 / 4).
+
+**NaN/Inf clean pass:** uses a bit test (`floatBitsToUint(c) & 0x7f800000u == 0x7f800000u`) instead of `isnan()` / `isinf()`. ANGLE's D3D compiler on Windows assumes no NaNs and may strip `isnan()` (warning X3577). Output is also clamped to `[0, 32]` before bloom.
 
 ### Aerial perspective (`render/aerialfx.ts`)
 
@@ -385,6 +447,8 @@ Pixel ratio range: `[0.5, renderScale]` (renderScale set at startup by tier).
 - **Upscale**: waits 3 s of stable frames (< 18.5 ms). Rises 0.1 per step, capped at renderScale.
 
 The asymmetry prevents oscillation: load spikes react quickly; recovery is cautious.
+
+On window resize (e.g. dragging to a lower-DPR monitor) the pending ratio is immediately clamped to `min(devicePixelRatio, renderScale)`; raising it again is left to the adaptive loop.
 
 ### Shadows (`render/shadows.ts`)
 
@@ -419,9 +483,18 @@ position: "fixed", top: "78px", left: "10px", zIndex: "49"
 
 ---
 
+### Spot scanner (`world/spots.ts`)
+
+`findSpots()` returns, in this order:
+
+1. **Fixed** (8): North/South Pole, Aurora Borealis/Australis, Equator 0°/90°/180°/270°.
+2. **Scanned** (12 features × 3 = 36): Beach, Mountain Peak, Canyon, Island, Coastal Cliffs, Open Plains, Snow Field, Desert, Lagoon, Rainforest, Dense Forest, Crystal Field. Each feature has a `score(elev, neighbours, temp, moisture)` function. Random directions are sampled and scored, and the top 3 per feature are kept, at least ~30° apart. If a feature finds fewer than 3, it is padded with jittered fallbacks. Each spot gets a unique name from `SPOT_NAMES`.
+3. **Landmarks** (24): offset 8 m sideways from the landmark so you don't spawn inside it.
+4. **Rivers**: one per river, at 40% along its path. This is the only part that awaits `riversPromise`.
+
 ## 12. Seed system
 
-World seed is a pronounceable word (e.g. `KaliSeron`) stored in the URL as `?seed=KaliSeron`. `hashSeedWord()` converts it to a 32-bit integer used by all noise functions. Changing the seed rebuilds the planet in place via `rebuild(respawn = true)`.
+World seed is a pronounceable word (e.g. `KaliSeron`) stored in the URL as `?seed=KaliSeron`. The seed state lives in `core/config.ts` (not `main.ts`, so `ui/gui.ts` can import it without a circular dependency). `currentSeedWord` is read from the URL or generated by `genSeedWord()`; `hashSeedWord()` converts it to the 32-bit `S.seed` used by all noise functions. `pushSeedUrl(word)` updates both and rewrites the URL with `history.replaceState`. Changing the seed rebuilds the planet in place via `rebuild(respawn = true)` (§2).
 
 ---
 
@@ -429,3 +502,12 @@ World seed is a pronounceable word (e.g. `KaliSeron`) stored in the URL as `?see
 
 1. Add a geometry builder to `world/plantgeo.ts` (foliage) or `world/rockgeo.ts` (rocks).
 2. Add one `plant({name, tiers, gate, look})` entry to `world/plants.ts`. Nothing else needs editing.
+
+---
+
+## 14. Build & deploy
+
+- `npm run dev`: Vite dev server on port 5173.
+- `npm run build`: `tsc --noEmit`, then `vite build` (target `es2020`; `three` goes into its own `three-*.js` chunk).
+- Vite `base` is `/planet-explorer/` to match the GitHub Pages path.
+- `.github/workflows/deploy-pages.yml` builds on Node 24 with `npm ci` and deploys `dist/` to GitHub Pages on every push to `main` (or when run manually).
