@@ -2,7 +2,7 @@ import * as THREE from "three";
 import type { Planet } from "./planet";
 import { frame, smoothstep } from "../core/utilgeo";
 import { gpuTier, plantRadiusMul } from "../render/gputier";
-import { T, TERRAIN_GLSL } from "../render/terrain";
+import { T, TERRAIN_GLSL, HELPERS_GLSL } from "../render/terrain";
 import { makeRT, draw, QUAD_VS, readRT } from "../render/bake";
 import { U, TINT_GLSL, IGN } from "../render/fx";
 import { CFG } from "../core/config";
@@ -78,6 +78,21 @@ vec3 objectNormal = gN;
 vColor.rgb *= tint;
 #endif`;
 
+const PLACEMENT_FS = `
+uniform vec3 uSC;
+uniform float uK;
+${TERRAIN_GLSL}
+${DECIDE}
+
+void main() {
+  vec2 L = floor(gl_FragCoord.xy) - vec2(uK);
+  gl_FragColor = decide(uSC.x + L.x, uSC.y + L.y, uSC.z);
+}`;
+/** Placement bake material. No defines: every kind and tier shares one program (kind picked by uKind, see decideGLSL),
+ *  so precompileBakes() can warm it with a throwaway instance before any Layer exists. */
+export const placementBakeMaterial = (uniforms: Record<string, THREE.IUniform> = {}) =>
+  new THREE.ShaderMaterial({ uniforms, vertexShader: QUAD_VS, fragmentShader: PLACEMENT_FS });
+
 class Layer {
   uSC = { value: new THREE.Vector3() };
   mesh: THREE.Mesh;
@@ -142,21 +157,7 @@ class Layer {
     };
     this.rt = makeRT(n, n);
     const uK = { value: K };
-    this.bake = new THREE.ShaderMaterial({
-      defines,
-      uniforms: { ...T, uSC: this.uSC, uK, ...numUniforms },
-      vertexShader: QUAD_VS,
-      fragmentShader: `
-uniform vec3 uSC;
-uniform float uK;
-${TERRAIN_GLSL}
-${DECIDE}
-
-void main() {
-  vec2 L = floor(gl_FragCoord.xy) - vec2(uK);
-  gl_FragColor = decide(uSC.x + L.x, uSC.y + L.y, uSC.z);
-}`,
-    });
+    this.bake = placementBakeMaterial({ ...T, uSC: this.uSC, uK, uKind: { value: spec.kind }, ...numUniforms });
     const m = new THREE.MeshStandardMaterial({
       vertexColors: true,
       roughness: 1,
@@ -180,7 +181,7 @@ void main() {
       shaderParams.vertexShader = shaderParams.vertexShader
         .replace(
           "#include <common>",
-          `#include <common>\nattribute vec2 aCell;uniform vec3 uSC,uPl,uSun;uniform float uK,uTime,uWind,uSway,uVeg,CELLSZ,WK,TO_FULL,TO_GONE,TI_GONE,TI_FULL,SCW,SCH,LEAN;uniform sampler2D uP;varying float vOuterF,vInnerF;\n${TERRAIN_GLSL}`
+          `#include <common>\nattribute vec2 aCell;uniform vec3 uSC,uPl,uSun;uniform float uK,uTime,uWind,uSway,uVeg,CELLSZ,WK,TO_FULL,TO_GONE,TI_GONE,TI_FULL,SCW,SCH,LEAN;uniform sampler2D uP;varying float vOuterF,vInnerF;\n${HELPERS_GLSL}`
         )
         .replace("#include <beginnormal_vertex>", BEGIN)
         .replace("#include <begin_vertex>", "vec3 transformed=gP;")
@@ -206,7 +207,42 @@ void main() {
     this.mesh.frustumCulled = false;
     this.mesh.matrixAutoUpdate = false;
     this.mesh.receiveShadow = true;
-    this.mesh.castShadow = spec.kind === 0; // only large-form plants cast shadows
+    // Shadow casting needs a depth material running the same placement code, otherwise three's shared
+    // depth material draws every instance untransformed (all piled at the planet centre: pure waste, no
+    // visible shadow). Only solid, near-tier kinds cast — on high tier, where the shadow map is big
+    // enough for them to read. Grass stays off: thousands of thin blades for a barely-visible stipple.
+    this.mesh.castShadow = spec.collide && tier.near && gpuTier === "high";
+    if (this.mesh.castShadow) {
+      const depth = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking });
+      (depth as any).defines = defines;
+      depth.onBeforeCompile = (s) => {
+        Object.assign(s.uniforms, T, {
+          uTime: U.uTime,
+          uWind: U.uWind,
+          uSway: U.uSway,
+          uVeg: U.uVeg,
+          uPl: U.uPl,
+          uSun: U.uSun,
+          uSC: this.uSC,
+          uK,
+          uP: { value: this.rt.texture },
+          ...numUniforms,
+        });
+        // depth.glsl only includes <beginnormal_vertex> under USE_DISPLACEMENTMAP, so the placement
+        // block goes in at <begin_vertex>; `normal` is still a built-in attribute there.
+        s.vertexShader = s.vertexShader
+          .replace(
+            "#include <common>",
+            `#include <common>\nattribute vec2 aCell;uniform vec3 uSC,uPl,uSun;uniform float uK,uTime,uWind,uSway,uVeg,CELLSZ,WK,TO_FULL,TO_GONE,TI_GONE,TI_FULL,SCW,SCH,LEAN;uniform sampler2D uP;float vOuterF,vInnerF;\n${HELPERS_GLSL}`
+          )
+          .replace("#include <begin_vertex>", BEGIN.replace("vec3 objectNormal = gN;", "") + "\nvec3 transformed=gP;")
+          .replace(
+            "#include <project_vertex>",
+            "#include <project_vertex>\nif(kill)gl_Position=vec4(2.,2.,2.,1.);"
+          );
+      };
+      this.mesh.customDepthMaterial = depth;
+    }
   }
   /** Rebakes placement when the lattice centre moved. Returns true if a bake happened (so the caller can budget bakes per frame). */
   update(playerDirection: THREE.Vector3, planetRadius: number, allowBake = true): boolean {

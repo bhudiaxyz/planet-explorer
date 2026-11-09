@@ -482,25 +482,45 @@ export const PLANTS: PlantSpec[] = [
   }),
 ];
 
-// ---- GLSL generation: one `#if KIND==k` block per catalog entry
+// ---- GLSL generation
+// `look` runs in each kind's own visible-material program, so it stays a compile-time `#if KIND==k` block.
 const perKind = (f: "pre" | "gate" | "result" | "look") =>
   PLANTS.filter((p) => p[f])
     .map((p) => `#if KIND==${p.kind}\n${p[f]}\n#endif`)
     .join("\n");
 export const lookGLSL = () => perKind("look");
-export const decideGLSL = () => `uniform float CELLSZ,PMUL,TSN;
-#define REJECT return vec4(-9999.,0.,0.,0.)
+// Placement bake: ONE program for every kind, dispatched on the uKind uniform (dynamically uniform branch — free on any
+// GPU). It used to be one program per kind via #if; each holds two full e3() terrain evaluations, and ANGLE's D3D
+// compiler (Windows Chrome/Edge) takes ~2.4 s per copy — 15 copies were ~36 s of a Windows cold start.
+const branch = (f: "pre" | "gate") =>
+  PLANTS.filter((p) => p[f])
+    .map((p) => `if (uKind == ${p.kind}) { ${p[f]} }`)
+    .join("\n");
+// Results as one expression: a ternary chain over the kinds that override the default result (see decideGLSL below).
+const DEFAULT_RESULT = plant({ name: "", kind: -1, tiers: [], look: "", gate: "" }).result;
+const resultExpr = (r: string) => r.trim().replace(/^return\s+/, "").replace(/;\s*$/, "");
+const resultGLSL = () =>
+  "return " +
+  PLANTS.filter((p) => p.result !== DEFAULT_RESULT)
+    .map((p) => `uKind == ${p.kind} ? ${resultExpr(p.result)} : `)
+    .join("") +
+  resultExpr(DEFAULT_RESULT) +
+  ";";
+// Single exit: REJECT sets a flag instead of returning. ANGLE rewrites every early return into a conditionally assigned
+// result variable, and with ~30 of them in the merged program fxc (Windows) warned X4000 "potentially uninitialized
+// variable (f_decide)". Stages after a rejection are skipped with if (!rej), so rejected cells still avoid the e3() work.
+export const decideGLSL = () => `uniform float CELLSZ,PMUL,TSN;uniform int uKind;
+#define REJECT rej = true
 vec4 decide(float I,float J,float F){float h1=hs(I,J,F),h2=hs(I,J,F+9.),h3=hs(I,J,F+17.),h4=hs(I,J,F+31.),h5=hs(I,J,F+53.),h6=hs(I,J,F+71.);
 vec3 nA,uu,vv;basis(F,nA,uu,vv);vec3 P=nA*uR+uu*(I+h1-.5)*CELLSZ+vv*(J+h2-.5)*CELLSZ,d=normalize(P);
-float cf=1.,fo=0.,m0=0.,pt=0.;
-${perKind("pre")}
-float e=e3(d,true),m=pn(d*uFreq*2.2+vec3(30.,0.,0.),1),tt=1.-1.1*d.y*d.y-1.2*max(e,0.);
-#if KIND==5
-if(e<-.03||e>.6||tt<uSnow+TSN)REJECT;
-#else
-if(e<.015||e>.6||tt<uSnow+TSN)REJECT;
-#endif
-float sl=abs(uR+e3(normalize(P+uu*.8),true)*uAmp-(uR+e*uAmp))/.8;
-${perKind("gate")}
-${perKind("result")}
-return vec4(-9999.,0.,0.,0.);}`;
+float cf=1.,fo=0.,m0=0.,pt=0.,e=0.,m=0.,tt=0.,sl=0.;bool rej=false;
+${branch("pre")}
+if(!rej){
+e=e3(d,true);m=pn(d*uFreq*2.2+vec3(30.,0.,0.),1);tt=1.-1.1*d.y*d.y-1.2*max(e,0.);
+if(e<(uKind==5?-.03:.015)||e>.6||tt<uSnow+TSN)REJECT;
+}
+if(!rej){
+sl=abs(uR+e3(normalize(P+uu*.8),true)*uAmp-(uR+e*uAmp))/.8;
+${branch("gate")}
+}
+${resultGLSL().replace(/^return /, "return rej ? vec4(-9999.,0.,0.,0.) : ")}}`;

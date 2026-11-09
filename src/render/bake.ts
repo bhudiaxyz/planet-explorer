@@ -46,14 +46,18 @@ void main() {
   vec3  du = uu * ${CELL}, dv = vv * ${CELL};
   vec3  d1 = normalize(P + du), d2 = normalize(P + dv);
   vec3  d3 = normalize(P - du), d4 = normalize(P - dv);
+  // each e3() is ~18 inlined Perlin calls; ANGLE's D3D compiler (fxc) fully unrolls and inlines them, so every extra
+  // call adds seconds of shader compile on Windows. Evaluate the 4 neighbours once and reuse them for normal + AO
+  // (the colour variant used to call e3 nine times; this is the same arithmetic, 5 calls).
   float e  = e3(d0, true);
-  vec3  p1 = d1 * (uR + e3(d1, true) * uAmp);
-  vec3  p2 = d2 * (uR + e3(d2, true) * uAmp);
-  vec3  p3 = d3 * (uR + e3(d3, true) * uAmp);
-  vec3  p4 = d4 * (uR + e3(d4, true) * uAmp);
+  float e1 = e3(d1, true), e2 = e3(d2, true), e3_ = e3(d3, true), e4 = e3(d4, true);
+  vec3  p1 = d1 * (uR + e1 * uAmp);
+  vec3  p2 = d2 * (uR + e2 * uAmp);
+  vec3  p3 = d3 * (uR + e3_ * uAmp);
+  vec3  p4 = d4 * (uR + e4 * uAmp);
   vec3  n  = normalize(cross(p1 - p3, p2 - p4));
 #ifdef COL
-  float em = (e3(d1, true) + e3(d3, true) + e3(d2, true) + e3(d4, true)) * .25;
+  float em = (e1 + e3_ + e2 + e4) * .25;
   float ao = 1. - clamp((em - e) * uAmp * 1.2, 0., .35) + clamp((e - em) * uAmp * .4, 0., .1);
   gl_FragColor = vec4(biome(d0, e, pn(d0 * uFreq * 2.2 + vec3(30., 0., 0.), 1), n) * ao, 1.);
 #else
@@ -329,4 +333,47 @@ export class Atlas {
       renderer!.setRenderTarget(prev);
     }
   }
+}
+
+/**
+ * Start compiling every terrain-bake program at once, before any bake runs. Each holds several full e3() terrain
+ * evaluations; ANGLE's D3D compiler (Windows Chrome/Edge) takes 2–20 s per program, and bakes used to trigger them one at
+ * a time on first use, serialising ~2 minutes of compile on the main thread. compileAsync hands them all to the driver's
+ * KHR_parallel_shader_compile workers together and resolves when they are ready; three's program cache is keyed on
+ * source + defines, so the throwaway materials here warm the exact programs the real bakes use. Extra programs that need
+ * the same treatment (e.g. the plant placement bake) are passed in by the caller.
+ */
+export function precompileBakes(camera: THREE.Camera, extra: THREE.Material[] = []): Promise<unknown> {
+  if (!renderer) return Promise.resolve();
+  const scene = new THREE.Scene(),
+    quadGeo = new THREE.PlaneGeometry(2, 2),
+    pointGeo = new THREE.BufferGeometry();
+  pointGeo.setAttribute("position", new THREE.BufferAttribute(new Float32Array(3), 3));
+  // MODE 4 declares the nrm/em attributes; give the dummy geometry them so the program links the same way
+  pointGeo.setAttribute("nrm", new THREE.BufferAttribute(new Float32Array(3), 3));
+  pointGeo.setAttribute("em", new THREE.BufferAttribute(new Float32Array(2), 2));
+  const add = (m: THREE.Material, points = false) => {
+    const o = points ? new THREE.Points(pointGeo, m) : new THREE.Mesh(quadGeo, m);
+    o.frustumCulled = false;
+    scene.add(o);
+  };
+  for (const mode of [0, 1, 2, 3, 4, 5]) add(getBakeMat(mode, 2048, 1), true);
+  add(chunkNormalMat);
+  add(chunkColorMat);
+  add(makeAtlasMat(false));
+  add(makeAtlasMat(true));
+  for (const m of extra) add(m);
+  // Compile against a float render target, as the real bakes do: three keys programs on the bound target's colour
+  // space, so compiling against the canvas would warm sRGB variants the bakes never use. compileAsync builds the
+  // programs synchronously and only *polls* asynchronously, so the target can be restored straight after the call.
+  const prev = renderer.getRenderTarget(),
+    rt = makeRT(1, 1);
+  renderer.setRenderTarget(rt);
+  const ready = renderer.compileAsync(scene, camera).catch(() => {});
+  renderer.setRenderTarget(prev);
+  return ready.finally(() => {
+    rt.dispose();
+    quadGeo.dispose();
+    pointGeo.dispose();
+  });
 }

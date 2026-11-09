@@ -50,10 +50,35 @@ export function syncTerrain(settings: any, noise1: Noise3, noise2: Noise3) {
   T.uCr.value.set(biomeColors.rock);
   T.uCw.value.set(biomeColors.snow);
 }
+// Tiny helpers with no noise dependency. Shaders that only need these (e.g. the visible plant vertex shader, which
+// reads its placement from a baked texel) include HELPERS_GLSL alone: injecting the whole terrain library there made
+// ANGLE's D3D compiler (Windows) process ~30 kB of dead noise code per plant kind — ~3.5 s each, 15 kinds.
+export const HELPERS_GLSL = `
+uniform float uR;
+uniform vec3 uCs, uCg, uCf, uCr, uCw;
+float sm_(float a, float b, float x) {
+  float t = clamp((x - a) / (b - a), 0., 1.);
+  return t * t * (3. - 2. * t);
+}
+
+float hs(float a, float b, float c) {
+  vec3 q = fract(vec3(a, b, c) * .1031);
+  q += dot(q, q.yzx + 33.33);
+  return fract((q.x + q.y) * q.z);
+}
+
+void basis(float c, out vec3 n, out vec3 u, out vec3 v) {
+  int fc = int(c + .5);
+  n = vec3(0.);
+  n[fc / 2] = (fc % 2 == 0) ? 1. : -1.;
+  u = (fc / 2 == 1) ? vec3(1., 0., 0.) : vec3(0., 1., 0.);
+  v = cross(n, u);
+}
+`;
 export const TERRAIN_GLSL = `
 uniform sampler2D uPerm;
-uniform float uFreq, uOct, uLac, uPer, uMtn, uSea, uAmp, uSnow, uR;
-uniform vec3 uCs, uCg, uCf, uCr, uCw;
+${HELPERS_GLSL}
+uniform float uFreq, uOct, uLac, uPer, uMtn, uSea, uAmp, uSnow;
 
 int pi_(int i, int r) {
   return int(texelFetch(uPerm, ivec2(i, r), 0).r + .5);
@@ -91,6 +116,8 @@ float pn(vec3 q, int r) {
 
 float fb(vec3 p, int oct, float lac, float per, int r) {
   float s = 0., a = 1., f = 1., n = 0.;
+  // Constant bound + break on purpose: ANGLE's D3D compiler unrolls it, which costs a few seconds of compile per terrain
+  // shader on Windows but pipelines the octave fetches. A runtime bound compiled faster yet ran ~20% slower per frame.
   for (int i = 0; i < 8; i++) {
     if (i >= oct) break;
     s += a * pn(p * f, r);
@@ -99,11 +126,6 @@ float fb(vec3 p, int oct, float lac, float per, int r) {
     f *= lac;
   }
   return s / n;
-}
-
-float sm_(float a, float b, float x) {
-  float t = clamp((x - a) / (b - a), 0., 1.);
-  return t * t * (3. - 2. * t);
 }
 
 float e3(vec3 d, bool fine) {
@@ -121,20 +143,6 @@ float e3(vec3 d, bool fine) {
   if (fine) e += pn(d * f * 18., 0) * .014 * (1. + mask) + pn(d * f * 60., 0) * .004;
   if (fine && e > 0. && e < .09) e += pn(d * f * 35. + vec3(5., 0., 0.), 0) * .008 * (1. - sm_(.02, .09, e));
   return e < 0. ? e * .5 : e;
-}
-
-float hs(float a, float b, float c) {
-  vec3 q = fract(vec3(a, b, c) * .1031);
-  q += dot(q, q.yzx + 33.33);
-  return fract((q.x + q.y) * q.z);
-}
-
-void basis(float c, out vec3 n, out vec3 u, out vec3 v) {
-  int fc = int(c + .5);
-  n = vec3(0.);
-  n[fc / 2] = (fc % 2 == 0) ? 1. : -1.;
-  u = (fc / 2 == 1) ? vec3(1., 0., 0.) : vec3(0., 1., 0.);
-  v = cross(n, u);
 }
 
 // vegetation density fields — shared by tree placement and plant placement

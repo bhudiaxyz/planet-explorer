@@ -89,7 +89,8 @@ main.ts (async IIFE):
 
 1. GPU probe            (sync, before renderer creation)
 2. Renderer + camera    (sync)
-3. Step 1 – terrain     await planet.build()
+3. Step 1 – terrain     fire: precompileBakes()  ← every terrain-bake shader compiles in parallel
+                        await planet.build()
    → fire: riversPromise = planet.buildRivers()   ← runs concurrently with step 4
    → fire: spotsPromise  = findSpots(planet, riversPromise)
 4. Step 2 – world       await: player, sky, scatter, shadows, postFX …
@@ -103,6 +104,13 @@ main.ts (async IIFE):
 
 **Why this order:**
 
+- **Shader compile dominates a Windows cold start.** Chrome/Edge on Windows translate WebGL through ANGLE to D3D11, whose HLSL compiler (`fxc`) fully inlines and unrolls the terrain noise: each bake program that evaluates `e3()` takes 2–20 s to compile, against well under a second on GL, Metal or Vulkan. Four measures keep this off the critical path:
+  - `precompileBakes()` (`render/bake.ts`) builds a throwaway scene holding every bake material and calls `compileAsync` on it at the start of step 1, with a float render target bound. Three keys programs on the target's colour space, so compiling against the canvas would warm the wrong variants. With `KHR_parallel_shader_compile` the driver compiles them all concurrently while the CPU setup runs.
+  - The plant placement bake is a single program for all 15 kinds (runtime `uKind` branch), not one per kind (§6).
+  - The visible plant vertex shader includes only `HELPERS_GLSL`, not the whole terrain library it never calls (§6).
+  - `renderer.debug.checkShaderErrors` is on only in dev builds. In production it would read each program's info log right after linking, forcing a synchronous wait per program.
+
+  Measured on a Windows D3D11 laptop: cold start fell from 125 s to about 40 s. The octave loop in `fb()` deliberately keeps its constant bound: a runtime bound compiled faster but ran about 20% slower per frame.
 - Rivers and scouting start immediately after terrain because `findSpots` can scan terrain in parallel with river generation; it only awaits `riversPromise` at the very end to append river teleport entries.
 - `compileAsync` is deferred until after all GPU baking. Baking and compiling both submit GPU work; running them together creates pipeline stalls on tiler GPUs.
 - The warm-up calls `postFX.render(0)` rather than a direct `renderer.render()` into a 1×1 target. This pre-compiles all EffectComposer pass shaders (aerial / bloom / output) during the labelled loading step rather than lazily on the first visible frame. It also uploads all geometry and texture buffers to the GPU.
@@ -136,27 +144,34 @@ const gl = probe.getContext("webgl2", ctxOpts) ?? probe.getContext("webgl", ctxO
 
 `WEBGL_debug_renderer_info` exposes the raw GPU renderer string (e.g. `"ANGLE (NVIDIA, NVIDIA GeForce RTX 4090 Direct3D11 vs_5_0 ps_5_0, D3D11)"`). Tests run in order; the first match wins.
 
-**Apple GPU (checked first):**
+**Touch detection** (`isTouchDevice`, exported from `gputier.ts`) uses `matchMedia("(pointer: coarse)")`, i.e. the *primary* pointer. `"ontouchstart" in window` is also true on Windows touchscreen laptops, which used to lose mouse-look and pointer lock and get the joystick UI. Falls back to `ontouchstart` where the media query is unsupported.
+
+**Software rasterisers (checked first):** `swiftshader | llvmpipe | softpipe | software | basic render` → low.
+
+**Apple GPU:**
 ```
 "apple gpu" in renderer string:
-  no touch events           → M-series Mac           → high
-  platform=MacIntel + maxTouchPoints > 1  → iPadOS 13+ (UA spoofed) → high
-  otherwise (iPhone)        → medium
+  Mac (not touch), WEBGL_compressed_texture_astc → Apple Silicon → high
+  Mac (not touch), no ASTC                       → Intel/AMD Mac → medium
+  platform=MacIntel + maxTouchPoints > 1         → iPadOS 13+ (UA spoofed) → high
+  otherwise (iPhone)                             → medium
 ```
-iPadOS 13+ defaults to "Request Desktop Website", so the UA reads `"Macintosh"`. `navigator.platform + maxTouchPoints` detects the spoof — Macs never have touch points.
+Safari reports every Mac GPU as "Apple GPU", including 2017–2020 Intel Macs; only Apple-designed GPUs support ASTC textures. iPadOS 13+ defaults to "Request Desktop Website", so the UA reads `"Macintosh"`; `navigator.platform + maxTouchPoints` detects the spoof.
 
 **HIGH regex:**
 ```
-rtx | rx [5-9]\d{3} | vega [5-9]\d | radeon vii | gtx 1[0-9]{3} | gtx 9[5-9]\d |
-arc.{0,8}a[5-9]\d{2} | apple m\d+ | adreno.{0,8}(6[4-9]\d|7\d{2}|x\d) | xclipse
+rtx | rx [5-9]\d{3} | rx (4[78]|5[789])0 | vega [5-9]\d | radeon vii | gtx 1[0-9]{3} | gtx 9[5-9]\d |
+arc.{0,8}a[5-9]\d{2} | apple m\d+ | adreno.{0,8}(6[4-9]\d|7\d{2}|8\d{2}|x\d) | xclipse
 ```
-Covers: NVIDIA RTX / GTX 900–1000, AMD RX 5000–9000 (RDNA 1–3) / Vega / Radeon VII, Intel Arc A5xx/A7xx, Apple M-series, Adreno 640–7xx (Galaxy S20 Ultra – S24+, Pixel 5+), Xclipse 920 (Exynos S22 Ultra), Adreno X1-85 (Snapdragon X Elite Copilot+ laptops).
+Covers: NVIDIA RTX / GTX 900–1000, AMD RX 5000–9000 (RDNA 1–3) / Polaris RX 470–590 / Vega / Radeon VII, Intel Arc A5xx/A7xx, Apple M-series, Adreno 640–7xx (Galaxy S20 Ultra – S24+, Pixel 5+), Xclipse 920 (Exynos S22 Ultra), Adreno X1-85 (Snapdragon X Elite Copilot+ laptops).
 
 **MEDIUM overrides (checked before LOW catch-all, in order):**
 ```
 mali[-\s]g7\d{2}(?!\d)   → Mali-G710/G715/G720 (Dimensity 9000+ high-end)
 mali[-\s]g7[0-9](?!\d)   → Mali-G72 (Galaxy S9 / Note 8, 2017 flagship)
-uhd.{0,12}6\d{2}         → Intel UHD 620/630 (2018–2021 laptops)
+mali[-\s]g6[1-2]\d(?!\d) → Mali-G610/G615 (Dimensity 8000–8300)
+adreno.{0,8}61[0-2]      → Adreno 610/612 budget phones → LOW, despite the 6xx number
+u?hd.{0,12}6[2-4]\d      → Intel (U)HD 620–640 (2017–2021 laptops; "HD 630" on older drivers)
 iris                      → Intel Iris Plus / Iris Xe (MacBook Air 2018–2020, 11th–13th gen)
 adreno.{0,8}5[3-9]\d     → Adreno 530/540 (Snapdragon 820/835, Galaxy S7/S8 2016–2017)
 ```
@@ -164,25 +179,30 @@ adreno.{0,8}5[3-9]\d     → Adreno 530/540 (Snapdragon 820/835, Galaxy S7/S8 20
 **LOW catch-all:**
 ```
 (uhd.{0,12}[2-5]\d{2}|hd graphics) | mali[-\s] | adreno.{0,8}[3-5]\d{2} |
-videocore | powervr g[67] | sgx
+videocore | powervr | ge8\d{3} | img bxm | sgx
 ```
 
 **Fallback** (if `WEBGL_debug_renderer_info` is blocked — Firefox `resistFingerprinting`, privacy browsers):
 ```ts
-return "ontouchstart" in window ? "low" : "high";
+return isTouchDevice ? "low" : "medium";
 ```
-Touch = unknown mobile → conservative `low`. No touch = unknown desktop → optimistic `high`. This avoids penalising an iPad Pro or desktop browser that has privacy mode enabled.
+Touch = unknown mobile → conservative `low`. Desktop → `medium`, not `high`: a 7-year-old Intel iGPU in a privacy browser would otherwise get 4× MSAA, 320 resolution and far plant tiers. Adaptive resolution still raises sharpness where there is headroom.
+
+`npm run test:tiers` (`scripts/gputier.test.mts`) checks the classifier against real renderer strings: S22 Ultra (Snapdragon and Exynos), iPad in desktop mode, Intel and M-series Macs, touchscreen laptops, budget Android, SwiftShader, and a blocked debug extension.
 
 ### What each tier gates
 
 | Feature | low | medium | high (mobile) | high (desktop) |
 |---|---|---|---|---|
 | Terrain resolution | 128 | 160 | 256 | 320 |
-| Render scale | 0.60 | 0.75 | 2.0 (DPR cap) | 1.0 / 1.5 (Retina) |
+| Render scale | 0.60 | 0.75 | ≤ 2.0, capped at 2.4 MP | 1.0 / 1.5 (Retina) |
 | Terrain octaves | 4 | 5 | 6 | 6 |
 | Camera far plane | 20 000 m | 30 000 m | 40 000 m | 40 000 m |
 | MSAA samples | 0 | 2 | 4 | 4 |
-| Shadow map size | 256 px | 512 px | 1024 px | 1024 px |
+| Shadow map size | 256 px | 512 px | 1024 px | 2048 px |
+| Shadow PCF radius | 1 | 1 | 2.5 | 2.5 |
+| Plant shadows (rocks, shrubs, cactus) | off | off | on | on |
+| Water sun glitter | off | off | on | on |
 | Shadow Hz | 20 | 30 | 30 | 30 |
 | Shadow frustum | 65% | 100% | 100% | 100% |
 | Aerial haze pass | off | on | on | on |
@@ -203,6 +223,8 @@ Touch = unknown mobile → conservative `low`. No touch = unknown desktop → op
 | River meanders + smoothing | off | on | on | on |
 | Lake generation | off | on | on | on |
 | Water material | `MeshBasicMaterial` | shader | shader + high-detail | shader + high-detail |
+
+The mobile-high render scale is a pixel budget, `sqrt(2.4 MP / CSS pixels)` clamped to [1, 2]. Phones stay at 2.0. An iPad Pro lands near 1.4 instead of rendering 5.6 MP, which would need about 270 MB for the 4× MSAA HalfFloat scene target alone, enough for iPadOS to kill the tab.
 
 The moon's shadow map is half the size of the sun's on every tier. See §10 for why low tier skips the aerial and bloom passes entirely.
 
@@ -332,9 +354,11 @@ Adding a new plant kind requires only this one entry — nothing else changes.
 
 Only structural `#if` flags (`KIND`, `DISP`, `PUSH`, `MOSS`) are compiled as `#define` values. All numeric tier parameters (`PMUL`, `CELLSZ`, `WK`, `TSN`, `TO_FULL`, `TO_GONE`, `TI_GONE`, `TI_FULL`, `SCW`, `SCH`, `LEAN`) are passed as uniforms. This means tiers of the same plant kind with the same structural flags share one compiled shader program — unique programs drop from ~45 (15 kinds × 3 tiers) to ~15 on high tier.
 
+The visible vertex shader reads placement from the baked texel and never evaluates terrain, so it includes only `HELPERS_GLSL` (`sm_`, `hs`, `basis` and the biome colour uniforms) instead of `TERRAIN_GLSL`. `look` snippets may use only those.
+
 ### Placement bake
 
-One 8-bit texel per instance cell. A bake-pass shader evaluates elevation, moisture, slope and cluster density in GLSL, writing either a height value (accepted) or a sentinel (rejected). The vertex shader reads the texel; rejected instances are collapsed to `vec3(0)` — a degenerate point the GPU clips away with zero fill-rate cost.
+One texel per instance cell. A bake-pass shader evaluates elevation, moisture, slope and cluster density in GLSL, writing either a height value (accepted) or a sentinel (rejected). **All kinds share one bake program.** `decideGLSL()` emits each kind's `pre` / `gate` / `result` as `if (uKind == k) { … }`, a dynamically uniform branch, rather than `#if KIND==k`, and `placementBakeMaterial()` has no defines. That is one compile instead of 15, which matters on Windows (§2). `decide()` has a single exit: `REJECT` sets a flag, later stages are skipped with `if (!rej)`, and one final `return` picks the sentinel or the kind's result. With ~30 early returns in one program, ANGLE's D3D translation warned X4000 ("potentially uninitialized variable"). A parity check against the original per-kind programs (15 kinds × 9 lattice patches × 16 384 cells) gave identical output. The vertex shader reads the texel; rejected instances are collapsed to `vec3(0)` — a degenerate point the GPU clips away with zero fill-rate cost.
 
 ### LOD bands (`CFG.plantLod`, `CFG.plantRadius`)
 
@@ -350,6 +374,10 @@ Each tier is `[full-size until, gone beyond, inner gone below, inner full above]
 | `far` | third tier of every multi-tier kind | `[90,200,12,36]` | 204 |
 
 Far tiers draw on high tier only; mid tiers on medium and above.
+
+### Plant shadows
+
+On high tier, the near tier of collidable kinds (rocks, slabs, frost rocks, boulders, shrubs, cactus) casts shadows through a `customDepthMaterial`. It runs the same placement block as the visible shader, injected at `begin_vertex`, because the depth shader includes `beginnormal_vertex` only under `USE_DISPLACEMENTMAP`. Without it, Three's shared depth material draws every instance untransformed, piled at the planet centre: wasted vertex work and no visible shadow. Grass used to be in exactly that state, so it no longer casts at all; thin blades would cost thousands of instances for a barely visible stipple.
 
 ### Wind
 
@@ -411,6 +439,7 @@ Both the outer fade (plant appearing at range limit) and inner fade (plant disap
 - Surface normals computed analytically per wave train — no finite-difference approximation.
 - Wave amplitude and frequency scaled by `uWind` so the ocean responds to weather in real time.
 - 4th additive displacement: a player-ripple ring expanding outward from `uPl`.
+- **High tier: sun glitter** (`GLITTER` define, so other tiers compile exactly the same shader as before). A very tight Blinn-Phong highlight (`pow(n·h, 900)`) on the detailed wave normal is added as HDR emissive, so bloom turns the brightest facets into sparkles. It fades out beyond about 400 m and with a low sun.
 
 ---
 
@@ -419,8 +448,9 @@ Both the outer fade (plant appearing at range limit) and inner fade (plant disap
 ### EffectComposer chain
 
 ```
-RenderPass          → scene to HDR render target (HalfFloatType + DepthTexture)
-ShaderPass (clean)  → clamp NaN/Inf pixels (one NaN in a float target smears across bloom blur)
+ScenePass           → scene into its own HDR target (HalfFloat, MSAA per tier, DepthTexture), then
+                      the NaN/Inf clean shader copies it into the composer buffer
+                      (one NaN in a float target smears across the bloom blur)
 AerialPass          → aerial haze post-pass    ← skipped on low tier (addPass not called)
 UnrealBloomPass     → half-resolution bloom    ← skipped on low tier (addPass not called)
 OutputPass          → tone-map + gamma to canvas
@@ -428,7 +458,11 @@ OutputPass          → tone-map + gamma to canvas
 
 On low tier, aerial and bloom passes are never added to the composer — `addPass` is not called — so their HalfFloat render targets (~2.5 MB for bloom) are never committed or rendered.
 
-The MSAA sample count of the HDR target is tier-gated (0 / 2 / 4).
+The MSAA sample count of the scene target is tier-gated (0 / 2 / 4). The composer's ping-pong buffers are plain HalfFloat with no MSAA and no depth. The canvas is created with `antialias: false`, since it only ever receives the final full-screen pass.
+
+**Why a dedicated scene target.** `EffectComposer` clones the target it is given for its second buffer, samples and depth texture included. With the old `RenderPass` setup, every post pass wrote into a 4× MSAA target. Worse, the scene alternated between the two buffers every frame (an odd number of swaps), and the full-screen passes overwrote the other buffer's depth with the quad's. The aerial pass therefore read real scene depth one frame and an empty buffer the next, so the haze flickered.
+
+**Sizing.** The composer is built at CSS size and then given `setPixelRatio(pr)` + `setSize(innerWidth, innerHeight)`, so every target, bloom included, follows the render scale from frame zero. Previously the targets stayed at CSS size until the first adaptive change. Low tier rendered about 2.8× its intended pixel count, and Retina/phone high tier rendered at 1× and was upscaled. `ScenePass.setSize` floors the unrounded `width × ratio` the composer passes in.
 
 **NaN/Inf clean pass:** uses a bit test (`floatBitsToUint(c) & 0x7f800000u == 0x7f800000u`) instead of `isnan()` / `isinf()`. ANGLE's D3D compiler on Windows assumes no NaNs and may strip `isnan()` (warning X3577). Output is also clamped to `[0, 32]` before bloom.
 
@@ -443,7 +477,8 @@ float fog = 1.0 - exp(-z * (0.2231 / uFar));
 ### Adaptive resolution
 
 Pixel ratio range: `[0.5, renderScale]` (renderScale set at startup by tier).
-- **Downscale**: reacts within 0.5 s of a frame-time spike (EMA smoothed frame time > 33 ms, α = 0.08). Drops 0.15 per step, minimum 0.5.
+- **Downscale**: reacts within 0.5 s of a frame-time spike (EMA smoothed frame time > 30 ms, α = 0.08). Drops 0.15 per step, minimum 0.5.
+- **Useless-downscale guard**: if a downscale did not make frames at least 8% faster, twice in a row, resolution is not the bottleneck. Typical causes are a 30 Hz cap (iOS Low Power Mode, Android battery saver) or CPU load. The loop then undoes the last step and holds that ratio as its floor, instead of sinking to 0.5 for no gain. The floor resets once frames are fast again.
 - **Upscale**: waits 3 s of stable frames (< 18.5 ms). Rises 0.1 per step, capped at renderScale.
 
 The asymmetry prevents oscillation: load spikes react quickly; recovery is cautious.
@@ -452,9 +487,11 @@ On window resize (e.g. dragging to a lower-DPR monitor) the pending ratio is imm
 
 ### Shadows (`render/shadows.ts`)
 
-- `shadowMap.autoUpdate = false` — Three.js does not automatically re-render the depth pass.
-- `needsUpdate = true` once per throttle tick — but **only** when `sunStrength > 0.005 || moonStrength > 0.005`. When shadows are invisible (deep night or deep space) the depth pass is skipped entirely.
-- **Shadow texel-snapping**: the frustum centre is quantised to shadow-map texel steps before upload, eliminating sub-texel drift (shadow shimmer) as the camera moves.
+- `shadowMap.autoUpdate = false`, and `shadow.autoUpdate = false` per light: Three re-renders a light's depth pass only when that light's `shadow.needsUpdate` is set.
+- Once per throttle tick, each light is updated only while its own shadow is visible (strength > 0.005). The moon used to be gated by toggling `castShadow`, which recompiled every lit material at dusk and dawn, causing a frame hitch. `castShadow` now stays on for both lights.
+- Both lights start with `needsUpdate = true`, so the startup warm-up renders each once. Three allocates a light's shadow map only when it first renders it, and a missing map leaves every lit draw with an empty `sampler2DShadow` (`GL_INVALID_OPERATION`).
+- **Shadow texel-snapping**: the frustum centre is quantised to shadow-map texel steps before upload, eliminating sub-texel drift (shadow shimmer) as the camera moves. The step uses each light's *actual* map size. It used to assume 1024² everywhere, so snapping only partly worked on low and medium tiers and for the half-size moon map.
+- `normalBias` is 0.4 m for the original 0.23 m texels and scales down with finer maps (0.2 m at 2048²), never up.
 - Shadow frustum half-extent: 65% of full size on `low` tier.
 
 ---

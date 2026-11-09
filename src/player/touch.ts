@@ -1,8 +1,9 @@
 import nipplejs from "nipplejs";
 import type { Player } from "./player";
 import { S } from "../core/config";
+import { isTouchDevice } from "../render/gputier";
 
-export const isTouchDevice = "ontouchstart" in window;
+export { isTouchDevice };
 
 const STYLE = `
 #touch-btns {

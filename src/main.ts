@@ -4,14 +4,14 @@ import { Sky } from "./world/sky";
 import { SkyDome } from "./world/skyfx";
 import { Aurora, Fireflies, GalacticBand, Bioluminescence } from "./world/night";
 import { Player } from "./player/player";
-import { Scatter } from "./world/vegetation";
+import { Scatter, placementBakeMaterial } from "./world/vegetation";
 import { Collider } from "./world/collision";
 import { PostFX } from "./render/postfx";
 import { Shadows } from "./render/shadows";
 import { Footprints } from "./world/footprints";
 import { setupGui } from "./ui/gui";
 import { findSpots } from "./world/spots";
-import { setRenderer } from "./render/bake";
+import { setRenderer, precompileBakes } from "./render/bake";
 import { U } from "./render/fx";
 import { smoothstep } from "./core/utilgeo";
 import { S, currentSeedWord, pushSeedUrl } from "./core/config";
@@ -34,10 +34,16 @@ import { detectGpuTier, setGpuTier, gpuTier } from "./render/gputier";
 
 // ---- renderer & scene ------------------------------------------------------------------------------------------------------------------------
 const renderer = new THREE.WebGLRenderer({
-  antialias: gpuTier !== "low", // MSAA off on low tier — saves fill-rate on budget mobile
+  // The scene is drawn into PostFX's own MSAA target (samples set per tier there); the canvas only receives the
+  // final full-screen output pass, so a multisampled default framebuffer would be pure memory + resolve cost.
+  antialias: false,
   powerPreference: "high-performance",
 });
 setRenderer(renderer);
+// Production: skip three's per-program error check. It calls getProgramInfoLog right after linking, which forces the
+// browser to wait for each compile synchronously — defeating KHR_parallel_shader_compile and serialising ~90 programs
+// (measured: 66 calls, 128 s of a 134 s startup on Windows/ANGLE). Dev builds keep it so shader errors still surface.
+renderer.debug.checkShaderErrors = import.meta.env.DEV;
 // Tier-based quality: low = mobile/integrated, medium = mid-range, high = discrete/flagship mobile
 const isMobileHigh = gpuTier === "high" && isTouchDevice;
 if (gpuTier === "low") {
@@ -52,11 +58,14 @@ if (gpuTier === "low") {
   // High tier: 320 gives 36% fewer base-mesh vertices than the default 400 with no visible
   // difference at flight/orbital altitude; the chunk system supplies close-up detail.
   S.resolution = 320;
-  // Mobile high (e.g. S22 Ultra, iPhone 15 Pro): lower resolution, higher render scale for
-  // native-feeling sharpness; cap DPR at 2 — renders 4× fewer pixels than native 3× DPR.
+  // Mobile high (e.g. S22 Ultra, iPad): lower mesh resolution, higher render scale for native-feeling sharpness.
+  // Capped by a pixel budget, not a fixed DPR: 2.0 is right for a phone (412×915 CSS → 1.5 MP) but an iPad Pro
+  // (1024×1366 CSS) would render 5.6 MP — ~270 MB for the 4× MSAA HalfFloat scene target alone, enough for iPadOS
+  // to kill the tab. 2.4 MP keeps phones at 2.0 and lands iPads at ~1.3–1.5×.
   if (isMobileHigh) {
     S.resolution = 256;
-    S.renderScale = 2.0;
+    const css = Math.max(screen.width * screen.height, innerWidth * innerHeight);
+    S.renderScale = Math.max(1, Math.min(2.0, Math.sqrt(2.4e6 / css)));
   }
   // Desktop/laptop Retina (DPR≥2): cap at 1.5 — saves GPU bandwidth on 4K/5K displays.
   else if (devicePixelRatio > 1) S.renderScale = 1.5;
@@ -83,6 +92,9 @@ const scene = new THREE.Scene(),
   };
 
   await setStep(1, "Building terrain");
+  // Fire off every terrain-bake shader compile at once (parallel, off the main thread where KHR_parallel_shader_compile
+  // exists) so the bakes below don't each trigger a blocking compile in turn. Not awaited: it overlaps the CPU setup.
+  void precompileBakes(camera, [placementBakeMaterial()]);
   const planet = new Planet(scene);
   await planet.build();
   pushSeedUrl(currentSeedWord);
@@ -99,7 +111,7 @@ const scene = new THREE.Scene(),
   const skyDome = new SkyDome(scene);
   const scatter = new Scatter(planet);
   const collider = new Collider(planet, scatter);
-  const shadows = new Shadows(renderer, sky.light, gpuTier !== "high", sky.moon);
+  const shadows = new Shadows(renderer, sky.light, sky.moon);
   const aurora = new Aurora(scene, camera);
   const fireflies = new Fireflies(scene);
   const galacticBand = new GalacticBand(scene);

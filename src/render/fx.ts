@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { gpuTier } from "./gputier";
 import { T, TERRAIN_GLSL, BIOME_GLSL } from "./terrain";
 import { CFG } from "../core/config";
 import { CurrentPalette } from "../core/palette";
@@ -303,6 +304,7 @@ vec3 transformed = lp;
 }
 // Water: five travelling wave trains (analytic normals, wind-scaled, small trains fade with distance), whitecap foam on crests, sky Fresnel.
 export function waterFx(m: THREE.MeshStandardMaterial) {
+  if (gpuTier === "high") (m as any).defines = { GLITTER: "" };
   m.onBeforeCompile = (s) => {
     bind(s, ["uTime", "uWind", "uSky", "uSun", "uDayF", "uCubeC", "uAtOn", "uN3"]);
     s.uniforms.uAmp = T.uAmp;
@@ -421,6 +423,21 @@ transformed += normalize(position) * ripple;
   float fr = pow(1. - clamp(dot(normal, normalize(vViewPosition)), 0., 1.), 4.);
   diffuseColor.rgb = mix(diffuseColor.rgb, uSky * (.55 + .5 * uDayF), fr * .6);
 }`
+      )
+      .replace(
+        "#include <emissivemap_fragment>",
+        `#include <emissivemap_fragment>
+#ifdef GLITTER
+// high tier: sun glitter — a very tight highlight on the detailed wave normal, emitted in HDR so bloom turns the
+// brightest facets into sparkles. Fades with distance (normal detail is gone past ~260 m) and with low sun.
+{
+  vec3  sv = normalize((viewMatrix * vec4(uSun, 0.)).xyz);
+  vec3  hv = normalize(sv + normalize(vViewPosition));
+  float sp = pow(max(dot(normal, hv), 0.), 900.);
+  float up = smoothstep(-.02, .12, dot(normalize(vWp), uSun));
+  totalEmissiveRadiance += vec3(1., .93, .8) * sp * 14. * up * uDayF * (1. - smoothstep(80., 400., length(vViewPosition)));
+}
+#endif`
       );
   };
 }

@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:tiers": "node --experimental-strip-types --no-warnings scripts/gputier.test.mts"
   },
   "dependencies": {
     "lil-gui": "^0.21.0",
