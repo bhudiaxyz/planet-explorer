@@ -88,7 +88,8 @@ function addMeanders(pts: THREE.Vector3[], rand: () => number, ampMul = 1): THRE
     const s = arcLen[i] / totalLen;
     // item 8: noise-based envelope — sin(s·π) naturally fades to 0 at both ends; second term
     // breaks the symmetric peak into irregular undulation without losing the end-fades.
-    const env = Math.pow(Math.sin(s * Math.PI), 0.7) * (0.7 + 0.3 * Math.sin(s * Math.PI * 2.3 + 0.9));
+    const env =
+      Math.pow(Math.sin(s * Math.PI), 0.7) * (0.7 + 0.3 * Math.sin(s * Math.PI * 2.3 + 0.9));
     const terrainFactor = 0.4 + t * 0.6;
     const disp =
       (Math.sin(arcLen[i] * freq1 + phase) * 0.7 + Math.sin(arcLen[i] * freq2 + phase2) * 0.3) *
@@ -405,7 +406,10 @@ export class RiverSystem {
     for (let i = 0; i < accepted.length; i++) {
       await mayYield();
       smoothed.push(
-        chaikin(addMeanders(accepted[i], rand, acceptedMeanders[i]), acceptedArchetypes[i] === "stream" ? 3 : 2)
+        chaikin(
+          addMeanders(accepted[i], rand, acceptedMeanders[i]),
+          acceptedArchetypes[i] === "stream" ? 3 : 2
+        )
       );
     }
     return { paths: smoothed, scales: acceptedScales, lakes };

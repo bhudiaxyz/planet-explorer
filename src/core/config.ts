@@ -1,3 +1,4 @@
+import { genSeedWord, hashSeedWord } from "./util";
 // Central tuning constants. Distances are metres; everything that used to be a scattered magic number lives here so a change is made once.
 export const CFG = {
   // terrain chunk streaming: (cells × cell) metre squares on the planet's face lattice, (2·radius+1)² around the player
@@ -173,3 +174,14 @@ export const S: Settings = {
   windSway: 1,
   cloudiness: 0.45,
 };
+
+// word-based seed: the URL stores the word, S.seed holds its hash for the noise
+export let currentSeedWord = new URLSearchParams(location.search).get("seed") || genSeedWord();
+S.seed = hashSeedWord(currentSeedWord);
+export function pushSeedUrl(word: string) {
+  currentSeedWord = word;
+  S.seed = hashSeedWord(word);
+  const p = new URLSearchParams(location.search);
+  p.set("seed", word);
+  history.replaceState(null, "", "?" + p.toString());
+}

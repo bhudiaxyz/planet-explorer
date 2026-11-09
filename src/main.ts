@@ -14,24 +14,10 @@ import { findSpots } from "./world/spots";
 import { setRenderer } from "./render/bake";
 import { U } from "./render/fx";
 import { smoothstep } from "./core/utilgeo";
-import { genSeedWord, hashSeedWord } from "./core/util";
-import { S } from "./core/config";
+import { S, currentSeedWord, pushSeedUrl } from "./core/config";
 import { isTouchDevice, setupTouch, setGuiToggle, setMapToggle } from "./player/touch";
 import { MapOverlay } from "./ui/map";
 import { detectGpuTier, setGpuTier, gpuTier } from "./render/gputier";
-
-// word-based seed: hash string → number for noise; URL stores the word
-export let currentSeedWord = genSeedWord();
-const urlWord = new URLSearchParams(location.search).get("seed");
-if (urlWord) currentSeedWord = urlWord;
-S.seed = hashSeedWord(currentSeedWord);
-export function pushSeedUrl(word: string) {
-  currentSeedWord = word;
-  S.seed = hashSeedWord(word);
-  const p = new URLSearchParams(location.search);
-  p.set("seed", word);
-  history.replaceState(null, "", "?" + p.toString());
-}
 
 // ---- GPU tier detection (offscreen probe so antialias can be set correctly) ------
 {
@@ -53,7 +39,7 @@ const renderer = new THREE.WebGLRenderer({
 });
 setRenderer(renderer);
 // Tier-based quality: low = mobile/integrated, medium = mid-range, high = discrete/flagship mobile
-const isMobileHigh = gpuTier === "high" && "ontouchstart" in window;
+const isMobileHigh = gpuTier === "high" && isTouchDevice;
 if (gpuTier === "low") {
   S.resolution = 128;
   S.renderScale = 0.6;
@@ -130,19 +116,26 @@ const scene = new THREE.Scene(),
     if (e.code === "KeyM" && !e.repeat) mapOverlay.toggle();
   });
 
-  let rebuildTimer = 0;
+  // Rebuilds are chained: build() awaits GPU bakes, so a second rebuild starting mid-flight
+  // would clear the group and then both would add their terrain/rivers (duplicate meshes).
+  let rebuildTimer = 0,
+    rebuildChain = Promise.resolve();
   const rebuild = (respawn = false) => {
     clearTimeout(rebuildTimer);
-    rebuildTimer = window.setTimeout(async () => {
-      await planet.build();
-      const newRiversPromise = planet.buildRivers().catch(() => {});
-      mapOverlay.reset();
-      scatter.dirty = true;
-      collider.dirty = true;
-      respawn ? player.spawn() : player.refresh();
-      // Re-scout so teleport list and map reflect the new planet
-      const newSpots = await findSpots(planet, newRiversPromise);
-      mapOverlay.setSpots(newSpots);
+    rebuildTimer = window.setTimeout(() => {
+      rebuildChain = rebuildChain
+        .then(async () => {
+          await planet.build();
+          const newRiversPromise = planet.buildRivers().catch(() => {});
+          mapOverlay.reset();
+          scatter.dirty = true;
+          collider.dirty = true;
+          respawn ? player.spawn() : player.refresh();
+          // Re-scout so teleport list and map reflect the new planet
+          const newSpots = await findSpots(planet, newRiversPromise);
+          mapOverlay.setSpots(newSpots);
+        })
+        .catch((err) => console.error("[planet-explorer] rebuild failed", err));
     }, 120);
   };
   renderer.domElement.addEventListener("webglcontextlost", (e) => e.preventDefault());
@@ -166,13 +159,14 @@ const scene = new THREE.Scene(),
     camera.updateProjectionMatrix();
   });
   setupTouch(player, renderer.domElement);
-  if (isTouchDevice)
+  if (isTouchDevice) {
     setGuiToggle(() => {
       const show = gui._hidden;
       gui.show(show);
       locs?.show(show);
     });
-  if (isTouchDevice) setMapToggle(() => mapOverlay.toggle());
+    setMapToggle(() => mapOverlay.toggle());
+  }
   const hud = document.getElementById("hud")!;
 
   // temperature under the player, recomputed only when they moved ≥ ~0.15 m

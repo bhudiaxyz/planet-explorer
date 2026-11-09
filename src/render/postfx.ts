@@ -37,7 +37,12 @@ export class PostFX {
     this.composer = new EffectComposer(renderer, rt);
     // P1: allocate bloom at full quality; only added to the composer on medium/high to avoid
     // committing ~2.5 MB of HalfFloat RTs on low-tier devices where it's never rendered.
-    this.bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth / 2, innerHeight / 2), 0.45, 0.5, 0.75);
+    this.bloom = new UnrealBloomPass(
+      new THREE.Vector2(innerWidth / 2, innerHeight / 2),
+      0.45,
+      0.5,
+      0.75
+    );
     const clean = new ShaderPass({
       uniforms: { tDiffuse: { value: null } },
       vertexShader: `
@@ -51,7 +56,10 @@ uniform sampler2D tDiffuse;
 varying vec2 vUv;
 void main() {
   vec4 c = texture2D(tDiffuse, vUv);
-  if (any(isnan(c)) || any(isinf(c))) c = vec4(0., 0., 0., 1.);
+  // bit test instead of isnan/isinf: ANGLE's D3D compiler (Windows) assumes no NaNs and may strip
+  // isnan() (warning X3577). All-ones exponent = NaN or Inf.
+  uvec4 e = floatBitsToUint(c) & 0x7f800000u;
+  if (any(equal(e, uvec4(0x7f800000u)))) c = vec4(0., 0., 0., 1.);
   gl_FragColor = vec4(clamp(c.rgb, 0., 32.), 1.);
 }`,
     });
@@ -73,6 +81,8 @@ void main() {
   }
   resize() {
     this.devicePixelRatio = devicePixelRatio;
+    // moved to a lower-DPR screen: drop to the new cap now (the adaptive loop handles raising it)
+    this.pendingPixelRatio = Math.min(this.pendingPixelRatio, devicePixelRatio, S.renderScale);
     this.renderer.setSize(innerWidth, innerHeight);
     this.composer.setSize(innerWidth, innerHeight);
   }

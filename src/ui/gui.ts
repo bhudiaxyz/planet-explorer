@@ -1,6 +1,6 @@
 import GUI from "lil-gui";
 import { S, WEATHER_TYPE, type Settings } from "../core/config";
-import { pushSeedUrl, currentSeedWord } from "../main";
+import { pushSeedUrl, currentSeedWord } from "../core/config";
 import { genSeedWord } from "../core/util";
 import { isTouchDevice } from "../player/touch";
 import { PALETTES, biomeColors, setPalette } from "../core/palette";
@@ -56,7 +56,7 @@ export function setupGui({ planet, player, post, rebuild, rebuildVeg, spots }: C
           rebuild(true);
         },
       },
-      "randomize",
+      "randomize"
     )
     .name("🎲 New random world");
   const paletteState = { palette: "Earth" };

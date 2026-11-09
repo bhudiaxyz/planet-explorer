@@ -28,6 +28,7 @@ export class Planet {
   landmarks: ReturnType<typeof buildLandmarks> = { list: [], obs: [], tick: () => {} };
   chunks = new ChunkManager(this.group, () => this.radius);
   private elapsedTime = 0;
+  private buildMats = new Set<THREE.Material>();
   private scratchDir = new THREE.Vector3();
   atmosphere = new THREE.ShaderMaterial({
     transparent: true,
@@ -246,6 +247,10 @@ void main() {
       this.group.remove(c);
       disposeObject(c);
     }
+    // Terrain + landmark materials are created per build; water/cloud/atmosphere/tree materials are
+    // reused across builds, so only the per-build ones are freed here.
+    for (const m of this.buildMats) m.dispose();
+    this.buildMats.clear();
     const baseMesh = this.getBase(S.resolution),
       vertexCount = baseMesh.dirs.length / 3,
       dir = new THREE.Vector3(),
@@ -299,6 +304,7 @@ void main() {
       const terrain = new THREE.Mesh(geo, terrainMat(false, false, {}, true));
       terrain.receiveShadow = false;
       this.group.add(terrain);
+      this.buildMats.add(terrain.material);
     } else {
       for (let i = 0; i < vertexCount; i++) {
         dir.fromArray(baseMesh.dirs, i * 3);
@@ -319,6 +325,7 @@ void main() {
       const terrain = new THREE.Mesh(geo, terrainMat(false, false, {}, false));
       terrain.receiveShadow = false;
       this.group.add(terrain);
+      this.buildMats.add(terrain.material);
     }
     this.water.color.set(biomeColors.water);
     this.atmosphere.uniforms.col.value.set(CurrentPalette.atmosphereLimb);
@@ -350,6 +357,10 @@ void main() {
     const landmarkGroup = new THREE.Group();
     this.landmarks = buildLandmarks(this, landmarkGroup);
     this.group.add(landmarkGroup);
+    landmarkGroup.traverse((o) => {
+      const mat = (o as THREE.Mesh).material;
+      if (mat) for (const m of [mat].flat()) this.buildMats.add(m);
+    });
     // Rivers are built separately (see main.ts) to avoid blocking startup
   }
 
