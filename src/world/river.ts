@@ -121,12 +121,15 @@ type LakeDef = { center: THREE.Vector3; radius: number; aspect: number };
 // ---- Shaders ------------------------------------------------------------------
 
 const RIVER_VERT = `
+attribute float aSteep;
 varying vec2 vUv;
 varying vec3 vWorldNormal;
 varying vec3 vWorldPos;
+varying float vSteep;
 
 void main() {
   vUv = uv;
+  vSteep = aSteep;
   vWorldNormal = normalize(mat3(modelMatrix) * normal);
   vec4 worldPos = modelMatrix * vec4(position, 1.0);
   vWorldPos = worldPos.xyz;
@@ -141,6 +144,7 @@ uniform vec3 uSun;
 varying vec2 vUv;
 varying vec3 vWorldNormal;
 varying vec3 vWorldPos;
+varying float vSteep; // bed steepness: 0 calm … 1 waterfall-grade drop (rapids / cascade)
 
 void main() {
   bool isLake = vUv.y > 1.5;
@@ -153,6 +157,7 @@ void main() {
   float edgeMask = smoothstep(0.0, 0.25, vUv.x) * (1.0 - smoothstep(0.75, 1.0, vUv.x));
   // item 12: centre flows faster than banks (natural hydraulics); lake speed unaffected
   float flowSpeed = mix(0.9, 0.2, clamp(vUv.y, 0.0, 1.0)) * (isLake ? 1.0 : 1.0 + edgeMask * 0.4);
+  flowSpeed *= 1.0 + vSteep * 2.5; // steep reaches race
   // Lake: expanding concentric ripple rings outward from centre (vUv.x=0.5→1.0).
   // River: normal downstream flow.
   float v = isLake
@@ -189,7 +194,18 @@ void main() {
     baseColor = mix(baseColor, vec3(0.90, 0.96, 0.99), foam * 0.60);
   }
 
-  float alpha = mix(0.68, 0.92, edgeMask) + fresnel * 0.07 + foam * 0.08;
+  // Cascades: on steep reaches the whole width churns white — fast streaks stretched along the flow, broken up
+  // across it, plus a bright crest where the slope peaks. Every non-low tier (low uses the basic material).
+  float white = 0.0;
+  if (vSteep > 0.02) {
+    float s1 = fract(vUv.y * 46.0 - uTime * 3.4 + sin(vUv.x * 9.0) * 0.6);
+    float s2 = fract(vUv.y * 71.0 - uTime * 5.1 + vUv.x * 4.3);
+    float streak = smoothstep(0.55, 1.0, s1) + smoothstep(0.62, 1.0, s2) * 0.7;
+    white = clamp(vSteep * (0.45 + streak * 0.7), 0.0, 1.0);
+    baseColor = mix(baseColor, vec3(0.92, 0.96, 1.0), white);
+  }
+
+  float alpha = mix(0.68, 0.92, edgeMask) + fresnel * 0.07 + foam * 0.08 + white * 0.25;
   // Lake: shore fade (vUv.x) × distance fade (500–700 m). River: source/mouth end fades.
   float endFade = isLake
     ? (1.0 - smoothstep(0.75, 1.0, vUv.x)) * (1.0 - smoothstep(500.0, 700.0, lakeDist))
@@ -521,6 +537,7 @@ export class RiverSystem {
         const positions: number[] = [];
         const normals: number[] = [];
         const uvs: number[] = [];
+        const steeps: number[] = [];
         const indices: number[] = [];
         for (let pi = 0; pi < paths.length; pi++) {
             const path = paths[pi];
@@ -565,16 +582,24 @@ export class RiverSystem {
                 _scratch.geo.rightPt.copy(path[i]).addScaledVector(_scratch.geo.right, halfW);
 
                 const v = arcLen[i] / totalLen;
+                // bed steepness over ±2 points (≈ ±20 m): drop / run, mapped so ≥ 0.3 (a waterfall-grade reach) is 1
+                const a0 = Math.max(0, i - 2),
+                    a1 = Math.min(N - 1, i + 2),
+                    drop = path[a0].length() - path[a1].length(),
+                    run = path[a0].distanceTo(path[a1]) || 1,
+                    steep = THREE.MathUtils.smoothstep(drop / run, 0.08, 0.3);
 
                 // Left vertex
                 positions.push(_scratch.geo.left.x, _scratch.geo.left.y, _scratch.geo.left.z);
                 normals.push(_scratch.geo.normal.x, _scratch.geo.normal.y, _scratch.geo.normal.z);
                 uvs.push(0, v);
+                steeps.push(steep);
 
                 // Right vertex
                 positions.push(_scratch.geo.rightPt.x, _scratch.geo.rightPt.y, _scratch.geo.rightPt.z);
                 normals.push(_scratch.geo.normal.x, _scratch.geo.normal.y, _scratch.geo.normal.z);
                 uvs.push(1, v);
+                steeps.push(steep);
             }
 
             // Quad indices for this path
@@ -602,6 +627,7 @@ export class RiverSystem {
             positions.push(lake.center.x, lake.center.y, lake.center.z);
             normals.push(norm.x, norm.y, norm.z);
             uvs.push(0.5, 2.0);
+            steeps.push(0);
 
             // Perimeter vertices — item 10: two non-integer sine terms displace radius for organic shorelines
             for (let i = 0; i < LAKE_SEGS; i++) {
@@ -614,6 +640,7 @@ export class RiverSystem {
                 positions.push(pt.x, pt.y, pt.z);
                 normals.push(norm.x, norm.y, norm.z);
                 uvs.push(1.0, 2.0);
+                steeps.push(0);
             }
 
             // Fan triangles: centre + consecutive perimeter pairs
@@ -624,6 +651,7 @@ export class RiverSystem {
         geo.setAttribute("position", new THREE.BufferAttribute(new Float32Array(positions), 3));
         geo.setAttribute("normal", new THREE.BufferAttribute(new Float32Array(normals), 3));
         geo.setAttribute("uv", new THREE.BufferAttribute(new Float32Array(uvs), 2));
+        geo.setAttribute("aSteep", new THREE.BufferAttribute(new Float32Array(steeps), 1));
         geo.setIndex(indices);
         return geo;
     }

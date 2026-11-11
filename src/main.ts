@@ -3,6 +3,7 @@ import { Planet } from "./world/planet";
 import { Sky } from "./world/sky";
 import { SkyDome } from "./world/skyfx";
 import { Aurora, Fireflies, GalacticBand, Bioluminescence } from "./world/night";
+import { Birds, ShootingStars, Lightning, Flutter } from "./world/life";
 import { Player } from "./player/player";
 import { Scatter, placementBakeMaterial } from "./world/vegetation";
 import { Collider } from "./world/collision";
@@ -126,6 +127,13 @@ const scene = new THREE.Scene(),
     const fireflies = new Fireflies(scene);
     const galacticBand = new GalacticBand(scene);
     const biolumi = new Bioluminescence(scene);
+    const birds = new Birds(scene);
+    const shootingStars = new ShootingStars(scene);
+    const lightning = gpuTier === "low" ? null : new Lightning(scene);
+    const flutter = gpuTier === "high" ? new Flutter(scene) : null; // butterflies & falling leaves
+    const radiusAt = (d: THREE.Vector3) => planet.radiusAt(d);
+    const camForward = new THREE.Vector3();
+    const flashColor = new THREE.Color(0.75, 0.8, 0.95);
     const footprints = gpuTier === "low" ? null : new Footprints(player, planet);
     const postFX = new PostFX(renderer, scene, camera);
     if (gpuTier !== "low") postFX.aerial.setCamera(camera.near, camera.far);
@@ -273,6 +281,23 @@ const scene = new THREE.Scene(),
         }
 
         sky.update(dt, camera, player.up, player.alt, tempAt());
+        // lightning flash: applied after sky.update, which rebuilds bg / fog / ambient from scratch every frame
+        if (lightning) {
+            camera.getWorldDirection(camForward);
+            const flash = lightning.update(
+                dt,
+                camera.position,
+                camForward,
+                player.up,
+                sky.precipitationAmount,
+                radiusAt
+            );
+            if (flash > 0) {
+                sky.bg.lerp(flashColor, flash * 0.55);
+                (scene.fog as THREE.FogExp2).color.copy(sky.bg);
+                sky.ambientLight.intensity += flash * 1.4;
+            }
+        }
         U.uTime.value += dt;
         U.uWind.value = S.wind * (0.6 + sky.cloud * 1.2);
         U.uSway.value = S.windSway;
@@ -282,7 +307,7 @@ const scene = new THREE.Scene(),
         U.uCov.value = Math.min(1, S.cloudiness * 0.75 + sky.cloud * 0.55);
         U.uCT.value += dt * (0.6 + S.wind * 0.5);
         planet.clouds.update(camera.position, sky);
-        skyDome.update(camera.position, player.up, sky);
+        skyDome.update(camera.position, player.up, sky, dt);
         planet.atmosphere.visible = planet.atmosphere.uniforms.fade.value > 0.01;
 
         planet.update(player.up, player.alt);
@@ -302,6 +327,10 @@ const scene = new THREE.Scene(),
             sky.dayF
         );
         biolumi.update(dt, camera.position);
+        camera.getWorldDirection(camForward);
+        birds.update(camera.position, camForward, player.up, sky.dayF, player.alt);
+        shootingStars.update(camera.position, player.up, camForward, night);
+        flutter?.update(camera.position, sky.dayF, player.alt);
         shadows.update(dt, player.alt, sky.dayF, sky.sun, camera.position);
         if ((hudTimer += dt) > 0.25) {
             hudTimer = 0;

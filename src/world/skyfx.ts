@@ -72,6 +72,7 @@ export class SkyDome {
             uDay: { value: 1 },
             uSpace: { value: 0 },
             uCloud: { value: 0 },
+            uBow: { value: 0 },
         },
         vertexShader: `
 varying vec3 vD;
@@ -82,7 +83,7 @@ void main() {
         fragmentShader: `
 varying vec3 vD;
 uniform vec3 uUp, uSun, uBg;
-uniform float uDay, uSpace, uCloud;
+uniform float uDay, uSpace, uCloud, uBow;
 void main() {
   vec3  d   = normalize(vD);
   float h   = dot(d, uUp);
@@ -91,6 +92,19 @@ void main() {
   col += vec3(.5, .55, .65) * pow(1. - clamp(abs(h), 0., 1.), 6.) * .08 * uDay * (1. - uSpace);
   col += vec3(1., .78, .5) * (pow(s, 64.) * .7 + pow(s, 10.) * .15 + pow(s, 3.) * .04 * (1. - smoothstep(0., .5, h)))
        * uDay * (1. - uCloud) * (1. - uSpace);
+  // Rainbow: primary bow at 42° from the anti-solar point (red outside, violet inside), a faint secondary at 51° with
+  // the colours reversed, and the brighter sky inside the primary. Only above the horizon.
+  if (uBow > .002 && h > 0.) {
+    float ang = degrees(acos(clamp(dot(d, -uSun), -1., 1.)));
+    float t1 = (ang - 40.4) / 2.2, t2 = (ang - 50.2) / 3.2;   // 0..1 across each band
+    vec3 bow = vec3(0.);
+    if (t1 > 0. && t1 < 1.) bow += clamp(vec3(abs(t1 * 6. - 3.) - 1., 2. - abs(t1 * 6. - 2.), 2. - abs(t1 * 6. - 4.)), 0., 1.)
+                                   * sin(t1 * 3.1416);
+    if (t2 > 0. && t2 < 1.) bow += clamp(vec3(abs((1. - t2) * 6. - 3.) - 1., 2. - abs((1. - t2) * 6. - 2.), 2. - abs((1. - t2) * 6. - 4.)), 0., 1.)
+                                   * sin(t2 * 3.1416) * .35;
+    float inside = smoothstep(40.5, 30., ang) * .06;
+    col += (bow * .28 + inside) * uBow * smoothstep(0., .08, h);
+  }
   gl_FragColor = vec4(col, 1.);
 }`,
     });
@@ -100,7 +114,8 @@ void main() {
         this.mesh.renderOrder = -100;
         scene.add(this.mesh);
     }
-    update(cam: THREE.Vector3, up: THREE.Vector3, sky: Sky) {
+    private wet = 0;
+    update(cam: THREE.Vector3, up: THREE.Vector3, sky: Sky, dt = 0.016) {
         this.mesh.position.copy(cam);
         const u = this.mat.uniforms;
         u.uUp.value.copy(up);
@@ -108,5 +123,18 @@ void main() {
         u.uDay.value = sky.dayF;
         u.uSpace.value = sky.space;
         u.uCloud.value = Math.min(1, sky.cloud);
+        // A rainbow needs rain still in the air, the sun breaking through, and a low sun (bow above the horizon).
+        // `wet` remembers recent rain: it follows precipitation up quickly and lets go over ~40 s, so the bow
+        // lingers while a shower moves off (precipitation and cloud themselves clear together within seconds).
+        const p = sky.precipitationAmount;
+        this.wet = p > this.wet ? p : Math.max(p, this.wet - dt / 40);
+        const sunEl = sky.sun.dot(up);
+        u.uBow.value =
+            this.wet *
+            (1 - p) * // not while it is still pouring
+            Math.max(0, 1 - sky.cloud * 1.6) *
+            THREE.MathUtils.smoothstep(sunEl, 0.02, 0.12) *
+            (1 - THREE.MathUtils.smoothstep(sunEl, 0.55, 0.75)) *
+            (1 - sky.space);
     }
 }

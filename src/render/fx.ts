@@ -136,7 +136,9 @@ export function terrainMat(
     });
     if (gpu) (m as any).defines = { GPU_H: "" };
     else if (baked) (m as any).defines = { BASE_COL: "" };
-    m.customProgramCacheKey = () => (cut ? "c" : "n") + (gpu ? "g" : "b") + (baked ? "k" : "");
+    if (gpuTier === "high") (m as any).defines = { ...((m as any).defines ?? {}), DUNES: "" };
+    m.customProgramCacheKey = () =>
+        (cut ? "c" : "n") + (gpu ? "g" : "b") + (baked ? "k" : "") + (gpuTier === "high" ? "d" : "");
     m.onBeforeCompile = (s) => {
         Object.assign(s.uniforms, U, T, extraUniforms);
         s.vertexShader = s.vertexShader
@@ -164,6 +166,9 @@ attribute float aE,aM;
                 "#include <common>",
                 `#include <common>
 varying vec3 vWp,vC;uniform float uTime,uOn,uR,uFade;uniform vec4 uRect,uFoot[48];uniform vec3 uN,uU,uV,uPl,uSun;uniform float uDayF,uCloudR,uAtOn;uniform samplerCube uCubeN,uCubeC;
+#ifdef DUNES
+uniform vec3 uCs;
+#endif
 ${NOISE}${IGN}${CLOUD_GLSL}`
             )
             .replace(
@@ -211,7 +216,21 @@ float dd = length(vViewPosition), gn;
      + .2 * mix(.5, w3 > 0. ? vn(vWp * 11.) : .5, w3);
   gn = mix(gn, .5, max(snowF * .85, smoothstep(.12, .25, vC.b - vC.r) * .7));
 }
-diffuseColor.rgb *= .78 + .45 * gn;
+float dune = 0.;
+#ifdef DUNES
+// High tier: wind ripples on sand. (uCs = palette sand colour, from T.) Pixels close to the palette's sand colour, within 120 m, get long parallel ridges
+// (fixed world wind direction, warped by noise so they meander and fork). Mostly lighting: fed to the bump below.
+{
+  float sandF = (1. - smoothstep(.06, .16, distance(diffuseColor.rgb, uCs))) * (1. - smoothstep(60., 120., dd)) * (1. - snowF);
+  if (sandF > .01) {
+    vec3 wdir = normalize(vec3(.83, .21, .52));
+    float warp = vn(vWp * .09) * 9. + vn(vWp * .31) * 2.;
+    float ph = dot(vWp, wdir) * 2.3 + warp;
+    dune = (pow(abs(sin(ph)), 3.) - .35) * sandF;  // sharp crests, soft troughs
+  }
+}
+#endif
+diffuseColor.rgb *= .78 + .45 * gn + dune * .08;
 vec3  nn  = normalize(vWp);
 float sd0 = dot(nn, uSun);
 if (uCov > .05 && dd < 500. && uDayF > .02 && sd0 > 0.) {
@@ -250,7 +269,7 @@ if (uAtOn > 0.)
   vec3  r1  = cross(dy, normal), r2 = cross(normal, dx);
   float det = dot(dx, r1);
   normal = normalize(abs(det) * normal
-         - .06 * (1. - smoothstep(60., 160., dd)) * sign(det) * (dFdx(gn) * r1 + dFdy(gn) * r2));
+         - .06 * (1. - smoothstep(60., 160., dd)) * sign(det) * (dFdx(gn + dune * .9) * r1 + dFdy(gn + dune * .9) * r2));
 }`
             )
             .replace(

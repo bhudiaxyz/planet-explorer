@@ -8,6 +8,7 @@ import { ChunkManager } from "./chunks";
 import { smoothstep, frame } from "../core/utilgeo";
 import { Forest } from "./forest";
 import { gpuTier } from "../render/gputier";
+import { buildWaterfalls } from "./life";
 import { CurrentPalette, biomeColors } from "../core/palette";
 import { buildLandmarks } from "./landmarks";
 import { CloudShell } from "./skyfx";
@@ -366,6 +367,11 @@ void main() {
         this.riverSystem?.dispose();
         this.riverSystem = await RiverSystem.build(this);
         this.group.add(this.riverSystem.mesh);
+        // waterfalls on steep river reaches (medium/high). Part of the planet group, so build() disposes them on rebuild.
+        if (gpuTier !== "low") {
+            const falls = buildWaterfalls(this.riverSystem.paths, this.radius, gpuTier === "high" ? 8 : 4);
+            if (falls) this.group.add(falls);
+        }
     }
     /** Per-frame animation: landmarks, planet cube-map bake/fade-in, chunk fades. */
     tick(dt: number) {
