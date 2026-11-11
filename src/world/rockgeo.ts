@@ -5,26 +5,12 @@ import { T, add, done } from "./geoutil";
 
 export function rockGeo() {
     const p: THREE.BufferGeometry[] = [];
-    add(
-        p,
-        new THREE.IcosahedronGeometry(1, 2),
-        T(0, 0.3, 0),
-        new THREE.Color(CurrentPalette.rockWarm),
-        1,
-        true
-    );
+    add(p, new THREE.IcosahedronGeometry(1, 2), T(0, 0.3, 0), new THREE.Color(CurrentPalette.rockWarm), 1, true);
     return done(p);
 }
 export function rockLow() {
     const p: THREE.BufferGeometry[] = [];
-    add(
-        p,
-        new THREE.IcosahedronGeometry(1, 0),
-        T(0, 0.3, 0),
-        new THREE.Color(CurrentPalette.rockWarm),
-        1,
-        true
-    );
+    add(p, new THREE.IcosahedronGeometry(1, 0), T(0, 0.3, 0), new THREE.Color(CurrentPalette.rockWarm), 1, true);
     return done(p);
 }
 // Flat layered slabs — warm ochre/tan palette, biased to mid-altitude rocky slopes
@@ -50,9 +36,7 @@ export function rockSlabGeo() {
         new THREE.IcosahedronGeometry(1, 1),
         new THREE.Matrix4().compose(
             new THREE.Vector3(0.35, 0.3, -0.15),
-            new THREE.Quaternion().setFromEuler(
-                new THREE.Euler((r() - 0.5) * 0.5, r() * 6.28, (r() - 0.5) * 0.4)
-            ),
+            new THREE.Quaternion().setFromEuler(new THREE.Euler((r() - 0.5) * 0.5, r() * 6.28, (r() - 0.5) * 0.4)),
             new THREE.Vector3(0.48, 0.36, 0.42)
         ),
         new THREE.Color(CurrentPalette.rockWarmDark),
@@ -89,9 +73,7 @@ export function frostRockGeo() {
             new THREE.IcosahedronGeometry(1, 1), // det=1 stays angular after jitter
             new THREE.Matrix4().compose(
                 new THREE.Vector3(i * 0.4 - 0.2, s * 0.55 + i * 0.1, i * 0.15 - 0.08),
-                new THREE.Quaternion().setFromEuler(
-                    new THREE.Euler((r() - 0.5) * 0.5, r() * 6.28, (r() - 0.5) * 0.6)
-                ),
+                new THREE.Quaternion().setFromEuler(new THREE.Euler((r() - 0.5) * 0.5, r() * 6.28, (r() - 0.5) * 0.6)),
                 new THREE.Vector3(s, s * 0.9, s * 0.8)
             ),
             new THREE.Color(CurrentPalette.rockCool),
@@ -103,14 +85,7 @@ export function frostRockGeo() {
 }
 export function frostRockLow() {
     const p: THREE.BufferGeometry[] = [];
-    add(
-        p,
-        new THREE.IcosahedronGeometry(1, 0),
-        T(0, 0.45, 0),
-        new THREE.Color(CurrentPalette.rockCool),
-        0.85,
-        true
-    );
+    add(p, new THREE.IcosahedronGeometry(1, 0), T(0, 0.45, 0), new THREE.Color(CurrentPalette.rockCool), 0.85, true);
     return done(p);
 }
 
@@ -119,11 +94,7 @@ const tinyRock = (c: THREE.Color, y: number, sx: number, sy: number) => {
     add(
         p,
         new THREE.OctahedronGeometry(1, 0),
-        new THREE.Matrix4().compose(
-            new THREE.Vector3(0, y, 0),
-            new THREE.Quaternion(),
-            new THREE.Vector3(sx, sy, sx)
-        ),
+        new THREE.Matrix4().compose(new THREE.Vector3(0, y, 0), new THREE.Quaternion(), new THREE.Vector3(sx, sy, sx)),
         c,
         sy,
         true,
@@ -131,9 +102,7 @@ const tinyRock = (c: THREE.Color, y: number, sx: number, sy: number) => {
     );
     return done(p);
 };
-export const rockSlabTiny = () =>
-    tinyRock(new THREE.Color(CurrentPalette.rockWarmAlt), 0.12, 1.1, 0.22);
-export const frostRockTiny = () =>
-    tinyRock(new THREE.Color(CurrentPalette.rockCool), 0.45, 0.85, 0.75);
+export const rockSlabTiny = () => tinyRock(new THREE.Color(CurrentPalette.rockWarmAlt), 0.12, 1.1, 0.22);
+export const frostRockTiny = () => tinyRock(new THREE.Color(CurrentPalette.rockCool), 0.45, 0.85, 0.75);
 
 export const rockTiny = () => tinyRock(new THREE.Color(CurrentPalette.rockWarm), 0.3, 1, 0.8);

@@ -3,15 +3,7 @@ import { S, CFG } from "../core/config";
 import { terrainMat } from "../render/fx";
 import { makeRT, bakeChunk } from "../render/bake";
 import { frame, type Frame } from "../core/utilgeo";
-const {
-    cells: CS,
-    cell: CC,
-    radius: CR,
-    budget: BUDGET,
-    firstBudget: FIRST,
-    makeAlt,
-    clearAlt,
-} = CFG.chunk;
+const { cells: CS, cell: CC, radius: CR, budget: BUDGET, firstBudget: FIRST, makeAlt, clearAlt } = CFG.chunk;
 
 interface Shared {
     idx: THREE.BufferAttribute;
@@ -75,8 +67,7 @@ export class ChunkManager {
         const currentFrame = frame(playerDirection, this.radius(), CC, this.scratchFrame),
             ci = Math.floor(currentFrame.cellI / CS),
             cj = Math.floor(currentFrame.cellJ / CS);
-        if (currentFrame.face === this.lastFace && ci === this.lastChunkI && cj === this.lastChunkJ)
-            return; // still inside the same centre chunk
+        if (currentFrame.face === this.lastFace && ci === this.lastChunkI && cj === this.lastChunkJ) return; // still inside the same centre chunk
         const want = this.wantSet,
             todo = this.todoArr;
         want.clear();
@@ -106,8 +97,7 @@ export class ChunkManager {
             );
         }
         for (const m of this.map.values())
-            m.userData.lo =
-                Math.max(Math.abs(m.userData.ci - ci), Math.abs(m.userData.cj - cj)) >= CR; // target LOD; tick() geomorphs to it — only the outermost ring uses half-res
+            m.userData.lo = Math.max(Math.abs(m.userData.ci - ci), Math.abs(m.userData.cj - cj)) >= CR; // target LOD; tick() geomorphs to it — only the outermost ring uses half-res
         for (const k of want) if (!this.map.has(k)) return; // finish loading before retiring anything
         for (const [k, m] of this.map)
             if (!want.has(k)) {
@@ -124,8 +114,7 @@ export class ChunkManager {
         for (const m of this.map.values()) {
             const userData = m.userData,
                 fadeUniform = userData.fade;
-            if (fadeUniform.value < 1)
-                fadeUniform.value = Math.min(1, fadeUniform.value + dt * 1.6);
+            if (fadeUniform.value < 1) fadeUniform.value = Math.min(1, fadeUniform.value + dt * 1.6);
             const targetLod = userData.lo ? 1 : 0,
                 morphUniform = userData.morph;
             if (morphUniform.value !== targetLod)
@@ -159,8 +148,7 @@ export class ChunkManager {
             perimeterVertexIds: number[] = []; // perimeter vertex ids in loop order (skirt vertices are duplicates of these)
         for (let a = 0; a < gridSize; a++) perimeterVertexIds.push(a);
         for (let b = 1; b < gridSize; b++) perimeterVertexIds.push(b * gridSize + gridSize - 1);
-        for (let a = gridSize - 2; a >= 0; a--)
-            perimeterVertexIds.push((gridSize - 1) * gridSize + a);
+        for (let a = gridSize - 2; a >= 0; a--) perimeterVertexIds.push((gridSize - 1) * gridSize + a);
         for (let b = gridSize - 2; b >= 1; b--) perimeterVertexIds.push(b * gridSize);
         const idx = new Uint32Array(6 * CS * CS + 6 * perimeterVertexIds.length);
         let t = 0;
@@ -184,17 +172,7 @@ export class ChunkManager {
         for (let b = 0; b < halfResCount; b++)
             for (let a = 0; a < halfResCount; a++) {
                 const i0 = 2 * b * gridSize + 2 * a;
-                lo.set(
-                    [
-                        i0,
-                        i0 + 2,
-                        i0 + 2 * gridSize,
-                        i0 + 2,
-                        i0 + 2 * gridSize + 2,
-                        i0 + 2 * gridSize,
-                    ],
-                    t
-                );
+                lo.set([i0, i0 + 2, i0 + 2 * gridSize, i0 + 2, i0 + 2 * gridSize + 2, i0 + 2 * gridSize], t);
                 t += 6;
             }
         for (let k = 0; k < perimeterVertexIds.length; k += 2) {
@@ -208,8 +186,7 @@ export class ChunkManager {
         }
         const aL = new Float32Array(totalVertexCount * 2),
             aS = new Float32Array(totalVertexCount);
-        for (let b = 0; b < gridSize; b++)
-            for (let a = 0; a < gridSize; a++) aL.set([a, b], (b * gridSize + a) * 2);
+        for (let b = 0; b < gridSize; b++) for (let a = 0; a < gridSize; a++) aL.set([a, b], (b * gridSize + a) * 2);
         perimeterVertexIds.forEach((src, k) => {
             aL.copyWithin((gridSize * gridSize + k) * 2, src * 2, src * 2 + 2);
             aS[gridSize * gridSize + k] = 1;

@@ -124,9 +124,7 @@ export function setupGui({ planet, player, post, rebuild, rebuildVeg, spots }: C
             const folder = locs.addFolder(g);
             folder.close();
             for (const spot of members)
-                folder
-                    .add({ go: () => player.warpTo(spot.dir) }, "go")
-                    .name(`${spot.icon} ${spot.name}`);
+                folder.add({ go: () => player.warpTo(spot.dir) }, "go").name(`${spot.icon} ${spot.name}`);
         }
         // z-index 49 = below the loading splash (z-index 50) so the panel is hidden during load
         // and fades in naturally as the splash opacity transitions to 0 on entry.

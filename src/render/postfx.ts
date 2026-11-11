@@ -141,11 +141,7 @@ void main() {
         this.timeSinceLastScaleChange += dt;
         const cap = Math.min(this.devicePixelRatio, S.renderScale);
         // downscale reacts quickly (0.5 s) to catch sudden load spikes (e.g. descent into terrain)
-        if (
-            this.timeSinceLastScaleChange > 0.5 &&
-            this.smoothedFrameTime > 0.03 &&
-            this.pixelRatio > this.floor
-        ) {
+        if (this.timeSinceLastScaleChange > 0.5 && this.smoothedFrameTime > 0.03 && this.pixelRatio > this.floor) {
             // Did the previous downscale help? If frames are no faster (within 8%), resolution isn't the bottleneck —
             // usually a 30 Hz cap (iOS Low Power Mode, Android battery saver) or CPU load. Two misses in a row: stop
             // here instead of sinking to 0.5 for no gain. The floor resets when frames recover (below).
@@ -161,11 +157,7 @@ void main() {
             this.pendingPixelRatio = Math.max(this.floor, this.pixelRatio - 0.15);
         }
         // upscale is cautious (3 s) to avoid oscillation on borderline hardware
-        else if (
-            this.timeSinceLastScaleChange > 3 &&
-            this.smoothedFrameTime < 0.0185 &&
-            this.pixelRatio < cap
-        ) {
+        else if (this.timeSinceLastScaleChange > 3 && this.smoothedFrameTime < 0.0185 && this.pixelRatio < cap) {
             this.floor = 0.5; // frames are fast again: whatever capped them is gone
             this.uselessDownscales = 0;
             this.frameAtDownscale = 0;

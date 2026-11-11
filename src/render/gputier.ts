@@ -15,7 +15,6 @@ export function setGpuTier(t: GpuTier) {
 }
 
 export function detectGpuTier(gl: WebGLRenderingContext | WebGL2RenderingContext): GpuTier {
-    if (location.search.includes("forcetier=")) return new URLSearchParams(location.search).get("forcetier") as GpuTier;
     const ext = gl.getExtension("WEBGL_debug_renderer_info");
     if (!ext) {
         // Extension blocked (privacy mode / Firefox resistFingerprinting): the GPU is unknown.
@@ -36,8 +35,7 @@ export function detectGpuTier(gl: WebGLRenderingContext | WebGL2RenderingContext
         if (!isTouchDevice && !(navigator.maxTouchPoints > 1))
             return gl.getExtension("WEBGL_compressed_texture_astc") ? "high" : "medium";
         const isIpad =
-            /ipad/i.test(navigator.userAgent) ||
-            (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+            /ipad/i.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
         return isIpad ? "high" : "medium";
     }
 

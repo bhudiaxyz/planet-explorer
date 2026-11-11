@@ -30,8 +30,7 @@ export class Shadows {
         const { size: rawSize } = CFG.shadow;
         // high desktop (discrete GPU / M-series): 2048² sun map → ~12 cm texels, enough for rock/shrub contact shadows.
         // Phones stay at 1024: a 2048² depth map is 16 MB re-rendered at 30 Hz, too much bandwidth for a tiler GPU.
-        const sizeMul =
-            gpuTier === "low" ? 0.25 : gpuTier === "medium" ? 0.5 : isTouchDevice ? 1 : 2;
+        const sizeMul = gpuTier === "low" ? 0.25 : gpuTier === "medium" ? 0.5 : isTouchDevice ? 1 : 2;
         this.half = gpuTier === "low" ? CFG.shadow.half * 0.65 : CFG.shadow.half;
         const half = this.half;
         const size = Math.round(rawSize * sizeMul);
@@ -56,10 +55,7 @@ export class Shadows {
         light.shadow.bias = -0.0004;
         // normal bias was tuned for 1024² over 240 m (0.23 m texels); the 2048² high-desktop map halves it so shadows
         // stay attached to small rocks. Never raised above 0.4, so low/medium look exactly as before.
-        light.shadow.normalBias = Math.min(
-            0.4,
-            0.4 * (this.tex / ((2 * CFG.shadow.half) / CFG.shadow.size))
-        );
+        light.shadow.normalBias = Math.min(0.4, 0.4 * (this.tex / ((2 * CFG.shadow.half) / CFG.shadow.size)));
         // PCF in three r18x is a fixed 5-tap rotated Vogel disk; radius only widens it (same cost). Widen on high, where the
         // finer map would otherwise give hard, aliased edges. Low/medium keep 1 (their texels are already coarse).
         light.shadow.radius = gpuTier === "high" ? 2.5 : 1;
@@ -113,9 +109,7 @@ export class Shadows {
             this.moon.shadow.intensity = this.moonStrength;
             if (moonActive && this.moonStrength > 0.01) {
                 this.moonDir.copy(sun).negate();
-                this.right
-                    .crossVectors(this.moonDir, Math.abs(this.moonDir.y) < 0.9 ? Y : X)
-                    .normalize();
+                this.right.crossVectors(this.moonDir, Math.abs(this.moonDir.y) < 0.9 ? Y : X).normalize();
                 this.up.crossVectors(this.right, this.moonDir);
                 const mt = this.moonTex;
                 this.tgt

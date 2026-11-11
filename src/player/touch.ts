@@ -169,16 +169,14 @@ export function setupTouch(player: Player, dom: HTMLElement): void {
     dom.addEventListener(
         "touchend",
         (e) => {
-            for (const t of Array.from(e.changedTouches))
-                if (t.identifier === lookId) lookId = null;
+            for (const t of Array.from(e.changedTouches)) if (t.identifier === lookId) lookId = null;
         },
         { passive: true }
     );
     dom.addEventListener(
         "touchcancel",
         (e) => {
-            for (const t of Array.from(e.changedTouches))
-                if (t.identifier === lookId) lookId = null;
+            for (const t of Array.from(e.changedTouches)) if (t.identifier === lookId) lookId = null;
         },
         { passive: true }
     );

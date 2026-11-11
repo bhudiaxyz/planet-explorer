@@ -58,12 +58,7 @@ type Tree = {
 
 /** CPU twin of GLSL treeDensity() (gpu.ts): used only when the GPU bake is unavailable. */
 /** Species by altitude/climate; `stand` (smooth noise) makes neighbouring trees share a species so forests read as stands, not confetti. */
-function pickSpecies(
-    elevation: number,
-    temperature: number,
-    moisture: number,
-    standNoise: number
-): number {
+function pickSpecies(elevation: number, temperature: number, moisture: number, standNoise: number): number {
     if (elevation < 0.09 && temperature > 0.58 && moisture > 0.05) return SP.mangrove; // warm wet shore
     if (elevation < 0.1 && temperature > 0.62 && moisture > -0.1) return SP.palm; // warm dry coast
     if (elevation > 0.44) return SP.snag; // treeline
@@ -105,12 +100,7 @@ export class Forest {
     private M1: number;
     constructor(private pl: Planet) {
         const lodMul = gpuTier === "low" ? 0.45 : gpuTier === "medium" ? 0.65 : 1;
-        [this.H0, this.H1, this.M0, this.M1] = _lod.map((v) => v * lodMul) as [
-            number,
-            number,
-            number,
-            number,
-        ];
+        [this.H0, this.H1, this.M0, this.M1] = _lod.map((v) => v * lodMul) as [number, number, number, number];
     }
 
     /** Per-candidate terrain samples. mode 1: (elev, moisture, tree density, slope) · 2: coarse-mesh radius · 5: stand noise. */
@@ -125,8 +115,7 @@ export class Forest {
         for (let i = 0; i < n; i++) {
             d.fromArray(dirs, i * 3);
             if (mode === 2) results[i * 4] = planet.coarseR(d);
-            else if (mode === 5)
-                results[i * 4] = planet.noise2.get(d.x * f * 11, d.y * f * 11, d.z * f * 11 + 77);
+            else if (mode === 5) results[i * 4] = planet.noise2.get(d.x * f * 11, d.y * f * 11, d.z * f * 11 + 77);
             else {
                 const e = planet.elev(d),
                     m = planet.moistureAt(d);
@@ -136,8 +125,7 @@ export class Forest {
                         e,
                         m,
                         treeDensityCPU(planet, d, m),
-                        Math.abs(planet.radiusAt(t) - (planet.radius + e * S.amplitude)) /
-                            (0.01 * planet.radius),
+                        Math.abs(planet.radiusAt(t) - (planet.radius + e * S.amplitude)) / (0.01 * planet.radius),
                     ],
                     i * 4
                 );
@@ -187,8 +175,7 @@ export class Forest {
                 speciesIndex === SP.birch ||
                 speciesIndex === SP.acacia ||
                 speciesIndex === SP.willow;
-        if (decid && temperature < 0.6 && a < 0.35)
-            c.setHSL(0.03 + 0.12 * rand(), 0.75, 0.28 + 0.1 * rand());
+        if (decid && temperature < 0.6 && a < 0.35) c.setHSL(0.03 + 0.12 * rand(), 0.75, 0.28 + 0.1 * rand());
         else if (decid && a > 0.94) c.setHSL(0.93 + 0.04 * rand(), 0.5, 0.55);
         else if (a > 0.88) c.offsetHSL(0.04, 0.1, 0.1);
         if (moisture < -0.15) c.offsetHSL(-0.03, -0.15, 0.02);
@@ -200,14 +187,11 @@ export class Forest {
                 (0.65 + 0.7 * rand()) *
                 (speciesIndex === SP.cypress
                     ? 0.8
-                    : speciesIndex === SP.acacia ||
-                        speciesIndex === SP.willow ||
-                        speciesIndex === SP.mangrove
+                    : speciesIndex === SP.acacia || speciesIndex === SP.willow || speciesIndex === SP.mangrove
                       ? 1.2
                       : 1),
             heightScale:
-                (0.65 + 0.8 * rand()) *
-                (speciesIndex === SP.cypress ? 1.15 : speciesIndex === SP.mangrove ? 0.9 : 1),
+                (0.65 + 0.8 * rand()) * (speciesIndex === SP.cypress ? 1.15 : speciesIndex === SP.mangrove ? 0.9 : 1),
             tiltX: (rand() - 0.5) * lean,
             tiltZ: (rand() - 0.5) * lean,
             color: [c.r, c.g, c.b],
@@ -231,12 +215,8 @@ export class Forest {
         // Kick off all three geometry builds immediately (each via setTimeout so they run in separate
         // macrotasks) — they overlap with the GPU bake readback awaits below, cutting wall-clock time.
         const geosPromise = Promise.all([
-            new Promise<ReturnType<typeof treeGeos>>((r) =>
-                setTimeout(() => r(treeGeos(S.seed, 1)), 0)
-            ),
-            new Promise<ReturnType<typeof treeGeos>>((r) =>
-                setTimeout(() => r(treeGeos(S.seed, 0.5)), 0)
-            ),
+            new Promise<ReturnType<typeof treeGeos>>((r) => setTimeout(() => r(treeGeos(S.seed, 1)), 0)),
+            new Promise<ReturnType<typeof treeGeos>>((r) => setTimeout(() => r(treeGeos(S.seed, 0.5)), 0)),
             new Promise<ReturnType<typeof lowGeos>>((r) => setTimeout(() => r(lowGeos(S.seed)), 0)),
         ]);
         const tries = Math.min(max * CFG.forest.tries, 200000),
@@ -250,11 +230,10 @@ export class Forest {
             d.normalize().toArray(candidateDirs, n++ * 3);
         }
         const dirs = candidateDirs.subarray(0, n * 3);
-        const [[highDetailGeos, midDetailGeos, lowDetailGeos], [sampleData, stand]] =
-            await Promise.all([
-                geosPromise,
-                Promise.all([this.sample(dirs, 1), this.sample(dirs, 5)]),
-            ]);
+        const [[highDetailGeos, midDetailGeos, lowDetailGeos], [sampleData, stand]] = await Promise.all([
+            geosPromise,
+            Promise.all([this.sample(dirs, 1), this.sample(dirs, 5)]),
+        ]);
         // minimum spacing via a 3-D hash grid (cell = spacing), so dense stands never stack trunks
         const minSpacing = CFG.forest.minSpacing,
             grid = new Map<number, number[]>(),
@@ -276,8 +255,7 @@ export class Forest {
                                 const dx = px[j] - x,
                                     dy = py[j] - y,
                                     dz = pz[j] - z;
-                                if (dx * dx + dy * dy + dz * dz < minSpacing * minSpacing)
-                                    return false;
+                                if (dx * dx + dy * dy + dz * dz < minSpacing * minSpacing) return false;
                             }
                     }
             return true;
@@ -352,10 +330,7 @@ export class Forest {
             });
             const makeInstancedMesh = (geo: THREE.BufferGeometry, tier: number) => {
                 const mesh = new THREE.InstancedMesh(geo, treeMats[tier], cap);
-                mesh.instanceColor = new THREE.InstancedBufferAttribute(
-                    new Float32Array(cap * 3),
-                    3
-                );
+                mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(cap * 3), 3);
                 mesh.count = 0;
                 mesh.frustumCulled = false;
                 mesh.matrixAutoUpdate = false;
@@ -400,9 +375,7 @@ export class Forest {
                 if (dx * dir.x + dy * dir.y + dz * dir.z < thr) continue;
                 this.scratchD.set(dx, dy, dz);
                 const r = (base + 0.05) * lists.scale[k] * lists.scaleWidth[k];
-                this.scratchAx
-                    .crossVectors(this.scratchD, Math.abs(dy) < 0.99 ? UP : this.scratchUp)
-                    .normalize();
+                this.scratchAx.crossVectors(this.scratchD, Math.abs(dy) < 0.99 ? UP : this.scratchUp).normalize();
                 out.push({
                     d: this.scratchD.clone(),
                     ax: this.scratchAx.clone(),
@@ -427,8 +400,7 @@ export class Forest {
             this.nearMode = altitude < CFG.trees.nearHysteresisAlt;
         // animate nearStrength toward nearMode so hi/mid tiers fade in/out over ~0.4 s
         const target = this.nearMode ? 1 : 0;
-        this.nearStrength +=
-            (target - this.nearStrength) * Math.min(1, dt * CFG.trees.nearFadeSpeed);
+        this.nearStrength += (target - this.nearStrength) * Math.min(1, dt * CFG.trees.nearFadeSpeed);
         const onlyCrossfading = cam.distanceToSquared(this.last) < 36;
         if (onlyCrossfading && Math.abs(this.nearStrength - target) < 0.005) return;
         this.last.copy(cam);
@@ -459,13 +431,7 @@ export class Forest {
                 const s = k * 16;
                 if (!lists.has[k]) {
                     this.scratchDir.set(dx, dy, dz);
-                    this.place(
-                        lists,
-                        k,
-                        this.pl.radiusAt(this.scratchDir) - 0.15,
-                        exactMatrices,
-                        s
-                    );
+                    this.place(lists, k, this.pl.radiusAt(this.scratchDir) - 0.15, exactMatrices, s);
                     lists.has[k] = 1;
                 } // exact ground height, composed once
                 for (let t = 0; t < 2; t++)

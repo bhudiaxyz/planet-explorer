@@ -54,11 +54,7 @@ export class Noise3 {
             ),
             lerp(
                 lerp(grad(perm[AA + 1], x, y, z - 1), grad(perm[BA + 1], x - 1, y, z - 1), u),
-                lerp(
-                    grad(perm[AB + 1], x, y - 1, z - 1),
-                    grad(perm[BB + 1], x - 1, y - 1, z - 1),
-                    u
-                ),
+                lerp(grad(perm[AB + 1], x, y - 1, z - 1), grad(perm[BB + 1], x - 1, y - 1, z - 1), u),
                 v
             ),
             w

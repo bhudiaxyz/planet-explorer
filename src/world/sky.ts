@@ -34,8 +34,7 @@ export class Sky {
         private planet: Planet
     ) {
         const starCount = gpuTier === "low" ? 900 : gpuTier === "medium" ? 1600 : SKY.starCount;
-        const precipCount =
-            gpuTier === "low" ? 1200 : gpuTier === "medium" ? 2200 : SKY.precipCount;
+        const precipCount = gpuTier === "low" ? 1200 : gpuTier === "medium" ? 2200 : SKY.precipCount;
         // P4: nebulae are fill-rate expensive on low tier (up to 512×512 per point); only visible
         // at night in clear weather — skipping them entirely has no visible impact at low resolution.
         const nebulaCount = gpuTier === "low" ? 0 : gpuTier === "medium" ? 9 : SKY.nebulaCount;
@@ -165,14 +164,10 @@ void main() {
   gl_FragColor = vec4(col, band * dusk * 0.5);
 }`,
         });
-        const dawnMesh = new THREE.Mesh(
-            new THREE.SphereGeometry(SKY.dawnSphereRadius, 32, 12),
-            dawnMat
-        );
+        const dawnMesh = new THREE.Mesh(new THREE.SphereGeometry(SKY.dawnSphereRadius, 32, 12), dawnMat);
         dawnMesh.renderOrder = 2;
         dawnMesh.frustumCulled = false;
-        for (const o of [this.stars, this.nebulae, this.precip, this.disc, this.moonDisc])
-            o.frustumCulled = false;
+        for (const o of [this.stars, this.nebulae, this.precip, this.disc, this.moonDisc]) o.frustumCulled = false;
         scene.add(this.disc, this.moonDisc, this.stars, this.precip, dawnMesh);
         if (NC > 0) scene.add(this.nebulae);
     }
@@ -182,18 +177,10 @@ void main() {
             dayAngle = S.timeOfDay * Math.PI * 2,
             tilt = ATM.tilt;
         S.timeOfDay = (S.timeOfDay + dt / S.dayLength) % 1;
-        this.sun.set(
-            Math.cos(dayAngle),
-            Math.sin(dayAngle) * Math.cos(tilt),
-            Math.sin(dayAngle) * Math.sin(tilt)
-        );
+        this.sun.set(Math.cos(dayAngle), Math.sin(dayAngle) * Math.cos(tilt), Math.sin(dayAngle) * Math.sin(tilt));
         const sunElevation = this.sun.dot(up);
         this.dayF = smoothstep(ATM.dayFadeLow, ATM.dayFadeHigh, sunElevation);
-        this.space = smoothstep(
-            planetRadius * ATM.spaceStartFraction,
-            planetRadius * ATM.spaceEndFraction,
-            alt
-        );
+        this.space = smoothstep(planetRadius * ATM.spaceStartFraction, planetRadius * ATM.spaceEndFraction, alt);
         // weather
         if (S.weather === "auto") {
             if ((this.timer -= dt) < 0) {
@@ -205,10 +192,8 @@ void main() {
         const isPrecip = this.kind === "precip" || this.kind === "rain" || this.kind === "snow",
             smoothFactor = 1 - Math.exp(-dt * 0.5);
         this.snow = this.kind === "snow" || (this.kind === "precip" && temp < 0.35);
-        this.cloud +=
-            ((isPrecip ? 0.85 : this.kind === "fog" ? 0.5 : 0) - this.cloud) * smoothFactor;
-        this.fogWeight +=
-            ((this.kind === "fog" ? 1 : isPrecip ? 0.35 : 0) - this.fogWeight) * smoothFactor;
+        this.cloud += ((isPrecip ? 0.85 : this.kind === "fog" ? 0.5 : 0) - this.cloud) * smoothFactor;
+        this.fogWeight += ((this.kind === "fog" ? 1 : isPrecip ? 0.35 : 0) - this.fogWeight) * smoothFactor;
         this.precipitationAmount += ((isPrecip ? 1 : 0) - this.precipitationAmount) * smoothFactor;
         // sky colour
         const skyGrey = this.dayF * 0.55 + 0.03;
@@ -223,22 +208,17 @@ void main() {
             .multiplyScalar(1 - this.space);
         const fog = this.scene.fog as THREE.FogExp2;
         fog.color.copy(this.bg);
-        fog.density =
-            (SKY.fogDensityBase + this.fogWeight * SKY.fogDensityPrecip) * (1 - this.space);
+        fog.density = (SKY.fogDensityBase + this.fogWeight * SKY.fogDensityPrecip) * (1 - this.space);
         // lights
         this.light.position.copy(this.sun).multiplyScalar(planetRadius * 6);
         this.moon.position.copy(this.sun).multiplyScalar(-planetRadius * 6);
         this.light.color
             .set(CurrentPalette.sunLight)
-            .lerp(
-                this.scratchColor.set(CurrentPalette.sunsetLight),
-                Math.exp(-((sunElevation / 0.15) ** 2)) * 0.8
-            );
+            .lerp(this.scratchColor.set(CurrentPalette.sunsetLight), Math.exp(-((sunElevation / 0.15) ** 2)) * 0.8);
         this.light.intensity = LGT.sunIntensity * (1 - LGT.sunCloudDim * this.cloud);
         this.moon.color.set(CurrentPalette.moonLight);
         this.ambientLight.color.set(CurrentPalette.ambientLight);
-        this.ambientLight.intensity =
-            LGT.ambientBase + LGT.ambientDayMul * this.dayF * (1 - this.space);
+        this.ambientLight.intensity = LGT.ambientBase + LGT.ambientDayMul * this.dayF * (1 - this.space);
         // bodies
         const starOp = (1 - this.dayF * (1 - this.space)) * (1 - this.cloud * 0.7);
         (this.stars.material as THREE.PointsMaterial).opacity = starOp;
@@ -260,8 +240,7 @@ void main() {
             this.disc.visible = discVisibility > 0.01;
         }
         {
-            const moonVisibility =
-                Math.max(0, 1 - this.dayF * 1.6) * Math.max(0, 1 - this.cloud * 1.2);
+            const moonVisibility = Math.max(0, 1 - this.dayF * 1.6) * Math.max(0, 1 - this.cloud * 1.2);
             this.moonDisc.position.copy(cam.position).addScaledVector(this.sun, -12000);
             (this.moonDisc.material as THREE.MeshBasicMaterial).color.setRGB(
                 CurrentPalette.moonDisc[0] * moonVisibility,
@@ -271,11 +250,7 @@ void main() {
             this.moonDisc.visible = moonVisibility > 0.01;
         }
         this.planet.atmosphere.uniforms.sun.value.copy(this.sun);
-        this.planet.atmosphere.uniforms.fade.value = smoothstep(
-            planetRadius * 0.03,
-            planetRadius * 0.25,
-            alt
-        );
+        this.planet.atmosphere.uniforms.fade.value = smoothstep(planetRadius * 0.03, planetRadius * 0.25, alt);
         this.precipitation.update(cam, up, this.snow, this.precipitationAmount, alt);
     }
 }

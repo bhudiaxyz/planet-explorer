@@ -213,14 +213,8 @@ const scene = new THREE.Scene(),
             }
         }
         const nearestLandmark = { d: nearestD, n: nearestN };
-        const weather =
-            sky.snow && sky.precipitationAmount > 0.3
-                ? "snow"
-                : sky.kind === "precip"
-                  ? "rain"
-                  : sky.kind;
-        const modeLabel =
-            player.mode === "drone" && player.landing ? "LANDING" : player.mode.toUpperCase();
+        const weather = sky.snow && sky.precipitationAmount > 0.3 ? "snow" : sky.kind === "precip" ? "rain" : sky.kind;
+        const modeLabel = player.mode === "drone" && player.landing ? "LANDING" : player.mode.toUpperCase();
         return `${modeLabel} · alt ${Math.round(player.alt)} m · ${String(Math.floor(hourOfDay)).padStart(2, "0")}:${String(Math.floor((hourOfDay % 1) * 60)).padStart(2, "0")}${nearestLandmark.n ? " · " + nearestLandmark.n + " " + Math.round(nearestLandmark.d) + " m" : ""} · ${weather}`;
     };
 
@@ -299,12 +293,7 @@ const scene = new THREE.Scene(),
         const night = (1 - sky.dayF) * (1 - sky.space) * (1 - sky.cloud);
         U.uNight.value = night;
         if (night > 0.01) galacticBand.mesh.rotation.y = S.timeOfDay * Math.PI * 2;
-        aurora.update(
-            camera.position,
-            player.up,
-            night * smoothstep(0.1, 0.45, Math.abs(player.up.y)),
-            U.uTime.value
-        );
+        aurora.update(camera.position, player.up, night * smoothstep(0.1, 0.45, Math.abs(player.up.y)), U.uTime.value);
         fireflies.update(
             dt,
             U.uTime.value,

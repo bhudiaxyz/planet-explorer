@@ -3,13 +3,7 @@ import type { Noise3 } from "../core/noise";
 import { biomeColors } from "../core/palette";
 // Shared terrain-function uniforms. The permutation tables of the CPU noise are uploaded as a 512×2 float texture,
 // so the GLSL height field is the same function the CPU samples for physics, trees and placement.
-const permutationTexture = new THREE.DataTexture(
-    new Float32Array(1024),
-    512,
-    2,
-    THREE.RedFormat,
-    THREE.FloatType
-);
+const permutationTexture = new THREE.DataTexture(new Float32Array(1024), 512, 2, THREE.RedFormat, THREE.FloatType);
 permutationTexture.minFilter = permutationTexture.magFilter = THREE.NearestFilter;
 permutationTexture.needsUpdate = true;
 const colorUniform = () => ({ value: new THREE.Color() });

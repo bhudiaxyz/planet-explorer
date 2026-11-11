@@ -39,18 +39,13 @@ export function add(
             t.fromBufferAttribute(p, i).sub(ctr).normalize();
             n.setXYZ(i, t.x, t.y, t.z);
         }
-        const sh = ao
-            ? 0.6 + 0.55 * Math.min(1, Math.max(0, ((p.getY(i) - ctr.y) / ao) * 0.5 + 0.5))
-            : 1;
+        const sh = ao ? 0.6 + 0.55 * Math.min(1, Math.max(0, ((p.getY(i) - ctr.y) / ao) * 0.5 + 0.5)) : 1;
         if (leaf) cc.setRGB(sh, sh, sh);
         else cc.copy(c).multiplyScalar(sh);
         cc.toArray(col, i * 3);
     }
     g.setAttribute("color", new THREE.BufferAttribute(col, 3));
-    g.setAttribute(
-        "aLeaf",
-        new THREE.BufferAttribute(new Float32Array(p.count).fill(leaf ? 1 : 0), 1)
-    );
+    g.setAttribute("aLeaf", new THREE.BufferAttribute(new Float32Array(p.count).fill(leaf ? 1 : 0), 1));
     parts.push(g);
 }
 export const T = (x: number, y: number, z: number) => new THREE.Matrix4().makeTranslation(x, y, z);
@@ -89,13 +84,7 @@ export const blob = (
         leaf
     );
 export const done = (p: THREE.BufferGeometry[]) => mergeGeometries(p)!;
-export function frond(
-    p: THREE.BufferGeometry[],
-    a: THREE.Vector3,
-    b: THREE.Vector3,
-    w: number,
-    c: THREE.Color
-) {
+export function frond(p: THREE.BufferGeometry[], a: THREE.Vector3, b: THREE.Vector3, w: number, c: THREE.Color) {
     const len = a.distanceTo(b),
         m = new THREE.Matrix4().compose(
             a.clone().add(b).multiplyScalar(0.5),

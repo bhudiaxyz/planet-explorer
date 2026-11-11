@@ -16,8 +16,7 @@ export type Obs = {
     H: number;
     mode: 0 | 1 | 2;
 };
-export const domeAt = (H: number, rho: number) =>
-    (H * (0.3 + Math.sqrt(Math.max(0, 1 - rho * rho)))) / 1.3; // profile of the half-buried ball used for rocks
+export const domeAt = (H: number, rho: number) => (H * (0.3 + Math.sqrt(Math.max(0, 1 - rho * rho)))) / 1.3; // profile of the half-buried ball used for rocks
 // Collision with everything the player can see. Trees come from the CPU tree table, landmarks from their builder, and shrubs/rocks from a tiny GPU read-back of the
 // near-tier placement texture (so the CPU never re-derives GPU hashes: it reads exactly the plants the shader draws).
 export class Collider {
@@ -48,8 +47,7 @@ export class Collider {
         this.seen = this.scatter.version;
         this.forestSpeciesLists = this.planet.forest.speciesLists;
         this.planet.forest.collect(dir, 18, this.obs);
-        for (const o of this.planet.landmarks.obs)
-            if (o.d.distanceTo(dir) * planetRadius < 22) this.obs.push(o);
+        for (const o of this.planet.landmarks.obs) if (o.d.distanceTo(dir) * planetRadius < 22) this.obs.push(o);
         for (const layer of this.scatter.layers)
             if (layer.collide && layer.pix && layer.psnap) this.fromLayer(layer, dir);
     }
@@ -60,12 +58,7 @@ export class Collider {
             cell = layer.cell,
             pix = layer.pix as Float32Array,
             bakeSnapshot = layer.psnap;
-        basisFromCode(
-            bakeSnapshot.faceCode,
-            this.basisNormal,
-            this.basisTangentU,
-            this.basisTangentV
-        );
+        basisFromCode(bakeSnapshot.faceCode, this.basisNormal, this.basisTangentU, this.basisTangentV);
         // Only cells that can lie within the 18 m test below: project the player onto the snapshot's face lattice (same
         // gnomonic mapping as frame()) and scan a window around it, instead of the whole (2K+1)² grid on every refresh.
         // Gnomonic lattice: a tangent-plane step covers ~dn² as much arc off-centre, so the window widens by 1/dn² (≈3× at
@@ -94,20 +87,11 @@ export class Collider {
                 this.obstaclePos
                     .copy(this.basisNormal)
                     .multiplyScalar(planetRadius)
-                    .addScaledVector(
-                        this.basisTangentU,
-                        (bakeSnapshot.cellI + x - K + h1 - 0.5) * cell
-                    )
-                    .addScaledVector(
-                        this.basisTangentV,
-                        (bakeSnapshot.cellJ + y - K + h2 - 0.5) * cell
-                    );
+                    .addScaledVector(this.basisTangentU, (bakeSnapshot.cellI + x - K + h1 - 0.5) * cell)
+                    .addScaledVector(this.basisTangentV, (bakeSnapshot.cellJ + y - K + h2 - 0.5) * cell);
                 this.scratchD.copy(this.obstaclePos).normalize();
-                if (this.scratchD.distanceToSquared(dir) * planetRadius * planetRadius > 324)
-                    continue;
-                this.tangent1
-                    .crossVectors(this.scratchD, Math.abs(this.scratchD.y) < 0.99 ? Y : X)
-                    .normalize();
+                if (this.scratchD.distanceToSquared(dir) * planetRadius * planetRadius > 324) continue;
+                this.tangent1.crossVectors(this.scratchD, Math.abs(this.scratchD.y) < 0.99 ? Y : X).normalize();
                 this.tangent2.crossVectors(this.scratchD, this.tangent1);
                 if (layer.kind === 3) {
                     // rocks: scale s = .3+1.6·h1, yaw from h3 (identical to the vertex shader)

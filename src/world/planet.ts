@@ -29,6 +29,7 @@ export class Planet {
     chunks = new ChunkManager(this.group, () => this.radius);
     private elapsedTime = 0;
     private buildMats = new Set<THREE.Material>();
+    private baseFaces: { mesh: THREE.Mesh; n: THREE.Vector3 }[] = [];
     private scratchDir = new THREE.Vector3();
     atmosphere = new THREE.ShaderMaterial({
         transparent: true,
@@ -86,32 +87,15 @@ void main() {
         const wx = x + w * noise2.get(x * q + 11, y * q, z * q),
             wy = y + w * noise2.get(x * q, y * q + 17, z * q),
             wz = z + w * noise2.get(x * q, y * q, z * q + 23);
-        const baseFbm = noise.fbm(
-                wx * f,
-                wy * f,
-                wz * f,
-                fine ? o : Math.min(o, 5),
-                S.lacunarity,
-                S.persistence
-            ),
+        const baseFbm = noise.fbm(wx * f, wy * f, wz * f, fine ? o : Math.min(o, 5), S.lacunarity, S.persistence),
             hills = noise.get(wx * f * 3.1 + 9, wy * f * 3.1, wz * f * 3.1) * 0.06;
-        const mountainMask = smoothstep(
-            -0.1,
-            0.35,
-            noise2.get(wx * f * 0.6 + 7, wy * f * 0.6, wz * f * 0.6)
-        );
+        const mountainMask = smoothstep(-0.1, 0.35, noise2.get(wx * f * 0.6 + 7, wy * f * 0.6, wz * f * 0.6));
         const ridgedNoise = Math.max(
             0,
             1 -
                 Math.abs(
-                    noise2.fbm(
-                        wx * f * 1.5,
-                        wy * f * 1.5,
-                        wz * f * 1.5,
-                        Math.min(o, 5),
-                        S.lacunarity,
-                        S.persistence
-                    ) * 2
+                    noise2.fbm(wx * f * 1.5, wy * f * 1.5, wz * f * 1.5, Math.min(o, 5), S.lacunarity, S.persistence) *
+                        2
                 )
         );
         let elevation =
@@ -120,9 +104,7 @@ void main() {
             S.mountains *
                 mountainMask *
                 (ridgedNoise * ridgedNoise * 0.8 +
-                    (fine
-                        ? ridgedNoise * 0.06 * noise.get(x * f * 25, y * f * 25, z * f * 25)
-                        : 0)) -
+                    (fine ? ridgedNoise * 0.06 * noise.get(x * f * 25, y * f * 25, z * f * 25) : 0)) -
             S.seaLevel;
         if (fine)
             elevation +=
@@ -130,9 +112,7 @@ void main() {
                 noise.get(x * f * 60, y * f * 60, z * f * 60) * 0.004;
         if (fine && elevation > 0 && elevation < 0.09)
             elevation +=
-                noise.get(x * f * 35 + 5, y * f * 35, z * f * 35) *
-                0.008 *
-                (1 - smoothstep(0.02, 0.09, elevation)); // beach dunes
+                noise.get(x * f * 35 + 5, y * f * 35, z * f * 35) * 0.008 * (1 - smoothstep(0.02, 0.09, elevation)); // beach dunes
         return elevation < 0 ? elevation * 0.5 : elevation;
     }
     elev(d: THREE.Vector3) {
@@ -142,11 +122,7 @@ void main() {
         return this.radius + this.elev(d) * S.amplitude;
     }
     moistureAt(d: THREE.Vector3) {
-        return this.noise2.get(
-            d.x * S.frequency * 2.2 + 30,
-            d.y * S.frequency * 2.2,
-            d.z * S.frequency * 2.2
-        );
+        return this.noise2.get(d.x * S.frequency * 2.2 + 30, d.y * S.frequency * 2.2, d.z * S.frequency * 2.2);
     }
     temp(d: THREE.Vector3, e: number) {
         return 1 - 1.1 * d.y * d.y - 1.2 * Math.max(e, 0);
@@ -169,19 +145,49 @@ void main() {
                 .addScaledVector(fr.tangentU, (2 * a) / N - 1)
                 .addScaledVector(fr.tangentV, (2 * b) / N - 1)
                 .normalize();
-            return (
-                this.radius +
-                this.elevationAt(sampleDir.x, sampleDir.y, sampleDir.z, false) * S.amplitude -
-                DROP
-            );
+            return this.radius + this.elevationAt(sampleDir.x, sampleDir.y, sampleDir.z, false) * S.amplitude - DROP;
         };
         return fa + fb <= 1
             ? g(i, j) + fa * (g(i + 1, j) - g(i, j)) + fb * (g(i, j + 1) - g(i, j))
-            : g(i + 1, j + 1) +
-                  (1 - fa) * (g(i, j + 1) - g(i + 1, j + 1)) +
-                  (1 - fb) * (g(i + 1, j) - g(i + 1, j + 1));
+            : g(i + 1, j + 1) + (1 - fa) * (g(i, j + 1) - g(i + 1, j + 1)) + (1 - fb) * (g(i + 1, j) - g(i + 1, j + 1));
     }
 
+    /**
+     * The coarse planet is drawn as six meshes (one per cube face) sharing a single geometry's buffers, each limited to
+     * its face's index range and given that face's bounding sphere, so three frustum-culls the faces off screen. As one
+     * mesh it was never culled: on high tier (320²×6) it was ~40% of all vertices per frame, mostly faces out of view.
+     */
+    private addBaseFaces(geo: THREE.BufferGeometry, mat: THREE.Material) {
+        const N = (this.base as { N: number }).N,
+            perFace = 6 * N * N,
+            R = this.radius,
+            // face centre + corners lie within this radius of the centre direction × R, plus terrain amplitude
+            rad = R * Math.SQRT2 + S.amplitude * 1.5 + 20;
+        const centres = [
+            [0, 0, 1],
+            [0, 0, -1],
+            [1, 0, 0],
+            [-1, 0, 0],
+            [0, 1, 0],
+            [0, -1, 0],
+        ]; // same order as getBase()
+        for (let f = 0; f < 6; f++) {
+            const g = new THREE.BufferGeometry();
+            g.setIndex(geo.index);
+            for (const k in geo.attributes) g.setAttribute(k, geo.attributes[k]);
+            g.setDrawRange(f * perFace, perFace);
+            const c = centres[f];
+            g.boundingSphere = new THREE.Sphere(
+                new THREE.Vector3(c[0], c[1], c[2]).multiplyScalar(R * 0.7),
+                rad * 0.75
+            );
+            const m = new THREE.Mesh(g, mat);
+            m.receiveShadow = false;
+            this.group.add(m);
+            this.baseFaces.push({ mesh: m, n: new THREE.Vector3(c[0], c[1], c[2]) });
+        }
+        this.buildMats.add(mat);
+    }
     private getBase(N: number) {
         if (this.base?.N === N) return this.base;
         const pos: number[] = [],
@@ -253,6 +259,7 @@ void main() {
         // reused across builds, so only the per-build ones are freed here.
         for (const m of this.buildMats) m.dispose();
         this.buildMats.clear();
+        this.baseFaces.length = 0; // their meshes were just removed and disposed above
         const baseMesh = this.getBase(S.resolution),
             vertexCount = baseMesh.dirs.length / 3,
             dir = new THREE.Vector3(),
@@ -302,10 +309,7 @@ void main() {
             geo.setAttribute("aCol", new THREE.BufferAttribute(colorArray, 3));
             geo.setAttribute("aE", new THREE.BufferAttribute(elevations, 1));
             geo.setAttribute("aM", new THREE.BufferAttribute(moistures, 1));
-            const terrain = new THREE.Mesh(geo, terrainMat(false, false, {}, true));
-            terrain.receiveShadow = false;
-            this.group.add(terrain);
-            this.buildMats.add(terrain.material);
+            this.addBaseFaces(geo, terrainMat(false, false, {}, true));
         } else {
             for (let i = 0; i < vertexCount; i++) {
                 dir.fromArray(baseMesh.dirs, i * 3);
@@ -322,21 +326,14 @@ void main() {
             geo.computeVertexNormals();
             geo.setAttribute("aE", new THREE.BufferAttribute(elevations, 1));
             geo.setAttribute("aM", new THREE.BufferAttribute(moistures, 1));
-            const terrain = new THREE.Mesh(geo, terrainMat(false, false, {}, false));
-            terrain.receiveShadow = false;
-            this.group.add(terrain);
-            this.buildMats.add(terrain.material);
+            this.addBaseFaces(geo, terrainMat(false, false, {}, false));
         }
         this.water.color.set(biomeColors.water);
         this.atmosphere.uniforms.col.value.set(CurrentPalette.atmosphereLimb);
         this.cloudRadius = this.radius + Math.max(110, S.amplitude * 1.3 + 50);
         U.uCloudR.value = this.cloudRadius; // clouds float above the highest peaks
         const waterMesh = new THREE.Mesh(
-                new THREE.SphereGeometry(
-                    this.radius,
-                    gpuTier === "low" ? 32 : 64,
-                    gpuTier === "low" ? 24 : 48
-                ),
+                new THREE.SphereGeometry(this.radius, gpuTier === "low" ? 32 : 64, gpuTier === "low" ? 24 : 48),
                 this.water
             ),
             cloudMesh = this.clouds.make(this.cloudRadius),
@@ -383,5 +380,17 @@ void main() {
     /** Streams terrain chunks around the player (direction playerDirection, altitude altitude). */
     update(playerDirection: THREE.Vector3, altitude: number) {
         this.chunks.update(playerDirection, altitude);
+        // Horizon culling for the six base-mesh faces. Frustum culling alone keeps 5 of 6: from the surface the 40 km far
+        // plane wraps the whole 700 m planet. A face is hidden when its whole cap (54.74° half-angle) lies past the
+        // horizon. The horizon is taken against the *lowest* terrain (R − 1.5·amp) and the camera's highest point, so
+        // peaks on a culled face can never poke above it.
+        const R = this.radius,
+            camR = R + Math.max(altitude, 0) + 2,
+            low = Math.max(1, R - S.amplitude * 1.5),
+            horizon = camR > low ? Math.acos(Math.min(1, low / camR)) : 0,
+            // a peak at R + 1.5·amp is visible from the horizon line out to this extra angle beyond it
+            peak = Math.acos(Math.min(1, low / (R + S.amplitude * 1.5))),
+            limit = Math.cos(Math.min(Math.PI, 0.9554 + horizon + peak + 0.02));
+        for (const f of this.baseFaces) f.mesh.visible = f.n.dot(playerDirection) > limit;
     }
 }

@@ -88,12 +88,10 @@ function addMeanders(pts: THREE.Vector3[], rand: () => number, ampMul = 1): THRE
         const s = arcLen[i] / totalLen;
         // item 8: noise-based envelope — sin(s·π) naturally fades to 0 at both ends; second term
         // breaks the symmetric peak into irregular undulation without losing the end-fades.
-        const env =
-            Math.pow(Math.sin(s * Math.PI), 0.7) * (0.7 + 0.3 * Math.sin(s * Math.PI * 2.3 + 0.9));
+        const env = Math.pow(Math.sin(s * Math.PI), 0.7) * (0.7 + 0.3 * Math.sin(s * Math.PI * 2.3 + 0.9));
         const terrainFactor = 0.4 + t * 0.6;
         const disp =
-            (Math.sin(arcLen[i] * freq1 + phase) * 0.7 +
-                Math.sin(arcLen[i] * freq2 + phase2) * 0.3) *
+            (Math.sin(arcLen[i] * freq1 + phase) * 0.7 + Math.sin(arcLen[i] * freq2 + phase2) * 0.3) *
             amp *
             env *
             terrainFactor;
@@ -299,16 +297,13 @@ export class RiverSystem {
             for (let t = 0; t < tierTributaries; t++) {
                 await mayYield();
                 // Spread junctions evenly so tributaries don't all cluster at one point
-                const frac =
-                    0.2 + (t / Math.max(tierTributaries - 1, 1)) * 0.45 + (rand() - 0.5) * 0.08;
+                const frac = 0.2 + (t / Math.max(tierTributaries - 1, 1)) * 0.45 + (rand() - 0.5) * 0.08;
                 const junctionIdx = Math.min(Math.floor(frac * main.length), main.length - 2);
 
                 // Use the flow direction at the junction (not world-up) — works everywhere on sphere
                 _scratch.trib.jPt.copy(main[junctionIdx]).normalize();
                 _scratch.trib.fPrev.copy(main[Math.max(junctionIdx - 1, 0)]).normalize();
-                _scratch.trib.fNext
-                    .copy(main[Math.min(junctionIdx + 1, main.length - 1)])
-                    .normalize();
+                _scratch.trib.fNext.copy(main[Math.min(junctionIdx + 1, main.length - 1)]).normalize();
                 _scratch.trib.fDir.copy(_scratch.trib.fNext).sub(_scratch.trib.fPrev).normalize();
                 _scratch.trib.right.crossVectors(_scratch.trib.fDir, _scratch.trib.jPt).normalize();
 
@@ -352,8 +347,7 @@ export class RiverSystem {
         const thSq = 16 * 16;
         const overlaps = (candidate: THREE.Vector3[], pool: THREE.Vector3[][], maxFrac: number) => {
             let n = 0;
-            for (const pt of candidate)
-                if (pool.some((acc) => acc.some((op) => pt.distanceToSquared(op) < thSq))) n++;
+            for (const pt of candidate) if (pool.some((acc) => acc.some((op) => pt.distanceToSquared(op) < thSq))) n++;
             return n / candidate.length >= maxFrac;
         };
 
@@ -391,17 +385,11 @@ export class RiverSystem {
                     phi2 = rand() * Math.PI * 2;
                 const r2 = Math.sqrt(1 - u2 * u2);
                 _scratch.src.set(r2 * Math.cos(phi2), u2, r2 * Math.sin(phi2));
-                const elev = planet.elevationAt(
-                    _scratch.src.x,
-                    _scratch.src.y,
-                    _scratch.src.z,
-                    false
-                );
+                const elev = planet.elevationAt(_scratch.src.x, _scratch.src.y, _scratch.src.z, false);
                 if (elev < 0.005 || elev > 0.07) continue;
                 if (planet.moistureAt(_scratch.src) < 0.45) continue;
                 const ctr = _scratch.src.clone().multiplyScalar(R);
-                if (accepted.some((p) => p.some((pt) => ctr.distanceToSquared(pt) < lakeThSq)))
-                    continue;
+                if (accepted.some((p) => p.some((pt) => ctr.distanceToSquared(pt) < lakeThSq))) continue;
                 if (lakes.some((pd) => pd.center.distanceToSquared(ctr) < lakeThSq)) continue;
                 lakes.push({ center: ctr, radius: 50 + rand() * 70, aspect: 0.55 + rand() * 0.9 });
             }
@@ -416,10 +404,7 @@ export class RiverSystem {
         for (let i = 0; i < accepted.length; i++) {
             await mayYield();
             smoothed.push(
-                chaikin(
-                    addMeanders(accepted[i], rand, acceptedMeanders[i]),
-                    acceptedArchetypes[i] === "stream" ? 3 : 2
-                )
+                chaikin(addMeanders(accepted[i], rand, acceptedMeanders[i]), acceptedArchetypes[i] === "stream" ? 3 : 2)
             );
         }
         return { paths: smoothed, scales: acceptedScales, lakes };
@@ -460,12 +445,7 @@ export class RiverSystem {
                     .multiplyScalar(Math.cos(angle) * stepRad)
                     .addScaledVector(_scratch.path.north, Math.sin(angle) * stepRad);
                 _scratch.path.nbr.copy(cur).add(_scratch.path.off).normalize();
-                const nElev = planet.elevationAt(
-                    _scratch.path.nbr.x,
-                    _scratch.path.nbr.y,
-                    _scratch.path.nbr.z,
-                    false
-                );
+                const nElev = planet.elevationAt(_scratch.path.nbr.x, _scratch.path.nbr.y, _scratch.path.nbr.z, false);
                 // momentum: small bonus for continuing in the same direction, prevents zigzag on flat terrain
                 const momentum = prevDir ? (1 - _scratch.path.nbr.dot(prevDir)) * 0.012 : 0;
                 const score = nElev + momentum;
@@ -520,12 +500,7 @@ export class RiverSystem {
                     .multiplyScalar(Math.cos(angle) * stepRad)
                     .addScaledVector(_scratch.path.north, Math.sin(angle) * stepRad);
                 _scratch.path.nbr.copy(cur).add(_scratch.path.off).normalize();
-                const nElev = planet.elevationAt(
-                    _scratch.path.nbr.x,
-                    _scratch.path.nbr.y,
-                    _scratch.path.nbr.z,
-                    false
-                );
+                const nElev = planet.elevationAt(_scratch.path.nbr.x, _scratch.path.nbr.y, _scratch.path.nbr.z, false);
                 const distToTarget = _scratch.path.nbr.distanceTo(targetN);
                 const score = nElev * 0.7 + distToTarget * 0.3;
                 if (score < bestScore) {
@@ -541,11 +516,7 @@ export class RiverSystem {
         return path;
     }
 
-    private _buildGeometry(
-        paths: THREE.Vector3[][],
-        scales: number[],
-        lakes: LakeDef[]
-    ): THREE.BufferGeometry {
+    private _buildGeometry(paths: THREE.Vector3[][], scales: number[], lakes: LakeDef[]): THREE.BufferGeometry {
         const cfg = CFG.river;
         const positions: number[] = [];
         const normals: number[] = [];
@@ -568,10 +539,7 @@ export class RiverSystem {
                 const t = i / (N - 1);
                 // Taper from zero at source (first 15%) and back to zero at mouth (last 15%); widen quadratically between
                 const taper = Math.min(t / 0.15, 1) * (t > 0.85 ? (1 - t) / 0.15 : 1);
-                const width =
-                    (cfg.widthStart + (cfg.widthEnd - cfg.widthStart) * (t * t)) *
-                    taper *
-                    scales[pi];
+                const width = (cfg.widthStart + (cfg.widthEnd - cfg.widthStart) * (t * t)) * taper * scales[pi];
                 const halfW = width * 0.5;
 
                 // Sphere normal = outward unit direction from centre
@@ -590,9 +558,7 @@ export class RiverSystem {
                         .normalize();
 
                 // Ribbon right = tangent × sphereNormal (cross gives perpendicular on sphere surface)
-                _scratch.geo.right
-                    .crossVectors(_scratch.geo.tangent, _scratch.geo.normal)
-                    .normalize();
+                _scratch.geo.right.crossVectors(_scratch.geo.tangent, _scratch.geo.normal).normalize();
 
                 // Left and right vertices (scratch — avoids two clone() allocs per vertex)
                 _scratch.geo.left.copy(path[i]).addScaledVector(_scratch.geo.right, -halfW);
@@ -606,11 +572,7 @@ export class RiverSystem {
                 uvs.push(0, v);
 
                 // Right vertex
-                positions.push(
-                    _scratch.geo.rightPt.x,
-                    _scratch.geo.rightPt.y,
-                    _scratch.geo.rightPt.z
-                );
+                positions.push(_scratch.geo.rightPt.x, _scratch.geo.rightPt.y, _scratch.geo.rightPt.z);
                 normals.push(_scratch.geo.normal.x, _scratch.geo.normal.y, _scratch.geo.normal.z);
                 uvs.push(1, v);
             }
@@ -631,8 +593,7 @@ export class RiverSystem {
         const LAKE_SEGS = 48;
         for (const lake of lakes) {
             const norm = lake.center.clone().normalize();
-            const ref =
-                Math.abs(norm.y) < 0.9 ? new THREE.Vector3(0, 1, 0) : new THREE.Vector3(1, 0, 0);
+            const ref = Math.abs(norm.y) < 0.9 ? new THREE.Vector3(0, 1, 0) : new THREE.Vector3(1, 0, 0);
             const east = new THREE.Vector3().crossVectors(norm, ref).normalize();
             const north = new THREE.Vector3().crossVectors(east, norm).normalize();
 
@@ -645,8 +606,7 @@ export class RiverSystem {
             // Perimeter vertices — item 10: two non-integer sine terms displace radius for organic shorelines
             for (let i = 0; i < LAKE_SEGS; i++) {
                 const a = (i / LAKE_SEGS) * Math.PI * 2;
-                const noiseR =
-                    1.0 + 0.12 * Math.sin(a * 3.7 + 0.5) + 0.07 * Math.sin(a * 7.1 + 1.8);
+                const noiseR = 1.0 + 0.12 * Math.sin(a * 3.7 + 0.5) + 0.07 * Math.sin(a * 7.1 + 1.8);
                 const pt = lake.center
                     .clone()
                     .addScaledVector(east, Math.cos(a) * lake.radius * noiseR)
@@ -657,8 +617,7 @@ export class RiverSystem {
             }
 
             // Fan triangles: centre + consecutive perimeter pairs
-            for (let i = 0; i < LAKE_SEGS; i++)
-                indices.push(base, base + 1 + i, base + 1 + ((i + 1) % LAKE_SEGS));
+            for (let i = 0; i < LAKE_SEGS; i++) indices.push(base, base + 1 + i, base + 1 + ((i + 1) % LAKE_SEGS));
         }
 
         const geo = new THREE.BufferGeometry();

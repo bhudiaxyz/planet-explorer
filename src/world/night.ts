@@ -67,12 +67,7 @@ void main() {
             this._parented = false;
         }
     }
-    update(
-        cameraPosition: THREE.Vector3,
-        upDirection: THREE.Vector3,
-        intensity: number,
-        time: number
-    ) {
+    update(cameraPosition: THREE.Vector3, upDirection: THREE.Vector3, intensity: number, time: number) {
         this.mesh.visible = intensity > 0.01;
         if (!this.mesh.visible) return;
         if (!this._parented) this.mesh.position.copy(cameraPosition);
@@ -96,10 +91,7 @@ export class Fireflies {
         const seedData = new Float32Array(FIREFLY_COUNT * 4);
         for (let i = 0; i < seedData.length; i++) seedData[i] = Math.random();
         const g = new THREE.BufferGeometry()
-            .setAttribute(
-                "position",
-                new THREE.BufferAttribute(new Float32Array(FIREFLY_COUNT * 3), 3)
-            )
+            .setAttribute("position", new THREE.BufferAttribute(new Float32Array(FIREFLY_COUNT * 3), 3))
             .setAttribute("sd", new THREE.BufferAttribute(seedData, 4));
         this.mat = new THREE.ShaderMaterial({
             transparent: true,
@@ -145,13 +137,7 @@ void main() {
         this.pts.frustumCulled = false;
         scene.add(this.pts);
     }
-    update(
-        _deltaTime: number,
-        time: number,
-        cameraPosition: THREE.Vector3,
-        intensity: number,
-        dayF = 0
-    ) {
+    update(_deltaTime: number, time: number, cameraPosition: THREE.Vector3, intensity: number, dayF = 0) {
         this.mat.uniforms.uT.value = time;
         this.mat.uniforms.uAmt.value = intensity;
         this.mat.uniforms.uDay.value = dayF;

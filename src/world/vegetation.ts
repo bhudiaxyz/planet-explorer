@@ -129,8 +129,7 @@ class Layer {
         if (geo.index) g.setIndex(geo.index);
         for (const k in geo.attributes) g.setAttribute(k, geo.attributes[k]);
         const cells: number[] = [];
-        for (let y = -K; y <= K; y++)
-            for (let x = -K; x <= K; x++) if (x * x + y * y <= K * K) cells.push(x, y); // only cells inside the disc are instanced
+        for (let y = -K; y <= K; y++) for (let x = -K; x <= K; x++) if (x * x + y * y <= K * K) cells.push(x, y); // only cells inside the disc are instanced
         this.fullCells = new Float32Array(cells);
         this.fullCount = cells.length / 2;
         // the attribute buffer is sized for the full disc once; compact() rewrites a prefix and shrinks instanceCount
@@ -270,8 +269,7 @@ class Layer {
     /** Rebakes placement when the lattice centre moved. Returns true if a bake happened (so the caller can budget bakes per frame). */
     update(playerDirection: THREE.Vector3, planetRadius: number, allowBake = true): boolean {
         const fr = frame(playerDirection, planetRadius, this.cell, this.scratchFrame);
-        if (fr.face === this.lastFace && fr.cellI === this.lastCellI && fr.cellJ === this.lastCellJ)
-            return false;
+        if (fr.face === this.lastFace && fr.cellI === this.lastCellI && fr.cellJ === this.lastCellJ) return false;
         if (!allowBake) return false;
         this.lastFace = fr.face;
         this.lastCellI = fr.cellI;
@@ -305,7 +303,10 @@ class Layer {
         return true;
     }
     private useFull() {
-        if (this.mesh.geometry instanceof THREE.InstancedBufferGeometry && this.mesh.geometry.instanceCount !== this.fullCount) {
+        if (
+            this.mesh.geometry instanceof THREE.InstancedBufferGeometry &&
+            this.mesh.geometry.instanceCount !== this.fullCount
+        ) {
             (this.cellAttr.array as Float32Array).set(this.fullCells);
             this.cellAttr.clearUpdateRanges();
             this.cellAttr.needsUpdate = true;
@@ -385,8 +386,7 @@ export class Scatter {
         const n = this.layers.length;
         const s = this.roundRobinIndex;
         for (let i = 0; i < n; i++)
-            if (this.layers[(s + i) % n].update(playerDirection, this.pl.radius, budget > 0))
-                budget--;
+            if (this.layers[(s + i) % n].update(playerDirection, this.pl.radius, budget > 0)) budget--;
         // P10: increment after the loop so layer s is processed first (highest priority this frame).
         this.roundRobinIndex = (s + 1) % n;
     }

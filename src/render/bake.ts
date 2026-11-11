@@ -343,10 +343,7 @@ export class Atlas {
  * source + defines, so the throwaway materials here warm the exact programs the real bakes use. Extra programs that need
  * the same treatment (e.g. the plant placement bake) are passed in by the caller.
  */
-export function precompileBakes(
-    camera: THREE.Camera,
-    extra: THREE.Material[] = []
-): Promise<unknown> {
+export function precompileBakes(camera: THREE.Camera, extra: THREE.Material[] = []): Promise<unknown> {
     if (!renderer) return Promise.resolve();
     const scene = new THREE.Scene(),
         quadGeo = new THREE.PlaneGeometry(2, 2),

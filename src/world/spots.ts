@@ -196,9 +196,7 @@ export async function findSpots(planet: Planet, riversReady?: Promise<void>): Pr
         const e = planet.elev(_tmp);
         const t = planet.temp(_tmp, e);
         const m = planet.moistureAt(_tmp);
-        const wantNbrs = features.some(
-            (f) => f.candidates.length < 3 && f.needsNeighbours !== false
-        );
+        const wantNbrs = features.some((f) => f.candidates.length < 3 && f.needsNeighbours !== false);
         const nbrs = wantNbrs ? getNeighbors(_tmp, planet) : [];
         for (const f of features) {
             if (f.candidates.length >= 3) continue;
@@ -242,21 +240,14 @@ export async function findSpots(planet: Planet, riversReady?: Promise<void>): Pr
                 const e = planet.elev(_tmp),
                     t = planet.temp(_tmp, e),
                     m = planet.moistureAt(_tmp);
-                const s = f.score(
-                    e,
-                    f.needsNeighbours !== false ? getNeighbors(_tmp, planet) : [],
-                    t,
-                    m
-                );
+                const s = f.score(e, f.needsNeighbours !== false ? getNeighbors(_tmp, planet) : [], t, m);
                 if (s > 0 && f.candidates.every((c) => c.dir.angleTo(_tmp) > 0.05))
                     f.candidates.push({ score: s, dir: _tmp.clone() });
             }
         }
         while (f.candidates.length < 3) {
             const offset = new THREE.Vector3(rand() - 0.5, rand() - 0.5, rand() - 0.5).normalize();
-            const base =
-                f.candidates[0]?.dir ??
-                new THREE.Vector3(rand() * 2 - 1, 0, rand() * 2 - 1).normalize();
+            const base = f.candidates[0]?.dir ?? new THREE.Vector3(rand() * 2 - 1, 0, rand() * 2 - 1).normalize();
             f.candidates.push({
                 score: 0.1,
                 dir: base.clone().addScaledVector(offset, 0.08).normalize(),

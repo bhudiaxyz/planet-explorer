@@ -91,10 +91,7 @@ export const TINT_GLSL = `{
 const VW = (s: P) =>
     (s.vertexShader = s.vertexShader
         .replace("#include <common>", "#include <common>\nvarying vec3 vWp;")
-        .replace(
-            "#include <begin_vertex>",
-            "#include <begin_vertex>\nvWp=(modelMatrix*vec4(position,1.)).xyz;"
-        ));
+        .replace("#include <begin_vertex>", "#include <begin_vertex>\nvWp=(modelMatrix*vec4(position,1.)).xyz;"));
 const bind = (shaderParams: P, uniformKeys: string[]) =>
     uniformKeys.forEach((k) => (shaderParams.uniforms[k] = (U as any)[k]));
 // Terrain on the GPU. Chunks (GPU_H) are flat lattice grids displaced in the vertex shader (height, normals, skirts); the coarse mesh carries
@@ -161,10 +158,7 @@ attribute float aE,aM;
 #endif`
             )
             .replace("#include <beginnormal_vertex>", BEGIN)
-            .replace(
-                "#include <begin_vertex>",
-                "vec3 transformed=gP;vWp=(modelMatrix*vec4(transformed,1.)).xyz;"
-            );
+            .replace("#include <begin_vertex>", "vec3 transformed=gP;vWp=(modelMatrix*vec4(transformed,1.)).xyz;");
         s.fragmentShader = s.fragmentShader
             .replace(
                 "#include <common>",

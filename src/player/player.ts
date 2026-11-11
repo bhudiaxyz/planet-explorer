@@ -93,8 +93,7 @@ export class Player {
         if (this.col) this.col.dirty = true;
     }
     refresh() {
-        if (this.mode === "walk")
-            this.groundRadius = Math.max(this.groundRadius, this.planet.radiusAt(this.dir));
+        if (this.mode === "walk") this.groundRadius = Math.max(this.groundRadius, this.planet.radiusAt(this.dir));
     }
     toggle() {
         if (this.mode === "walk") {
@@ -167,8 +166,7 @@ export class Player {
     // scratch vectors only: no per-frame allocations
     update(dt: number) {
         const camera = this.cam,
-            sprint =
-                this.touchSprint || this.isKeyDown("ShiftLeft") || this.isKeyDown("ShiftRight"),
+            sprint = this.touchSprint || this.isKeyDown("ShiftLeft") || this.isKeyDown("ShiftRight"),
             moveAxis = this.touchMove + this.isKeyDown("KeyW") - this.isKeyDown("KeyS"),
             strafeAxis = this.touchStrafe + this.isKeyDown("KeyD") - this.isKeyDown("KeyA");
         if (this.mode === "walk") {
@@ -186,33 +184,21 @@ export class Player {
                     .addScaledVector(this.forward, moveAxis)
                     .addScaledVector(right, strafeAxis)
                     .normalize()
-                    .multiplyScalar(
-                        ((sprint ? 20 : 9) * (isUnderwater ? 0.5 : 1) * dt) / this.groundRadius
-                    );
+                    .multiplyScalar(((sprint ? 20 : 9) * (isUnderwater ? 0.5 : 1) * dt) / this.groundRadius);
                 this.dir.add(scratchStep).normalize();
             }
             let groundRadius = this.planet.radiusAt(this.dir),
                 boostTarget = 0;
             if (this.col && groundRadius > planetRadius - 0.5) {
-                boostTarget = this.col.resolve(
-                    this.dir,
-                    this.groundRadius - groundRadius,
-                    this.groundRadius
-                );
+                boostTarget = this.col.resolve(this.dir, this.groundRadius - groundRadius, this.groundRadius);
                 groundRadius = this.planet.radiusAt(this.dir);
             }
             this.boost =
-                boostTarget > this.boost
-                    ? this.boost + (boostTarget - this.boost) * Math.min(1, dt * 14)
-                    : boostTarget;
+                boostTarget > this.boost ? this.boost + (boostTarget - this.boost) * Math.min(1, dt * 14) : boostTarget;
             up.copy(this.dir);
-            const floorRadius =
-                groundRadius < planetRadius - 0.5 ? planetRadius - 1.2 : groundRadius + this.boost;
+            const floorRadius = groundRadius < planetRadius - 0.5 ? planetRadius - 1.2 : groundRadius + this.boost;
             this.verticalVelocity -= 28 * dt;
-            if (
-                this.groundRadius <= floorRadius + 0.05 &&
-                (this.touchJump || this.isKeyDown("Space"))
-            )
+            if (this.groundRadius <= floorRadius + 0.05 && (this.touchJump || this.isKeyDown("Space")))
                 this.verticalVelocity = 10;
             this.groundRadius += this.verticalVelocity * dt;
             if (this.groundRadius <= floorRadius) {
@@ -305,8 +291,7 @@ export class Player {
                         this.isKeyDown("Space") -
                         this.isKeyDown("KeyC")
                 );
-            if (scratchMove.lengthSq())
-                flyPos.addScaledVector(scratchMove.normalize(), flySpeed * dt);
+            if (scratchMove.lengthSq()) flyPos.addScaledVector(scratchMove.normalize(), flySpeed * dt);
             camera.rotateZ(
                 (this.isKeyDown("KeyE") +
                     (this.touchRollRight ? 1 : 0) -
