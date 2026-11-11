@@ -4,51 +4,51 @@ import { biomeColors } from "../core/palette";
 // Shared terrain-function uniforms. The permutation tables of the CPU noise are uploaded as a 512×2 float texture,
 // so the GLSL height field is the same function the CPU samples for physics, trees and placement.
 const permutationTexture = new THREE.DataTexture(
-  new Float32Array(1024),
-  512,
-  2,
-  THREE.RedFormat,
-  THREE.FloatType
+    new Float32Array(1024),
+    512,
+    2,
+    THREE.RedFormat,
+    THREE.FloatType
 );
 permutationTexture.minFilter = permutationTexture.magFilter = THREE.NearestFilter;
 permutationTexture.needsUpdate = true;
 const colorUniform = () => ({ value: new THREE.Color() });
 export const T = {
-  uPerm: { value: permutationTexture },
-  uFreq: { value: 1.6 },
-  uOct: { value: 6 },
-  uLac: { value: 2 },
-  uPer: { value: 0.5 },
-  uMtn: { value: 0.8 },
-  uSea: { value: 0.05 },
-  uAmp: { value: 70 },
-  uSnow: { value: 0.3 },
-  uR: { value: 700 },
-  uCs: colorUniform(),
-  uCg: colorUniform(),
-  uCf: colorUniform(),
-  uCr: colorUniform(),
-  uCw: colorUniform(),
+    uPerm: { value: permutationTexture },
+    uFreq: { value: 1.6 },
+    uOct: { value: 6 },
+    uLac: { value: 2 },
+    uPer: { value: 0.5 },
+    uMtn: { value: 0.8 },
+    uSea: { value: 0.05 },
+    uAmp: { value: 70 },
+    uSnow: { value: 0.3 },
+    uR: { value: 700 },
+    uCs: colorUniform(),
+    uCg: colorUniform(),
+    uCf: colorUniform(),
+    uCr: colorUniform(),
+    uCw: colorUniform(),
 };
 export function syncTerrain(settings: any, noise1: Noise3, noise2: Noise3) {
-  const permData = permutationTexture.image.data as Float32Array;
-  permData.set(noise1.permutation, 0);
-  permData.set(noise2.permutation, 512);
-  permutationTexture.needsUpdate = true;
-  T.uFreq.value = settings.frequency;
-  T.uOct.value = settings.octaves;
-  T.uLac.value = settings.lacunarity;
-  T.uPer.value = settings.persistence;
-  T.uMtn.value = settings.mountains;
-  T.uSea.value = settings.seaLevel;
-  T.uAmp.value = settings.amplitude;
-  T.uSnow.value = settings.snowline;
-  T.uR.value = settings.radius;
-  T.uCs.value.set(biomeColors.sand);
-  T.uCg.value.set(biomeColors.grass);
-  T.uCf.value.set(biomeColors.forest);
-  T.uCr.value.set(biomeColors.rock);
-  T.uCw.value.set(biomeColors.snow);
+    const permData = permutationTexture.image.data as Float32Array;
+    permData.set(noise1.permutation, 0);
+    permData.set(noise2.permutation, 512);
+    permutationTexture.needsUpdate = true;
+    T.uFreq.value = settings.frequency;
+    T.uOct.value = settings.octaves;
+    T.uLac.value = settings.lacunarity;
+    T.uPer.value = settings.persistence;
+    T.uMtn.value = settings.mountains;
+    T.uSea.value = settings.seaLevel;
+    T.uAmp.value = settings.amplitude;
+    T.uSnow.value = settings.snowline;
+    T.uR.value = settings.radius;
+    T.uCs.value.set(biomeColors.sand);
+    T.uCg.value.set(biomeColors.grass);
+    T.uCf.value.set(biomeColors.forest);
+    T.uCr.value.set(biomeColors.rock);
+    T.uCw.value.set(biomeColors.snow);
 }
 // Tiny helpers with no noise dependency. Shaders that only need these (e.g. the visible plant vertex shader, which
 // reads its placement from a baked texel) include HELPERS_GLSL alone: injecting the whole terrain library there made

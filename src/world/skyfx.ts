@@ -4,27 +4,27 @@ import type { Sky } from "./sky";
 // Drifting clouds: a planet-anchored shell above the peaks. Density is 3-octave noise advected by wind; self-shadowing comes from a second
 // sample toward the sun; sunset tint from the cloud's own sun elevation; distance haze when inside the atmosphere. One cheap fragment shader.
 export class CloudShell {
-  mat = new THREE.ShaderMaterial({
-    transparent: true,
-    depthWrite: false,
-    side: THREE.DoubleSide,
-    uniforms: {
-      uCT: U.uCT,
-      uCov: U.uCov,
-      uSun: U.uSun,
-      uN3: U.uN3,
-      uCam: { value: new THREE.Vector3() },
-      uFog: { value: new THREE.Color() },
-      uDay: { value: 1 },
-      uSpace: { value: 0 },
-    },
-    vertexShader: `
+    mat = new THREE.ShaderMaterial({
+        transparent: true,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+        uniforms: {
+            uCT: U.uCT,
+            uCov: U.uCov,
+            uSun: U.uSun,
+            uN3: U.uN3,
+            uCam: { value: new THREE.Vector3() },
+            uFog: { value: new THREE.Color() },
+            uDay: { value: 1 },
+            uSpace: { value: 0 },
+        },
+        vertexShader: `
 varying vec3 vP;
 void main() {
   vP = position;
   gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.);
 }`,
-    fragmentShader: `
+        fragmentShader: `
 varying vec3 vP;
 uniform vec3 uSun, uCam, uFog;
 uniform float uDay, uSpace;
@@ -44,42 +44,42 @@ void main() {
   col = mix(col, uFog, k);
   gl_FragColor = vec4(col, c * (1. - k));
 }`,
-  });
-  make(R: number) {
-    const m = new THREE.Mesh(new THREE.SphereGeometry(R, 96, 64), this.mat);
-    m.frustumCulled = false;
-    return m;
-  }
-  update(cam: THREE.Vector3, sky: Sky) {
-    const u = this.mat.uniforms;
-    u.uCam.value.copy(cam);
-    u.uSpace.value = sky.space;
-    u.uFog.value.copy(sky.bg);
-    u.uDay.value = sky.dayF;
-    this.mat.visible = U.uCov.value > 0.1;
-  }
+    });
+    make(R: number) {
+        const m = new THREE.Mesh(new THREE.SphereGeometry(R, 96, 64), this.mat);
+        m.frustumCulled = false;
+        return m;
+    }
+    update(cam: THREE.Vector3, sky: Sky) {
+        const u = this.mat.uniforms;
+        u.uCam.value.copy(cam);
+        u.uSpace.value = sky.space;
+        u.uFog.value.copy(sky.bg);
+        u.uDay.value = sky.dayF;
+        this.mat.visible = U.uCov.value > 0.1;
+    }
 }
 // Sky gradient + sun halo drawn on a camera-following dome (horizon colour equals the fog colour, so distant terrain melts into it).
 export class SkyDome {
-  mat = new THREE.ShaderMaterial({
-    side: THREE.BackSide,
-    depthWrite: false,
-    depthTest: false,
-    uniforms: {
-      uUp: { value: new THREE.Vector3(0, 1, 0) },
-      uSun: U.uSun,
-      uBg: { value: new THREE.Color() },
-      uDay: { value: 1 },
-      uSpace: { value: 0 },
-      uCloud: { value: 0 },
-    },
-    vertexShader: `
+    mat = new THREE.ShaderMaterial({
+        side: THREE.BackSide,
+        depthWrite: false,
+        depthTest: false,
+        uniforms: {
+            uUp: { value: new THREE.Vector3(0, 1, 0) },
+            uSun: U.uSun,
+            uBg: { value: new THREE.Color() },
+            uDay: { value: 1 },
+            uSpace: { value: 0 },
+            uCloud: { value: 0 },
+        },
+        vertexShader: `
 varying vec3 vD;
 void main() {
   vD = position;
   gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.);
 }`,
-    fragmentShader: `
+        fragmentShader: `
 varying vec3 vD;
 uniform vec3 uUp, uSun, uBg;
 uniform float uDay, uSpace, uCloud;
@@ -93,20 +93,20 @@ void main() {
        * uDay * (1. - uCloud) * (1. - uSpace);
   gl_FragColor = vec4(col, 1.);
 }`,
-  });
-  mesh = new THREE.Mesh(new THREE.SphereGeometry(17000, 32, 16), this.mat);
-  constructor(scene: THREE.Scene) {
-    this.mesh.frustumCulled = false;
-    this.mesh.renderOrder = -100;
-    scene.add(this.mesh);
-  }
-  update(cam: THREE.Vector3, up: THREE.Vector3, sky: Sky) {
-    this.mesh.position.copy(cam);
-    const u = this.mat.uniforms;
-    u.uUp.value.copy(up);
-    u.uBg.value.copy(sky.bg);
-    u.uDay.value = sky.dayF;
-    u.uSpace.value = sky.space;
-    u.uCloud.value = Math.min(1, sky.cloud);
-  }
+    });
+    mesh = new THREE.Mesh(new THREE.SphereGeometry(17000, 32, 16), this.mat);
+    constructor(scene: THREE.Scene) {
+        this.mesh.frustumCulled = false;
+        this.mesh.renderOrder = -100;
+        scene.add(this.mesh);
+    }
+    update(cam: THREE.Vector3, up: THREE.Vector3, sky: Sky) {
+        this.mesh.position.copy(cam);
+        const u = this.mat.uniforms;
+        u.uUp.value.copy(up);
+        u.uBg.value.copy(sky.bg);
+        u.uDay.value = sky.dayF;
+        u.uSpace.value = sky.space;
+        u.uCloud.value = Math.min(1, sky.cloud);
+    }
 }

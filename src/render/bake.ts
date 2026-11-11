@@ -5,7 +5,7 @@ const CELL = CFG.chunk.cell.toFixed(2);
 // GPU "compute" via render-to-texture: the terrain function is evaluated on the GPU once (rebuild / chunk load / lattice move), never per frame.
 let renderer: THREE.WebGLRenderer | null = null;
 export const setRenderer = (r: THREE.WebGLRenderer) => {
-  renderer = r;
+    renderer = r;
 };
 export const canBake = () => !!renderer && renderer.extensions.has("EXT_color_buffer_float");
 const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2));
@@ -14,22 +14,22 @@ const quadScene = new THREE.Scene();
 quadScene.add(quad);
 const quadCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
 export const makeRT = (w: number, h: number) =>
-  new THREE.WebGLRenderTarget(w, h, {
-    type: canBake() ? THREE.FloatType : THREE.HalfFloatType,
-    minFilter: THREE.NearestFilter,
-    magFilter: THREE.NearestFilter,
-    depthBuffer: false,
-    generateMipmaps: false,
-  });
+    new THREE.WebGLRenderTarget(w, h, {
+        type: canBake() ? THREE.FloatType : THREE.HalfFloatType,
+        minFilter: THREE.NearestFilter,
+        magFilter: THREE.NearestFilter,
+        depthBuffer: false,
+        generateMipmaps: false,
+    });
 function renderToTarget(rt: THREE.WebGLRenderTarget, scene: THREE.Scene) {
-  const prev = renderer!.getRenderTarget();
-  renderer!.setRenderTarget(rt);
-  renderer!.render(scene, quadCamera);
-  renderer!.setRenderTarget(prev);
+    const prev = renderer!.getRenderTarget();
+    renderer!.setRenderTarget(rt);
+    renderer!.render(scene, quadCamera);
+    renderer!.setRenderTarget(prev);
 }
 export function draw(rt: THREE.WebGLRenderTarget, mat: THREE.Material) {
-  quad.material = mat;
-  renderToTarget(rt, quadScene);
+    quad.material = mat;
+    renderToTarget(rt, quadScene);
 }
 export const QUAD_VS = "void main(){gl_Position=vec4(position.xy,0.,1.);}";
 const uCh = { value: new THREE.Vector3() };
@@ -65,25 +65,25 @@ void main() {
 #endif
 }`;
 const makeChunkMat = (isColor: boolean) =>
-  new THREE.ShaderMaterial({
-    defines: isColor ? { COL: "" } : {},
-    uniforms: { ...T, uCh },
-    vertexShader: QUAD_VS,
-    fragmentShader: CHFS,
-  });
+    new THREE.ShaderMaterial({
+        defines: isColor ? { COL: "" } : {},
+        uniforms: { ...T, uCh },
+        vertexShader: QUAD_VS,
+        fragmentShader: CHFS,
+    });
 const chunkNormalMat = makeChunkMat(false),
-  chunkColorMat = makeChunkMat(true);
+    chunkColorMat = makeChunkMat(true);
 // per chunk: rt = (elevation, normal.xyz), rtC = biome colour. Both are sampled by the chunk vertex shader; nothing is evaluated per frame.
 export function bakeChunk(
-  rt: THREE.WebGLRenderTarget,
-  rtC: THREE.WebGLRenderTarget,
-  i0: number,
-  j0: number,
-  face: number
+    rt: THREE.WebGLRenderTarget,
+    rtC: THREE.WebGLRenderTarget,
+    i0: number,
+    j0: number,
+    face: number
 ) {
-  uCh.value.set(i0, j0, face);
-  draw(rt, chunkNormalMat);
-  draw(rtC, chunkColorMat);
+    uCh.value.set(i0, j0, face);
+    draw(rt, chunkNormalMat);
+    draw(rtC, chunkColorMat);
 }
 const PV = `
 varying vec4 vO;
@@ -159,34 +159,34 @@ void main() {
 type BakeEntry = { mat: THREE.ShaderMaterial; uW: { value: number }; uH: { value: number } };
 const _bakeMats = new Map<number, BakeEntry>();
 function getBakeMat(mode: number, texWidth: number, texHeight: number): THREE.ShaderMaterial {
-  let e = _bakeMats.get(mode);
-  if (!e) {
-    const uW = { value: texWidth },
-      uH = { value: texHeight };
-    e = {
-      uW,
-      uH,
-      mat: new THREE.ShaderMaterial({
-        defines: { MODE: mode },
-        depthTest: false,
-        depthWrite: false,
-        uniforms: {
-          ...T,
-          uW,
-          uH,
-          uRes: { value: S.resolution },
-          uStep: { value: 1.57 / S.resolution },
-        },
-        vertexShader: PV,
-        fragmentShader: `varying vec4 vO;\nvoid main(){gl_FragColor=vO;}`,
-      }),
-    };
-    _bakeMats.set(mode, e);
-  } else {
-    e.uW.value = texWidth;
-    e.uH.value = texHeight;
-  }
-  return e.mat;
+    let e = _bakeMats.get(mode);
+    if (!e) {
+        const uW = { value: texWidth },
+            uH = { value: texHeight };
+        e = {
+            uW,
+            uH,
+            mat: new THREE.ShaderMaterial({
+                defines: { MODE: mode },
+                depthTest: false,
+                depthWrite: false,
+                uniforms: {
+                    ...T,
+                    uW,
+                    uH,
+                    uRes: { value: S.resolution },
+                    uStep: { value: 1.57 / S.resolution },
+                },
+                vertexShader: PV,
+                fragmentShader: `varying vec4 vO;\nvoid main(){gl_FragColor=vO;}`,
+            }),
+        };
+        _bakeMats.set(mode, e);
+    } else {
+        e.uW.value = texWidth;
+        e.uH.value = texHeight;
+    }
+    return e.mat;
 }
 
 // Singleton scene/mesh/geo reused across all bakePoints calls — avoids repeated JS object construction and GC pressure.
@@ -198,51 +198,51 @@ _bakePointScene.add(_bakeMesh);
 
 // Bulk point sampling with read-back. 0: base (elev, moisture) · 1: tree candidates (elev, moisture, tree density, slope) · 2: coarse-mesh radius · 3: base analytic normals · 4: base biome colours · 5: forest stand noise
 export async function bakePoints(
-  dirs: Float32Array,
-  mode: number,
-  extra?: { nrm: Float32Array; em: Float32Array }
+    dirs: Float32Array,
+    mode: number,
+    extra?: { nrm: Float32Array; em: Float32Array }
 ): Promise<Float32Array> {
-  const pointCount = dirs.length / 3,
-    texWidth = 2048,
-    texHeight = Math.max(1, Math.ceil(pointCount / texWidth)),
-    rt = makeRT(texWidth, texHeight);
-  _bakeGeo.setAttribute("position", new THREE.BufferAttribute(dirs, 3));
-  if (extra) {
-    _bakeGeo.setAttribute("nrm", new THREE.BufferAttribute(extra.nrm, 3));
-    _bakeGeo.setAttribute("em", new THREE.BufferAttribute(extra.em, 2));
-  } else {
-    _bakeGeo.deleteAttribute("nrm");
-    _bakeGeo.deleteAttribute("em");
-  }
-  _bakeMesh.material = getBakeMat(mode, texWidth, texHeight);
-  renderToTarget(rt, _bakePointScene);
-  const results = new Float32Array(texWidth * texHeight * 4);
-  const r: any = renderer!;
-  if (typeof r.readRenderTargetPixelsAsync === "function")
-    await r.readRenderTargetPixelsAsync(rt, 0, 0, texWidth, texHeight, results);
-  else renderer!.readRenderTargetPixels(rt, 0, 0, texWidth, texHeight, results);
-  rt.dispose();
-  return results;
+    const pointCount = dirs.length / 3,
+        texWidth = 2048,
+        texHeight = Math.max(1, Math.ceil(pointCount / texWidth)),
+        rt = makeRT(texWidth, texHeight);
+    _bakeGeo.setAttribute("position", new THREE.BufferAttribute(dirs, 3));
+    if (extra) {
+        _bakeGeo.setAttribute("nrm", new THREE.BufferAttribute(extra.nrm, 3));
+        _bakeGeo.setAttribute("em", new THREE.BufferAttribute(extra.em, 2));
+    } else {
+        _bakeGeo.deleteAttribute("nrm");
+        _bakeGeo.deleteAttribute("em");
+    }
+    _bakeMesh.material = getBakeMat(mode, texWidth, texHeight);
+    renderToTarget(rt, _bakePointScene);
+    const results = new Float32Array(texWidth * texHeight * 4);
+    const r: any = renderer!;
+    if (typeof r.readRenderTargetPixelsAsync === "function")
+        await r.readRenderTargetPixelsAsync(rt, 0, 0, texWidth, texHeight, results);
+    else renderer!.readRenderTargetPixels(rt, 0, 0, texWidth, texHeight, results);
+    rt.dispose();
+    return results;
 }
 
 // small texture read-back for CPU collision (async when the renderer supports it, so there is no pipeline stall)
 export function readRT(
-  renderTarget: THREE.WebGLRenderTarget,
-  width: number,
-  height: number,
-  callback: (a: Float32Array) => void
+    renderTarget: THREE.WebGLRenderTarget,
+    width: number,
+    height: number,
+    callback: (a: Float32Array) => void
 ) {
-  const pixelBuffer = new Float32Array(width * height * 4),
-    rendererAny: any = renderer;
-  if (typeof rendererAny.readRenderTargetPixelsAsync === "function")
-    rendererAny
-      .readRenderTargetPixelsAsync(renderTarget, 0, 0, width, height, pixelBuffer)
-      .then(() => callback(pixelBuffer))
-      .catch(() => {});
-  else {
-    renderer!.readRenderTargetPixels(renderTarget, 0, 0, width, height, pixelBuffer);
-    callback(pixelBuffer);
-  }
+    const pixelBuffer = new Float32Array(width * height * 4),
+        rendererAny: any = renderer;
+    if (typeof rendererAny.readRenderTargetPixelsAsync === "function")
+        rendererAny
+            .readRenderTargetPixelsAsync(renderTarget, 0, 0, width, height, pixelBuffer)
+            .then(() => callback(pixelBuffer))
+            .catch(() => {});
+    else {
+        renderer!.readRenderTargetPixels(renderTarget, 0, 0, width, height, pixelBuffer);
+        callback(pixelBuffer);
+    }
 }
 
 // ---- Planet cube maps. The coarse planet mesh used to carry per-vertex colours/normals, which showed as a triangle grid, cube-face seams, a mismatch with the
@@ -288,51 +288,51 @@ void main() {
 #endif
 }`;
 const makeAtlasMat = (isColor: boolean) =>
-  new THREE.ShaderMaterial({
-    defines: isColor ? { COL: "" } : {},
-    uniforms: { ...T, uAt: atlasUniform, uSrcN: { value: null as any } },
-    vertexShader: QUAD_VS,
-    fragmentShader: ATFS,
-  });
+    new THREE.ShaderMaterial({
+        defines: isColor ? { COL: "" } : {},
+        uniforms: { ...T, uAt: atlasUniform, uSrcN: { value: null as any } },
+        vertexShader: QUAD_VS,
+        fragmentShader: ATFS,
+    });
 export class Atlas {
-  rtN: THREE.WebGLCubeRenderTarget;
-  rtC: THREE.WebGLCubeRenderTarget;
-  face = 6;
-  private normalAtlasMat = makeAtlasMat(false);
-  private colorAtlasMat = makeAtlasMat(true);
-  constructor() {
-    const o = {
-      type: THREE.HalfFloatType,
-      generateMipmaps: true,
-      minFilter: THREE.LinearMipmapLinearFilter,
-      magFilter: THREE.LinearFilter,
-      depthBuffer: false,
-    };
-    this.rtN = new THREE.WebGLCubeRenderTarget(512, o);
-    this.rtC = new THREE.WebGLCubeRenderTarget(512, o);
-    this.colorAtlasMat.uniforms.uSrcN.value = this.rtN.texture;
-  }
-  reset() {
-    this.face = 0;
-  }
-  get done() {
-    return this.face >= 6;
-  }
-  step() {
-    if (this.done) return;
-    const faceIndex = this.face++;
-    atlasUniform.value.x = faceIndex;
-    for (const [rt, mat] of [
-      [this.rtN, this.normalAtlasMat],
-      [this.rtC, this.colorAtlasMat],
-    ] as [THREE.WebGLCubeRenderTarget, THREE.ShaderMaterial][]) {
-      quad.material = mat;
-      const prev = renderer!.getRenderTarget();
-      renderer!.setRenderTarget(rt, faceIndex);
-      renderer!.render(quadScene, quadCamera);
-      renderer!.setRenderTarget(prev);
+    rtN: THREE.WebGLCubeRenderTarget;
+    rtC: THREE.WebGLCubeRenderTarget;
+    face = 6;
+    private normalAtlasMat = makeAtlasMat(false);
+    private colorAtlasMat = makeAtlasMat(true);
+    constructor() {
+        const o = {
+            type: THREE.HalfFloatType,
+            generateMipmaps: true,
+            minFilter: THREE.LinearMipmapLinearFilter,
+            magFilter: THREE.LinearFilter,
+            depthBuffer: false,
+        };
+        this.rtN = new THREE.WebGLCubeRenderTarget(512, o);
+        this.rtC = new THREE.WebGLCubeRenderTarget(512, o);
+        this.colorAtlasMat.uniforms.uSrcN.value = this.rtN.texture;
     }
-  }
+    reset() {
+        this.face = 0;
+    }
+    get done() {
+        return this.face >= 6;
+    }
+    step() {
+        if (this.done) return;
+        const faceIndex = this.face++;
+        atlasUniform.value.x = faceIndex;
+        for (const [rt, mat] of [
+            [this.rtN, this.normalAtlasMat],
+            [this.rtC, this.colorAtlasMat],
+        ] as [THREE.WebGLCubeRenderTarget, THREE.ShaderMaterial][]) {
+            quad.material = mat;
+            const prev = renderer!.getRenderTarget();
+            renderer!.setRenderTarget(rt, faceIndex);
+            renderer!.render(quadScene, quadCamera);
+            renderer!.setRenderTarget(prev);
+        }
+    }
 }
 
 /**
@@ -343,37 +343,40 @@ export class Atlas {
  * source + defines, so the throwaway materials here warm the exact programs the real bakes use. Extra programs that need
  * the same treatment (e.g. the plant placement bake) are passed in by the caller.
  */
-export function precompileBakes(camera: THREE.Camera, extra: THREE.Material[] = []): Promise<unknown> {
-  if (!renderer) return Promise.resolve();
-  const scene = new THREE.Scene(),
-    quadGeo = new THREE.PlaneGeometry(2, 2),
-    pointGeo = new THREE.BufferGeometry();
-  pointGeo.setAttribute("position", new THREE.BufferAttribute(new Float32Array(3), 3));
-  // MODE 4 declares the nrm/em attributes; give the dummy geometry them so the program links the same way
-  pointGeo.setAttribute("nrm", new THREE.BufferAttribute(new Float32Array(3), 3));
-  pointGeo.setAttribute("em", new THREE.BufferAttribute(new Float32Array(2), 2));
-  const add = (m: THREE.Material, points = false) => {
-    const o = points ? new THREE.Points(pointGeo, m) : new THREE.Mesh(quadGeo, m);
-    o.frustumCulled = false;
-    scene.add(o);
-  };
-  for (const mode of [0, 1, 2, 3, 4, 5]) add(getBakeMat(mode, 2048, 1), true);
-  add(chunkNormalMat);
-  add(chunkColorMat);
-  add(makeAtlasMat(false));
-  add(makeAtlasMat(true));
-  for (const m of extra) add(m);
-  // Compile against a float render target, as the real bakes do: three keys programs on the bound target's colour
-  // space, so compiling against the canvas would warm sRGB variants the bakes never use. compileAsync builds the
-  // programs synchronously and only *polls* asynchronously, so the target can be restored straight after the call.
-  const prev = renderer.getRenderTarget(),
-    rt = makeRT(1, 1);
-  renderer.setRenderTarget(rt);
-  const ready = renderer.compileAsync(scene, camera).catch(() => {});
-  renderer.setRenderTarget(prev);
-  return ready.finally(() => {
-    rt.dispose();
-    quadGeo.dispose();
-    pointGeo.dispose();
-  });
+export function precompileBakes(
+    camera: THREE.Camera,
+    extra: THREE.Material[] = []
+): Promise<unknown> {
+    if (!renderer) return Promise.resolve();
+    const scene = new THREE.Scene(),
+        quadGeo = new THREE.PlaneGeometry(2, 2),
+        pointGeo = new THREE.BufferGeometry();
+    pointGeo.setAttribute("position", new THREE.BufferAttribute(new Float32Array(3), 3));
+    // MODE 4 declares the nrm/em attributes; give the dummy geometry them so the program links the same way
+    pointGeo.setAttribute("nrm", new THREE.BufferAttribute(new Float32Array(3), 3));
+    pointGeo.setAttribute("em", new THREE.BufferAttribute(new Float32Array(2), 2));
+    const add = (m: THREE.Material, points = false) => {
+        const o = points ? new THREE.Points(pointGeo, m) : new THREE.Mesh(quadGeo, m);
+        o.frustumCulled = false;
+        scene.add(o);
+    };
+    for (const mode of [0, 1, 2, 3, 4, 5]) add(getBakeMat(mode, 2048, 1), true);
+    add(chunkNormalMat);
+    add(chunkColorMat);
+    add(makeAtlasMat(false));
+    add(makeAtlasMat(true));
+    for (const m of extra) add(m);
+    // Compile against a float render target, as the real bakes do: three keys programs on the bound target's colour
+    // space, so compiling against the canvas would warm sRGB variants the bakes never use. compileAsync builds the
+    // programs synchronously and only *polls* asynchronously, so the target can be restored straight after the call.
+    const prev = renderer.getRenderTarget(),
+        rt = makeRT(1, 1);
+    renderer.setRenderTarget(rt);
+    const ready = renderer.compileAsync(scene, camera).catch(() => {});
+    renderer.setRenderTarget(prev);
+    return ready.finally(() => {
+        rt.dispose();
+        quadGeo.dispose();
+        pointGeo.dispose();
+    });
 }

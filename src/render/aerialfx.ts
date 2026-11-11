@@ -3,24 +3,24 @@ import { ShaderPass } from "three/examples/jsm/postprocessing/ShaderPass.js";
 import { U } from "./fx";
 
 export class AerialPass {
-  pass: ShaderPass;
-  constructor(depthTexture: THREE.DepthTexture) {
-    this.pass = new ShaderPass({
-      uniforms: {
-        tDiffuse: { value: null },
-        tDepth: { value: depthTexture },
-        uNear: { value: 1.0 },
-        uFar: { value: 20000.0 },
-        uSun: U.uSun,
-        uDayF: U.uDayF,
-      },
-      vertexShader: `
+    pass: ShaderPass;
+    constructor(depthTexture: THREE.DepthTexture) {
+        this.pass = new ShaderPass({
+            uniforms: {
+                tDiffuse: { value: null },
+                tDepth: { value: depthTexture },
+                uNear: { value: 1.0 },
+                uFar: { value: 20000.0 },
+                uSun: U.uSun,
+                uDayF: U.uDayF,
+            },
+            vertexShader: `
 varying vec2 vUv;
 void main() {
   vUv = uv;
   gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
 }`,
-      fragmentShader: `
+            fragmentShader: `
 uniform sampler2D tDiffuse;
 uniform sampler2D tDepth;
 uniform float     uNear, uFar, uDayF;
@@ -38,10 +38,10 @@ void main() {
   vec3  haze  = mix(vec3(0.05, 0.06, 0.12), day, uDayF);
   gl_FragColor = vec4(mix(col.rgb, haze, fog * 0.55), col.a);
 }`,
-    });
-  }
-  setCamera(near: number, far: number) {
-    this.pass.uniforms.uNear.value = near;
-    this.pass.uniforms.uFar.value = far;
-  }
+        });
+    }
+    setCamera(near: number, far: number) {
+        this.pass.uniforms.uNear.value = near;
+        this.pass.uniforms.uFar.value = far;
+    }
 }
