@@ -31,6 +31,7 @@ src/
 │   ├── sky.ts            ← sun / moon cycle, weather state
 │   ├── skyfx.ts          ← cloud shell shader
 │   ├── night.ts          ← aurora, fireflies, bioluminescent motes, galactic band
+│   ├── life.ts           ← birds, shooting stars, lightning, waterfall mist, butterflies/leaves
 │   ├── precip.ts         ← GPU rain / snow
 │   ├── river.ts          ← valley tracing, meanders, tributaries, lakes, water shader
 │   ├── forest.ts         ← tree placement + LOD
@@ -62,7 +63,8 @@ src/
 | GPU tier | `render/gputier.ts` | Classifies the GPU (probed in `main.ts` before renderer creation) as high / medium / low. |
 | Rendering | `render/` | Shared uniforms and shaders (`fx`), GPU bake helpers (`bake`), terrain material (`terrain`), post-processing chain (`postfx`, `aerialfx`), sun/moon shadows (`shadows`), tree material (`treemat`). |
 | Planet | `world/planet.ts`, `world/chunks.ts` | Coarse planet mesh with cube-map surface; streamed high-detail terrain chunks. |
-| Sky & atmosphere | `world/sky.ts`, `world/skyfx.ts`, `world/night.ts`, `world/precip.ts` | Sun/moon/weather state, cloud shell, aurora/fireflies/bioluminescence, GPU rain/snow. |
+| Sky & atmosphere | `world/sky.ts`, `world/skyfx.ts`, `world/night.ts`, `world/precip.ts` | Sun/moon/weather state, cloud shell + rainbow, aurora/fireflies/bioluminescence, GPU rain/snow. |
+| Ambient life | `world/life.ts` | Bird flocks, shooting stars, lightning, waterfall mist, butterflies & falling leaves. |
 | Rivers & lakes | `world/river.ts` | Valley-tracing paths, meanders, tributaries, lakes; single animated water shader. |
 | Trees | `world/forest.ts`, `world/trees.ts`, `world/treeutil.ts`, `world/geoutil.ts` | Clustered placement, three LOD levels, per-tree hue and shape variation. |
 | Ground cover | `world/plants.ts`, `world/vegetation.ts`, `world/plantgeo.ts`, `world/rockgeo.ts` | 15 plant kinds with biome-specific placement gates. |
@@ -203,6 +205,9 @@ Touch = unknown mobile → conservative `low`. Desktop → `medium`, not `high`:
 | Shadow PCF radius | 1 | 1 | 2.5 | 2.5 |
 | Plant shadows (rocks, shrubs, cactus) | off | off | on | on |
 | Water sun glitter | off | off | on | on |
+| Bird flocks / shooting-star slots | 1 / 2 | 2 / 4 | 3 / 4 | 3 / 4 |
+| Lightning, cascade mist (max falls) | off | on (4) | on (8) | on (8) |
+| Butterflies & leaves, sand ripples | off | off | on | on |
 | Shadow Hz | 20 | 30 | 30 | 30 |
 | Shadow frustum | 65% | 100% | 100% | 100% |
 | Aerial haze pass | off | on | on | on |
@@ -334,6 +339,8 @@ Uses `distanceToSquared` with early-exit — no `sqrt` in the inner loop.
 
 **Lakes:** `vUv.x` runs 0.5 (centre) → 1.0 (edge). `fract((vUv.x - 0.5) * 7.0 - uTime * 0.5)` produces expanding concentric ripple rings.
 
+**Cascades:** each ribbon vertex carries `aSteep`, the bed steepness over ±2 path points (drop / run through `smoothstep(0.08, 0.3)`). Steep reaches flow up to 3.5× faster and churn white across the whole width (two scrolling streak layers), with a little more opacity. The terrain has no cliffs, so a steep reach is a cascade down a slope rather than a vertical drop; spray is added separately (§8a).
+
 **Low tier material:** flat `MeshBasicMaterial` (no shader cost at all).
 
 ---
@@ -430,6 +437,41 @@ Both the outer fade (plant appearing at range limit) and inner fade (plant disap
 - Count: 12 / 28 / 50 by tier.
 - Vertex shader evaluates moisture (gate: 0.2–0.45) and land flag — dry or high-altitude cells get `gl_PointSize = 0`.
 - Colour: `coolCol = mix(teal, blue, moisture)`, then `mix(coolCol, orange, warmth * 0.65)` where `warmth = 1 - |d.y|` (equatorial factor).
+
+---
+
+## 8a. Ambient life & sky events (`world/life.ts`)
+
+Everything is GPU-driven: positions come from time + per-instance seeds in the vertex shader, one draw call per effect, and only a few uniforms are set on the CPU each frame. Vertices of hidden instances are moved off-screen in the shader.
+
+| Effect | Tiers | When | Cost |
+|---|---|---|---|
+| Bird flocks | all (1 / 2 / 3 flocks) | daylight, cloud cover < 0.85, player below 400 m | 3 tris × 7–11 birds per flock |
+| Shooting stars | all (2 / 4 slots) | night | 2 tris per slot |
+| Lightning | medium, high | heavy rain | 14 segment quads |
+| Rainbow | all | after rain, low sun, clearing sky | one term in the sky dome |
+| Cascades + mist | medium, high (4 / 8 falls) | always | river shader term + 10 sprites per fall |
+| Butterflies & leaves | high | daylight, within 30 m, below 40 m altitude | 2 tris × 160 |
+| Sand ripples | high | sand-coloured ground within 120 m | terrain bump term |
+
+Measured on a medium-tier laptop: no change in frame time or vertex count against the previous build.
+
+**Bird flocks.** Each flock runs its own 62 s cycle (staggered by flock index) and is airborne for 40% of it, on about 65% of cycles. When a cycle starts, the CPU latches an anchor for that flock: the player's position, up vector and view direction flattened onto the ground plane. The pass then crosses the view **left→right or right→left** (± the view's right axis, ±15° wobble), 50–140 m in front and 18–45 m up, fixed in the world so walking doesn't drag it along. The flock type comes from the ground under the pass, sampled with the shared terrain functions: coast → gulls (white, wheeling cloud), forest → crows (dark, ragged), open land → geese (grey V). Wings are the two outer vertices of a 3-triangle bird, flapped in the vertex shader.
+
+**Shooting stars.** Each slot has its own 7–19 s period and phase offset, chosen on the CPU and passed as an attribute, so the CPU and the shader agree exactly on cycle boundaries; a `sin()` hash differs between float32 and float64. When a slot's cycle starts, the CPU latches the view direction for it. The meteor starts within ±40° of that direction and 8–30° up (a level gaze sees ±35° vertically), then **crosses the view sideways**, slanting down, over 0.7–1.1 s. Pitfalls fixed along the way:
+- The streak quad's across axis flips with travel direction, so the material must be `DoubleSide`; single-sided, half the meteors were back-face culled.
+- Widths must be ≥ about 2 px at 9 km, or the streak is sub-pixel.
+- The head is kept just above the 0.75 bloom threshold; hotter values bloomed into large soft discs.
+
+**Lightning.** A strike every 4–12 s while `precipitationAmount > 0.7`, 200–600 m ahead and off to one side, on the real ground (`planet.radiusAt`). The bolt is a jagged 14-segment polyline built in the vertex shader from a per-strike seed. It is billboarded toward the camera, HDR-bright so it outshines an overcast sky, and flickers for about 0.35 s. `update()` returns a flash value that `main.ts` applies **after** `sky.update()` (which rebuilds sky, fog and ambient light from scratch each frame), lifting the sky colour and ambient light. The bolt shows alone for about 40 ms before the sky flash, so it reads against the dark storm sky.
+
+**Rainbow** (`world/skyfx.ts`, sky dome). The primary bow sits at 40.4–42.6° from the anti-solar point (red outside), the secondary at 50.2–53.4° (colours reversed, 35% strength), and the sky inside the primary is slightly brighter. Strength = `wet × (1 − precip) × clearing sky × low sun`. `wet` is a slow memory of recent rain: it follows precipitation up instantly and lets go over about 40 s, so the bow lingers as a shower clears, whereas precipitation and cloud themselves clear together within seconds. It needs a sun elevation between about 0.02 and 0.75. Above 42° a real primary bow is below the horizon. Sun height depends on where you stand, so rainbows are local.
+
+**Cascades & mist.** `buildWaterfalls()` scans each river path (skipping the 15% tapers at either end) for drops of ≥ 6 m over ≤ 6 path steps with slope > 0.3, at least 60 m apart. Smaller steps read as rapids hidden in grass. Real worlds get 1–3 per planet. Each gets a mist cloud of soft sprites rising from the foot of the drop; the white water itself is the river shader's `aSteep` term (§5). Built in `planet.buildRivers()` into the planet group, so `build()` disposes them on rebuild.
+
+**Butterflies & falling leaves** (high only). 160 two-triangle "flutterers" in a world-anchored 70 m cell around the player (wrapping with `mod()`, as the fireflies do). Each picks its role from the ground under its home position: warm meadow → butterfly (bright wings flapping, wandering 0.6–2.2 m up); warm forest (`treeDensity`) → leaf (autumn tint, tumbling down from 9 m on a 9 s loop, drifting downwind); anywhere else, or above the snowline → hidden.
+
+**Sand ripples** (high only, `render/fx.ts`, `DUNES` define). Pixels close to the palette's sand colour (`uCs`) within 120 m get long parallel ridges (fixed world wind direction, warped by two noise octaves so they meander and fork). They are fed into the existing derivative bump so they mostly change lighting, plus a slight shade. Other tiers compile exactly the same terrain shader as before.
 
 ---
 
