@@ -15,7 +15,7 @@ import { setRenderer, precompileBakes } from "./render/bake";
 import { U } from "./render/fx";
 import { smoothstep } from "./core/utilgeo";
 import { S, currentSeedWord, pushSeedUrl } from "./core/config";
-import { isTouchDevice, setupTouch, setGuiToggle, setMapToggle } from "./player/touch";
+import { isTouchDevice, setupTouch, setGuiToggle, setMapToggle, lockPointer } from "./player/touch";
 import { MapOverlay } from "./ui/map";
 import { detectGpuTier, setGpuTier, gpuTier } from "./render/gputier";
 
@@ -327,7 +327,7 @@ const scene = new THREE.Scene(),
     showSplash(enterLabel);
     splash.addEventListener("click", () => {
         hideSplash();
-        if (!isTouchDevice) renderer.domElement.requestPointerLock();
+        if (!isTouchDevice) lockPointer(renderer.domElement);
     });
     if (!isTouchDevice) {
         document.addEventListener("pointerlockchange", () => {

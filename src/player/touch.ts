@@ -5,6 +5,17 @@ import { isTouchDevice } from "../render/gputier";
 
 export { isTouchDevice };
 
+/** Request pointer lock without an unhandled rejection. Chrome returns a promise and rejects it when the page is not
+ *  focused or lock was released under ~1 s ago ("root document … not valid for pointer lock"); older Safari returns
+ *  undefined. A refused lock is harmless: the next click retries. */
+export function lockPointer(el: HTMLElement) {
+    try {
+        (el.requestPointerLock() as unknown as Promise<void> | undefined)?.catch?.(() => {});
+    } catch {
+        /* ignore — retried on next click */
+    }
+}
+
 const STYLE = `
 #touch-btns {
   position: fixed; right: max(20px, env(safe-area-inset-right)); bottom: max(110px, calc(80px + env(safe-area-inset-bottom)));

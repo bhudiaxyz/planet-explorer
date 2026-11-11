@@ -3,7 +3,7 @@ import { Planet } from "../world/planet";
 import { S } from "../core/config";
 import { rng } from "../core/noise";
 import type { Collider } from "../world/collision";
-import { isTouchDevice } from "./touch";
+import { isTouchDevice, lockPointer } from "./touch";
 const EYE_HEIGHT = 2.4,
     scratchRight = new THREE.Vector3(),
     scratchStep = new THREE.Vector3(),
@@ -43,7 +43,7 @@ export class Player {
         dom: HTMLElement
     ) {
         if (!isTouchDevice) {
-            dom.addEventListener("click", () => dom.requestPointerLock());
+            dom.addEventListener("click", () => lockPointer(dom));
             addEventListener("mousemove", (e) => {
                 if (document.pointerLockElement === dom) this.look(e.movementX, e.movementY);
             });
