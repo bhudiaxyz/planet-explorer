@@ -107,6 +107,11 @@ class Layer {
     lastCellI = 0;
     lastCellJ = 0; // last baked lattice (face, i, j)
     collide = false;
+    // Sparse layers draw only accepted cells (see compact()); dense ones (grass, flowers…) draw the whole disc.
+    readonly sparse: boolean;
+    private fullCells: Float32Array;
+    private fullCount: number;
+    private cellAttr: THREE.InstancedBufferAttribute;
     pix: Float32Array | null = null;
     psnap: { cellI: number; cellJ: number; faceCode: number } | null = null;
     onData?: () => void;
@@ -126,8 +131,17 @@ class Layer {
         const cells: number[] = [];
         for (let y = -K; y <= K; y++)
             for (let x = -K; x <= K; x++) if (x * x + y * y <= K * K) cells.push(x, y); // only cells inside the disc are instanced
-        g.setAttribute("aCell", new THREE.InstancedBufferAttribute(new Float32Array(cells), 2));
-        g.instanceCount = cells.length / 2;
+        this.fullCells = new Float32Array(cells);
+        this.fullCount = cells.length / 2;
+        // the attribute buffer is sized for the full disc once; compact() rewrites a prefix and shrinks instanceCount
+        this.cellAttr = new THREE.InstancedBufferAttribute(new Float32Array(cells), 2);
+        this.cellAttr.setUsage(THREE.DynamicDrawUsage);
+        g.setAttribute("aCell", this.cellAttr);
+        g.instanceCount = this.fullCount;
+        // Most kinds are <1% occupied, yet every disc cell ran the full mesh through the vertex shader before being
+        // collapsed — ~60% of all scene vertices. Near tiers are compacted to accepted cells from the bake readback
+        // (compact() keeps the full disc when it would not halve the draw). Grass is dense everywhere: no readback.
+        this.sparse = tier.near && spec.kind !== 0;
         // Scale LOD distances with the disc radius so the fade band always fits inside the disc.
         // Without this, a 0.8× disc on medium GPU ends at ~128 m while outerGone stays at 152 m,
         // creating a dead zone that causes a visible edge-pop.
@@ -265,7 +279,10 @@ class Layer {
         const faceCode = fr.face * 2 + (fr.normal.getComponent(fr.face) < 0 ? 1 : 0);
         this.uSC.value.set(fr.cellI, fr.cellJ, faceCode);
         draw(this.rt, this.bake);
-        if (this.collide) {
+        // the compact list holds offsets for the *previous* lattice centre: draw the whole disc until this bake's readback
+        // arrives (a frame or two), so cells never point at the wrong texels
+        if (this.sparse) this.useFull();
+        if (this.collide || this.sparse) {
             // tiny async read-back so the CPU collider sees exactly the plants the shader draws
             const bakeSnapshot = {
                     cellI: fr.cellI,
@@ -277,12 +294,51 @@ class Layer {
             readRT(this.rt, n, n, (a) => {
                 if (sequenceId < this.acc) return;
                 this.acc = sequenceId;
+                // only the newest bake's data matches the texture the shader is sampling now
+                if (this.sparse && sequenceId === this.seq) this.compact(a);
+                if (!this.collide) return;
                 this.pix = a;
                 this.psnap = bakeSnapshot;
                 this.onData?.();
             });
         }
         return true;
+    }
+    private useFull() {
+        if (this.mesh.geometry instanceof THREE.InstancedBufferGeometry && this.mesh.geometry.instanceCount !== this.fullCount) {
+            (this.cellAttr.array as Float32Array).set(this.fullCells);
+            this.cellAttr.clearUpdateRanges();
+            this.cellAttr.needsUpdate = true;
+            this.mesh.geometry.instanceCount = this.fullCount;
+        }
+    }
+    /** Keep only disc cells the bake accepted (texel.x > -5000); same cells, same texels, so rendering is identical. */
+    private compact(pix: Float32Array) {
+        const K = this.K,
+            n = 2 * K + 1,
+            src = this.fullCells,
+            dst = this.cellAttr.array as Float32Array;
+        let w = 0;
+        for (let i = 0; i < this.fullCount; i++) {
+            const x = src[i * 2],
+                y = src[i * 2 + 1];
+            if (pix[((y + K) * n + (x + K)) * 4] > -5000) {
+                dst[w * 2] = x;
+                dst[w * 2 + 1] = y;
+                w++;
+            }
+        }
+        if (w * 2 > this.fullCount) {
+            // dense patch (e.g. a reed bed): compaction would not halve the draw; restore the full list it overwrote
+            dst.set(src);
+            w = this.fullCount;
+            this.cellAttr.clearUpdateRanges();
+        } else {
+            this.cellAttr.clearUpdateRanges();
+            this.cellAttr.addUpdateRange(0, Math.max(2, w * 2));
+        }
+        this.cellAttr.needsUpdate = true;
+        (this.mesh.geometry as THREE.InstancedBufferGeometry).instanceCount = w;
     }
 }
 
@@ -298,7 +354,11 @@ export class Scatter {
                 if (tier.far && gpuTier !== "high") continue; // far tiers: high GPU only
                 if (!tier.near && gpuTier === "low") continue; // mid tiers: medium+ only
                 const l = new Layer(spec, tier);
-                if (spec.collide && tier.near) {
+                // ponytail: plant collision stays off, as it has been since release (tier.near was never true for
+                // collidable kinds, so this branch never ran). collision.ts fromLayer's shapes no longer match the
+                // `look` scales (shrub 0.8+1.1·h2 vs drawn 0.45+1.4·h2; rocks ignore the per-axis h2/h7 factors), so
+                // enabling it would add invisible walls. Re-enable by fixing fromLayer per kind, then dropping `false &&`.
+                if (false && spec.collide && tier.near) {
                     l.collide = true;
                     l.onData = () => this.version++;
                 }

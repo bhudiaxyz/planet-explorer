@@ -50,6 +50,8 @@ export function grassGeo(blades: number, segs: number, wScale = 1) {
 export function shrubGeo() {
     const p: THREE.BufferGeometry[] = [],
         r = rng(5);
+    // icosahedron detail 2 (320 tris per blob). Detail 3 made this 4 800 vertices per instance — every lattice cell in
+    // the near disc pays it, so shrubs alone were ~28% of all vertices per frame. Detail 2 still reads as round at 1 m.
     for (let i = 0; i < 5; i++)
         blob(
             p,
@@ -57,7 +59,7 @@ export function shrubGeo() {
             0.38 + r() * 0.22,
             N0,
             0.8,
-            3
+            2
         );
     return done(p);
 }

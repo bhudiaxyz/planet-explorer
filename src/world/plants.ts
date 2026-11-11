@@ -95,7 +95,7 @@ const tier = (
     lod,
     sw,
     sh,
-    near: lod === LOD.near,
+    near: false, // set by plant(): the first tier of each kind (see below)
     far: lod === LOD.far,
 });
 type Def = Pick<PlantSpec, "name" | "kind" | "tiers" | "look" | "gate"> & Partial<PlantSpec>;
@@ -111,6 +111,10 @@ const plant = (p: Def): PlantSpec => ({
     pre: "",
     result: "return vec4(e*uAmp,h1,h2,h3);",
     ...p,
+    // "near" = the kind's closest tier, whatever LOD band it uses. It used to be `lod === LOD.near`, which only the
+    // grass/fern/reed band matched — so shrubs, rocks, cactus, boulders… had no near tier: never collidable, absent
+    // entirely on low tier (which keeps only near tiers), and excluded from high-tier plant shadows.
+    tiers: p.tiers.map((t, i) => ({ ...t, near: i === 0 })),
 });
 
 export const PLANTS: PlantSpec[] = [

@@ -66,8 +66,26 @@ export class Collider {
             this.basisTangentU,
             this.basisTangentV
         );
-        for (let y = 0; y < gridWidth; y++)
-            for (let x = 0; x < gridWidth; x++) {
+        // Only cells that can lie within the 18 m test below: project the player onto the snapshot's face lattice (same
+        // gnomonic mapping as frame()) and scan a window around it, instead of the whole (2K+1)² grid on every refresh.
+        // Gnomonic lattice: a tangent-plane step covers ~dn² as much arc off-centre, so the window widens by 1/dn² (≈3× at
+        // cube corners). The exact distance test below still decides, so results are identical to the full scan.
+        const dn = dir.dot(this.basisNormal),
+            w = Math.ceil(18 / (cell * dn * dn)) + 2;
+        let x0 = 0,
+            x1 = gridWidth - 1,
+            y0 = 0,
+            y1 = gridWidth - 1;
+        if (dn > 0.5) {
+            const pi = ((dir.dot(this.basisTangentU) / dn) * planetRadius) / cell - bakeSnapshot.cellI + K,
+                pj = ((dir.dot(this.basisTangentV) / dn) * planetRadius) / cell - bakeSnapshot.cellJ + K;
+            x0 = Math.max(0, Math.floor(pi) - w);
+            x1 = Math.min(gridWidth - 1, Math.ceil(pi) + w);
+            y0 = Math.max(0, Math.floor(pj) - w);
+            y1 = Math.min(gridWidth - 1, Math.ceil(pj) + w);
+        }
+        for (let y = y0; y <= y1; y++)
+            for (let x = x0; x <= x1; x++) {
                 const pixelOffset = (y * gridWidth + x) * 4;
                 if (pix[pixelOffset] < -5000) continue;
                 const h1 = pix[pixelOffset + 1],

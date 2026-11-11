@@ -15,6 +15,7 @@ export function setGpuTier(t: GpuTier) {
 }
 
 export function detectGpuTier(gl: WebGLRenderingContext | WebGL2RenderingContext): GpuTier {
+    if (location.search.includes("forcetier=")) return new URLSearchParams(location.search).get("forcetier") as GpuTier;
     const ext = gl.getExtension("WEBGL_debug_renderer_info");
     if (!ext) {
         // Extension blocked (privacy mode / Firefox resistFingerprinting): the GPU is unknown.

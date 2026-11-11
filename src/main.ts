@@ -24,12 +24,22 @@ import { detectGpuTier, setGpuTier, gpuTier } from "./render/gputier";
     const probe = document.createElement("canvas");
     // Request high-performance so dual-GPU laptops probe the discrete GPU, matching the main renderer.
     const ctxOpts: WebGLContextAttributes = { powerPreference: "high-performance" };
-    const gl = probe.getContext("webgl2", ctxOpts) ?? probe.getContext("webgl", ctxOpts);
-    if (gl) {
-        setGpuTier(detectGpuTier(gl as WebGLRenderingContext));
-        // Release context immediately — browsers cap the number of live WebGL contexts.
-        (gl.getExtension("WEBGL_lose_context") as { loseContext(): void } | null)?.loseContext();
+    const gl = probe.getContext("webgl2", ctxOpts);
+    if (!gl) {
+        // three (r163+) and every shader here need WebGL 2. Without this check the renderer constructor below threw at
+        // module level — outside the startup try/catch — leaving the loading screen on "Preparing world…" forever.
+        // WebGL 2 ships on iOS/iPadOS 15+, Chrome/Edge/Firefox since 2017, Android Chrome on any GLES 3.0 GPU.
+        const tip = document.getElementById("ls-tip");
+        if (tip) {
+            tip.textContent =
+                "This browser or device doesn't support WebGL 2 (or it is disabled). Try an up-to-date Chrome, Edge, Firefox or Safari.";
+            tip.style.color = "#f88";
+        }
+        throw new Error("[planet-explorer] WebGL 2 unavailable");
     }
+    setGpuTier(detectGpuTier(gl));
+    // Release context immediately — browsers cap the number of live WebGL contexts.
+    (gl.getExtension("WEBGL_lose_context") as { loseContext(): void } | null)?.loseContext();
 }
 
 // ---- renderer & scene ------------------------------------------------------------------------------------------------------------------------

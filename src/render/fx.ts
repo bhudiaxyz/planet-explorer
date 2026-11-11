@@ -234,7 +234,9 @@ if (abs(hh) < 1.3) {
   diffuseColor.rgb = mix(diffuseColor.rgb, vec3(.95), fo * .85);
 }
 float fp = 0.;
-if (distance(vWp, uPl) < 26.) {
+// fp is multiplied by snowF below, so skip the 48-footprint loop off snow (it ran for every pixel within 26 m —
+// the busiest pixels on screen — on grass, rock and sand too, where it always contributed 0)
+if (snowF > 0. && distance(vWp, uPl) < 26.) {
   for (int i = 0; i < 48; i++)
     fp = max(fp, smoothstep(.38, .12, distance(vWp, uFoot[i].xyz)) * uFoot[i].w);
 }
