@@ -429,12 +429,14 @@ transformed += normalize(position) * ripple;
     float dep = max(-texture(uCubeC, normalize(vWp)).a * uAmp, 0.);
     float sh  = 1. - smoothstep(0., 7., dep);
     float dp  = smoothstep(2., 45., dep);
-    // Earth-like ocean (linear RGB): clear cyan-blue shallows → deep ultramarine. Was teal → navy, which read green-grey.
-    vec3  wc  = mix(vec3(.02, .14, .30), vec3(.004, .022, .09), dp);
-    wc *= mix(vec3(1.), vec3(.88, 1.12, 1.),
+    // Earth-like ocean (linear RGB): rich blue shallows → deep ultramarine. Red/green kept low so it never drifts teal.
+    vec3  wc  = mix(vec3(.0108, .0675, .234), vec3(.0027, .0126, .081), dp);
+    // gentle large-scale variation in depth of blue (was a +12 % green swing, which read as teal patches)
+    wc *= mix(vec3(1.), vec3(.9, .95, 1.12),
               vn(vWp * .018) * .6 + vn(vWp * .031 + vec3(3.3, 0., 1.7)) * .4);
-    diffuseColor.rgb = mix(diffuseColor.rgb, wc,  .7);
-    diffuseColor.a   = mix(diffuseColor.a,   .28, sh * (1. - crest));
+    diffuseColor.rgb = mix(diffuseColor.rgb, wc,  .9);
+    // shallows let a little seabed through (was 28 % opaque: sand under blue read as pale teal); open sea is opaque
+    diffuseColor.a   = mix(mix(diffuseColor.a, .95, dp), .62, sh * (1. - crest));
     float shore = clamp((1. - smoothstep(0., 1.1, dep))
                 * (.55 + .45 * sin(dep * 7. - uTime * 1.6
                    + (vn(vWp * .6) * .62 + vn(vWp * 1.09 + vec3(7.3, 0., 2.1)) * .38) * 5.)),
@@ -450,7 +452,8 @@ transformed += normalize(position) * ripple;
 
   // sky Fresnel
   float fr = pow(1. - clamp(dot(normal, normalize(vViewPosition)), 0., 1.), 4.);
-  diffuseColor.rgb = mix(diffuseColor.rgb, uSky * (.55 + .5 * uDayF), fr * .6);
+  // sky reflection at grazing angles, tinted toward deep blue so a pale sky doesn't wash the sea out (was 60 % raw sky)
+  diffuseColor.rgb = mix(diffuseColor.rgb, uSky * vec3(.55, .7, 1.) * (.45 + .4 * uDayF), fr * .4);
 }`
             )
             .replace(

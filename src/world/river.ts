@@ -164,8 +164,8 @@ void main() {
     ? fract((vUv.x - 0.5) * 7.0 - uTime * 0.5)
     : fract(vUv.y - uTime * flowSpeed);
   // matched to the ocean (render/fx.ts waterFx): blue shallows, ultramarine depths — was teal
-  vec3 deepColor    = vec3(0.005, 0.03, 0.11);
-  vec3 shallowColor = vec3(0.03, 0.18, 0.34);
+  vec3 deepColor    = vec3(0.004, 0.024, 0.09);
+  vec3 shallowColor = vec3(0.024, 0.145, 0.27);
   vec3 baseColor = mix(shallowColor, deepColor, edgeMask);
 
   vec3 viewDir = normalize(cameraPosition - vWorldPos);
@@ -660,7 +660,7 @@ export class RiverSystem {
     private _buildMaterial(): THREE.Material {
         if (gpuTier === "low") {
             return new THREE.MeshBasicMaterial({
-                color: 0x1b4478,
+                color: 0x163a64,
                 transparent: true,
                 opacity: 0.7,
                 depthWrite: false,

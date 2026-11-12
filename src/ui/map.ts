@@ -147,13 +147,24 @@ export class MapOverlay {
           vec3 dir = vec3(cos(lat)*cos(lon), sin(lat), cos(lat)*sin(lon));
           vec4 col = textureCube(uCube, dir);
           vec4 nm  = textureCube(uCubeN, dir);
+          // The atlas holds the *seabed* colour under the sea (alpha = elevation, < 0 underwater), so oceans used to show
+          // as dark sand. Paint them with the in-game ocean blues instead (same linear colours as waterFx in render/fx.ts),
+          // shallows → depths, with a pale coastline so land and sea separate at a glance.
+          float e = col.a;
+          if (e < 0.) {
+            float dp = smoothstep(.0, .35, -e);
+            col.rgb = mix(vec3(.0108, .0675, .234), vec3(.0027, .0126, .081), dp);
+            col.rgb = mix(col.rgb, vec3(.072, .198, .45), 1. - smoothstep(.0, .012, -e));
+          }
           // atlas colours are already LDR — just gamma-correct
           col.rgb = pow(max(col.rgb, vec3(0.)), vec3(1.0/2.2));
-          // normal-based shading: fixed sun from upper-left + AO
-          vec3 sun = normalize(vec3(-0.5, 1.0, -0.3));
-          float diff = clamp(dot(nm.xyz, sun), 0., 1.);
-          float ao   = nm.w;
-          col.rgb *= mix(0.55, 1.0, diff) * mix(0.75, 1.0, ao);
+          // normal-based shading: fixed sun from upper-left + AO (land only — the sea surface is flat)
+          if (e >= 0.) {
+            vec3 sun = normalize(vec3(-0.5, 1.0, -0.3));
+            float diff = clamp(dot(nm.xyz, sun), 0., 1.);
+            float ao   = nm.w;
+            col.rgb *= mix(0.55, 1.0, diff) * mix(0.75, 1.0, ao);
+          }
           // saturation boost
           float luma = dot(col.rgb, vec3(0.299, 0.587, 0.114));
           col.rgb = mix(vec3(luma), col.rgb, 1.4);

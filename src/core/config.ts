@@ -89,7 +89,7 @@ export const CFG = {
         ambientDayMul: 0.25,
     },
     ocean: {
-        opacity: 0.74,
+        opacity: 0.9, // was 0.74: the seabed showing through turned the blue teal
         roughness: 0.2,
         metalness: 0.1,
     },
