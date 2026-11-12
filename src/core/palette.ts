@@ -54,7 +54,7 @@ export const EARTH: WorldPalette = {
     forest: "#2d5a2b",
     rock: "#7a736b",
     snow: "#f4f8ff",
-    water: "#2a6fb0",
+    water: "#0f2f5c", // dark ocean blue (was #2a6fb0)
     snowline: 0.3,
     forestDensity: 0.7,
     skyNight: "#03050d",

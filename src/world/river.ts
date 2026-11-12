@@ -163,18 +163,19 @@ void main() {
   float v = isLake
     ? fract((vUv.x - 0.5) * 7.0 - uTime * 0.5)
     : fract(vUv.y - uTime * flowSpeed);
-  vec3 deepColor    = vec3(0.02, 0.10, 0.26);
-  vec3 shallowColor = vec3(0.08, 0.50, 0.56);
+  // matched to the ocean (render/fx.ts waterFx): blue shallows, ultramarine depths — was teal
+  vec3 deepColor    = vec3(0.005, 0.03, 0.11);
+  vec3 shallowColor = vec3(0.03, 0.18, 0.34);
   vec3 baseColor = mix(shallowColor, deepColor, edgeMask);
 
   vec3 viewDir = normalize(cameraPosition - vWorldPos);
   vec3 sunDir  = normalize(uSun);
 
   float fresnel = pow(1.0 - max(0.0, dot(viewDir, vWorldNormal)), 2.5);
-  baseColor += vec3(0.18, 0.55, 0.68) * fresnel * 0.55;
+  baseColor += vec3(0.16, 0.42, 0.72) * fresnel * 0.55;
 
   float sss = (1.0 - edgeMask) * max(0.0, dot(sunDir, -vWorldNormal)) * 0.35;
-  baseColor += vec3(0.10, 0.55, 0.50) * sss;
+  baseColor += vec3(0.06, 0.38, 0.52) * sss;
 
   vec3 halfVec    = normalize(viewDir + sunDir);
   float NdotH     = max(0.0, dot(vWorldNormal, halfVec));
@@ -659,7 +660,7 @@ export class RiverSystem {
     private _buildMaterial(): THREE.Material {
         if (gpuTier === "low") {
             return new THREE.MeshBasicMaterial({
-                color: 0x4a7a9b,
+                color: 0x1b4478,
                 transparent: true,
                 opacity: 0.7,
                 depthWrite: false,

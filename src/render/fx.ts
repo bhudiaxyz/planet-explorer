@@ -429,10 +429,11 @@ transformed += normalize(position) * ripple;
     float dep = max(-texture(uCubeC, normalize(vWp)).a * uAmp, 0.);
     float sh  = 1. - smoothstep(0., 7., dep);
     float dp  = smoothstep(2., 45., dep);
-    vec3  wc  = mix(vec3(.07, .5, .52), vec3(.02, .1, .28), dp);
+    // Earth-like ocean (linear RGB): clear cyan-blue shallows → deep ultramarine. Was teal → navy, which read green-grey.
+    vec3  wc  = mix(vec3(.02, .14, .30), vec3(.004, .022, .09), dp);
     wc *= mix(vec3(1.), vec3(.88, 1.12, 1.),
               vn(vWp * .018) * .6 + vn(vWp * .031 + vec3(3.3, 0., 1.7)) * .4);
-    diffuseColor.rgb = mix(diffuseColor.rgb, wc,  .55);
+    diffuseColor.rgb = mix(diffuseColor.rgb, wc,  .7);
     diffuseColor.a   = mix(diffuseColor.a,   .28, sh * (1. - crest));
     float shore = clamp((1. - smoothstep(0., 1.1, dep))
                 * (.55 + .45 * sin(dep * 7. - uTime * 1.6
@@ -442,8 +443,8 @@ transformed += normalize(position) * ripple;
     diffuseColor.a   = mix(diffuseColor.a,   .9,                 shore * .6);
   }
 
-  // icy tint near poles — abs(nW.y) ≈ 1 at poles, 0 at equator
-  float icy = smoothstep(0.45, 0.78, abs(nW.y));
+  // icy tint near poles — abs(nW.y) ≈ 1 at poles, 0 at equator. Starts ~50° latitude (was ~27°, which paled most oceans).
+  float icy = smoothstep(0.75, 0.92, abs(nW.y));
   diffuseColor.rgb = mix(diffuseColor.rgb, vec3(.72, .86, .94), icy * .65);
   diffuseColor.a   = mix(diffuseColor.a,   .9,                   icy * .55);
 
