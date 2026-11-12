@@ -6,10 +6,32 @@ New to the code? Read §0 first: it explains the conventions every other section
 
 **Contents.**
 
-- **Foundations:** §0 How to read this codebase · §1 Source layout · §2 Startup sequence · §3 GPU tier detection
-- **World:** §4 Terrain · §5 Rivers & lakes · §6 Ground cover · §7 Trees · §7a Sky, weather & precipitation · §8 Night systems · §8a Ambient life · §8b Player, controls & collision · §8c Landmarks · §9 Water & ocean · §9a Weather on the ground, atmosphere & light
-- **Presentation:** §10 Rendering pipeline · §11 Settings & Locations panels · §11a Palettes & configuration · §12 Seed system
-- **How-tos:** §13 Adding a plant kind · §13a Adding a tree species · §14 Build & deploy
+- **Foundations**
+  - [§0 How to read this codebase](#0-how-to-read-this-codebase)
+  - [§1 Source layout](#1-source-layout)
+  - [§2 Startup sequence](#2-startup-sequence)
+  - [§3 GPU tier detection](#3-gpu-tier-detection-rendergputierts)
+- **World**
+  - [§4 Terrain](#4-terrain-system-renderterraints-corenoisets-renderbakets)
+  - [§5 Rivers & lakes](#5-river--lake-generation-worldriverts)
+  - [§6 Ground cover](#6-ground-cover-system-worldvegetationts-worldplantsts)
+  - [§7 Trees](#7-tree-system-worldforestts-worldtreests)
+  - [§7a Sky, weather & precipitation](#7a-sky-weather--precipitation-worldskyts-worldskyfxts-worldprecipts)
+  - [§8 Night systems](#8-night-systems-worldnightts)
+  - [§8a Ambient life](#8a-ambient-life--sky-events-worldlifets)
+  - [§8b Player, controls & collision](#8b-player-controls--collision-playerplayerts-playertouchts-worldcollisionts)
+  - [§8c Landmarks](#8c-landmarks-worldlandmarksts)
+  - [§9 Water & ocean](#9-water--ocean-renderfxts-waterfx-worldriverts-uimapts)
+  - [§9a Weather on the ground, atmosphere & light](#9a-weather-on-the-ground-atmosphere-and-light)
+- **Presentation**
+  - [§10 Rendering pipeline](#10-rendering-pipeline-renderpostfxts-renderaerialfxts-rendershadowsts)
+  - [§11 Settings & Locations panels](#11-settings--locations-panels-uiguits)
+  - [§11a Palettes & configuration](#11a-palettes--configuration-corepalettets-coreconfigts)
+  - [§12 Seed system](#12-seed-system)
+- **How-tos**
+  - [§13 Adding a plant kind](#13-adding-a-plant-kind)
+  - [§13a Adding a tree species](#13a-adding-a-tree-species)
+  - [§14 Build & deploy](#14-build--deploy)
 
 ---
 
