@@ -69,8 +69,7 @@ function pickSpecies(elevation: number, temperature: number, moisture: number, s
     if (elevation > 0.44) return SP.snag; // treeline
     if (elevation > 0.37) return standNoise > 0.15 ? SP.fir : SP.juniper; // subalpine krummholz, the odd stunted fir
     if (elevation > 0.3 || temperature < 0.42) return standNoise > 0 ? SP.spruce : SP.fir; // high / cold: spruce and fir stands
-    if (temperature > 0.62 && moisture < -0.05)
-        return elevation < 0.18 && standNoise > 0.05 ? SP.baobab : SP.acacia; // dry warm lowland
+    if (temperature > 0.62 && moisture < -0.05) return elevation < 0.18 && standNoise > 0.05 ? SP.baobab : SP.acacia; // dry warm lowland
     if (temperature > 0.62 && moisture > 0.2 && elevation < 0.2 && standNoise > 0.05) return SP.kapok; // humid tropical lowland emergents
     if (temperature < 0.55) return elevation > 0.22 && standNoise > 0.1 ? SP.spruce : SP.pine;
     if (moisture > 0.15) {
@@ -108,8 +107,7 @@ export class Forest {
     private M1: number;
     constructor(private pl: Planet) {
         // high desktop keeps detailed / medium trees ~30% further out (discrete GPU, 2048² shadow map to match)
-        const lodMul =
-            gpuTier === "low" ? 0.45 : gpuTier === "medium" ? 0.65 : isTouchDevice ? 1 : 1.3;
+        const lodMul = gpuTier === "low" ? 0.45 : gpuTier === "medium" ? 0.65 : isTouchDevice ? 1 : 1.3;
         [this.H0, this.H1, this.M0, this.M1] = _lod.map((v) => v * lodMul) as [number, number, number, number];
         // The shader cross-fade (uLod) must use the same scaled bands as the CPU tier sets. It used to keep the unscaled
         // CFG.treeLod, so on low/medium the shader faded to detailed trees out to 70 m while the CPU only filled that tier
@@ -205,9 +203,9 @@ export class Forest {
                     ? 0.8
                     : speciesIndex === SP.juniper
                       ? 1.3
-                    : speciesIndex === SP.acacia || speciesIndex === SP.willow || speciesIndex === SP.mangrove
-                      ? 1.2
-                      : 1),
+                      : speciesIndex === SP.acacia || speciesIndex === SP.willow || speciesIndex === SP.mangrove
+                        ? 1.2
+                        : 1),
             heightScale:
                 (0.65 + 0.8 * rand()) * (speciesIndex === SP.cypress ? 1.15 : speciesIndex === SP.mangrove ? 0.9 : 1),
             tiltX: (rand() - 0.5) * lean,

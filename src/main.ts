@@ -316,7 +316,7 @@ const scene = new THREE.Scene(),
         planet.update(player.up, player.alt);
         planet.tick(dt);
         planet.forest.update(camera.position);
-        scatter.update(player.up, player.alt, dt);
+        scatter.update(player.up, player.alt);
         footprints?.update(dt);
         const night = (1 - sky.dayF) * (1 - sky.space) * (1 - sky.cloud);
         U.uNight.value = night;

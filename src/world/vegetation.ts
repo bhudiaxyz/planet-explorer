@@ -151,8 +151,7 @@ class Layer {
         // Without this, a 0.8× disc on medium GPU ends at ~128 m while outerGone stays at 152 m,
         // creating a dead zone that causes a visible edge-pop.
         const lodMul = plantRadiusMul();
-        const [outerFull, outerGone, innerGone, innerFull] = tier.lod.map((v) => v * lodMul),
-            f = (v: number) => v.toFixed(2);
+        const [outerFull, outerGone, innerGone, innerFull] = tier.lod.map((v) => v * lodMul);
         // Only structural (#if) flags stay as defines — uniform tiers of the same KIND/DISP/PUSH/MOSS
         // share one compiled shader program instead of one per tier (~45 → ~15 unique programs).
         const defines = {
@@ -378,7 +377,7 @@ export class Scatter {
     rebuild() {
         this.dirty = true;
     }
-    update(playerDirection: THREE.Vector3, alt: number, dt = 0.016) {
+    update(playerDirection: THREE.Vector3, alt: number) {
         U.uVeg.value = 1 - smoothstep(CFG.vegetation.altFadeStart, CFG.vegetation.altFadeEnd, alt);
         this.group.visible = alt < CFG.vegetation.altCullAbove;
         // P6: fixed per-tier budget avoids the inverse dt scaling where a struggling GPU (low fps)

@@ -316,13 +316,23 @@ function kapok(r: () => number, q: number) {
     const nbut = hq ? 4 : 3;
     for (let k = 0; k < nbut; k++) {
         const a = (k / nbut) * 6.283 + r() * 0.4;
-        cyl(p, new THREE.Vector3(Math.cos(a) * 1.6, 0, Math.sin(a) * 1.6), new THREE.Vector3(0, 2.6, 0), 0.22, 0.12, bark, 3);
+        cyl(
+            p,
+            new THREE.Vector3(Math.cos(a) * 1.6, 0, Math.sin(a) * 1.6),
+            new THREE.Vector3(0, 2.6, 0),
+            0.22,
+            0.12,
+            bark,
+            3
+        );
     }
     const nb = hq ? 5 : 3;
     for (let k = 0; k < nb; k++) {
         const a = k * (6.283 / nb) + r(),
             b = new THREE.Vector3(0, h * (0.82 + 0.12 * r()), 0),
-            tip = b.clone().add(new THREE.Vector3(Math.cos(a), 0.35, Math.sin(a)).normalize().multiplyScalar(3.5 + r() * 1.5));
+            tip = b
+                .clone()
+                .add(new THREE.Vector3(Math.cos(a), 0.35, Math.sin(a)).normalize().multiplyScalar(3.5 + r() * 1.5));
         cyl(p, b, tip, 0.28, 0.1, bark, hq ? 5 : 3);
         blob(p, tip.clone().add(new THREE.Vector3(0, 0.6, 0)), 2.8 + r(), N0, 0.4, det);
     }
@@ -353,7 +363,15 @@ function spruce(r: () => number, q: number) {
     const hq = q > 0.7,
         p: THREE.BufferGeometry[] = [],
         h = 14 + r() * 6;
-    cyl(p, new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, h * 0.96, 0), 0.4, 0.08, new THREE.Color(CurrentPalette.treeBark[4]), hq ? 6 : 5);
+    cyl(
+        p,
+        new THREE.Vector3(0, 0, 0),
+        new THREE.Vector3(0, h * 0.96, 0),
+        0.4,
+        0.08,
+        new THREE.Color(CurrentPalette.treeBark[4]),
+        hq ? 6 : 5
+    );
     const n = hq ? 12 : 7;
     for (let i = 0; i < n; i++) {
         const ch = h * (hq ? 0.16 : 0.24),
@@ -537,28 +555,60 @@ const lowMangrove = (r: () => number) => {
 const lowKapok = (r: () => number) => {
     const p: THREE.BufferGeometry[] = [],
         h = 18 + r() * 6;
-    cyl(p, new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, h, 0), 0.75, 0.35, new THREE.Color(CurrentPalette.treeBark[8]), 3);
+    cyl(
+        p,
+        new THREE.Vector3(0, 0, 0),
+        new THREE.Vector3(0, h, 0),
+        0.75,
+        0.35,
+        new THREE.Color(CurrentPalette.treeBark[8]),
+        3
+    );
     blob(p, new THREE.Vector3(0, h + 0.8, 0), 5.5, N0, 0.38, 0);
     return done(p);
 };
 const lowBaobab = (r: () => number) => {
     const p: THREE.BufferGeometry[] = [],
         h = 6 + r() * 2;
-    cyl(p, new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, h * 0.8, 0), 1.5, 0.8, new THREE.Color(CurrentPalette.treeBark[3]), 5);
+    cyl(
+        p,
+        new THREE.Vector3(0, 0, 0),
+        new THREE.Vector3(0, h * 0.8, 0),
+        1.5,
+        0.8,
+        new THREE.Color(CurrentPalette.treeBark[3]),
+        5
+    );
     blob(p, new THREE.Vector3(0, h * 0.95, 0), 2.8, N0, 0.4, 0);
     return done(p);
 };
 const lowSpruce = (r: () => number) => {
     const p: THREE.BufferGeometry[] = [],
         h = 14 + r() * 6;
-    cyl(p, new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, h * 0.4, 0), 0.4, 0.25, new THREE.Color(CurrentPalette.treeBark[4]), 3);
+    cyl(
+        p,
+        new THREE.Vector3(0, 0, 0),
+        new THREE.Vector3(0, h * 0.4, 0),
+        0.4,
+        0.25,
+        new THREE.Color(CurrentPalette.treeBark[4]),
+        3
+    );
     add(p, new THREE.ConeGeometry(2.0, h * 0.9, 6), T(0, h * 0.5, 0), N0, h * 0.45, false, true);
     return done(p);
 };
 const lowJuniper = (r: () => number) => {
     const p: THREE.BufferGeometry[] = [],
         h = 2.2 + r() * 1.5;
-    cyl(p, new THREE.Vector3(0, 0, 0), new THREE.Vector3(0.6, h * 0.7, 0), 0.3, 0.15, new THREE.Color(CurrentPalette.treeBark[5]), 3);
+    cyl(
+        p,
+        new THREE.Vector3(0, 0, 0),
+        new THREE.Vector3(0.6, h * 0.7, 0),
+        0.3,
+        0.15,
+        new THREE.Color(CurrentPalette.treeBark[5]),
+        3
+    );
     blob(p, new THREE.Vector3(0.6, h * 0.8, 0), 2.6, N0, 0.45, 0);
     return done(p);
 };

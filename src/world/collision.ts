@@ -16,7 +16,7 @@ export type Obs = {
     H: number;
     mode: 0 | 1 | 2;
 };
-export const domeAt = (H: number, rho: number) => (H * (0.3 + Math.sqrt(Math.max(0, 1 - rho * rho)))) / 1.3; // profile of the half-buried ball used for rocks
+const domeAt = (H: number, rho: number) => (H * (0.3 + Math.sqrt(Math.max(0, 1 - rho * rho)))) / 1.3; // profile of the half-buried ball used for rocks
 // Collision with everything the player can see. Trees come from the CPU tree table, landmarks from their builder, and shrubs/rocks from a tiny GPU read-back of the
 // near-tier placement texture (so the CPU never re-derives GPU hashes: it reads exactly the plants the shader draws).
 export class Collider {

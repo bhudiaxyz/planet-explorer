@@ -174,7 +174,14 @@ export function torGeo() {
 }
 export function torLow() {
     const p: THREE.BufferGeometry[] = [];
-    ico(p, 0, new THREE.Vector3(0, 0.5, 0), new THREE.Euler(), new THREE.Vector3(1, 0.6, 0.85), CurrentPalette.rockWarm);
+    ico(
+        p,
+        0,
+        new THREE.Vector3(0, 0.5, 0),
+        new THREE.Euler(),
+        new THREE.Vector3(1, 0.6, 0.85),
+        CurrentPalette.rockWarm
+    );
     ico(
         p,
         0,

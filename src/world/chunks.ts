@@ -42,12 +42,26 @@ export class ChunkManager {
         if (Math.abs(a) <= 1 && Math.abs(b) <= 1) return true;
         // per axis: nearest lattice coordinates of the centre chunk and the candidate (equal when they share the column)
         const near = (c: number, o: number): [number, number] =>
-            o > 0 ? [(c + 1) * CS, (c + o) * CS] : o < 0 ? [c * CS, (c + o + 1) * CS] : [c * CS + CS / 2, c * CS + CS / 2];
+            o > 0
+                ? [(c + 1) * CS, (c + o) * CS]
+                : o < 0
+                  ? [c * CS, (c + o + 1) * CS]
+                  : [c * CS + CS / 2, c * CS + CS / 2];
         const [ia, ib] = near(ci, a),
             [ja, jb] = near(cj, b),
             R = this.radius(),
-            pa = this.scratchA.copy(fr.normal).multiplyScalar(R).addScaledVector(fr.tangentU, ia * CC).addScaledVector(fr.tangentV, ja * CC).normalize(),
-            pb = this.scratchB.copy(fr.normal).multiplyScalar(R).addScaledVector(fr.tangentU, ib * CC).addScaledVector(fr.tangentV, jb * CC).normalize();
+            pa = this.scratchA
+                .copy(fr.normal)
+                .multiplyScalar(R)
+                .addScaledVector(fr.tangentU, ia * CC)
+                .addScaledVector(fr.tangentV, ja * CC)
+                .normalize(),
+            pb = this.scratchB
+                .copy(fr.normal)
+                .multiplyScalar(R)
+                .addScaledVector(fr.tangentU, ib * CC)
+                .addScaledVector(fr.tangentV, jb * CC)
+                .normalize();
         return pa.distanceTo(pb) * R < this.reach; // same chord-on-sphere metric as the shader fade
     }
     constructor(
