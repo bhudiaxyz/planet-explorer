@@ -20,6 +20,7 @@ Inspired by **Beyond Fable** and **threejs-procedural-planets**.
 - **Extra polish on capable PCs.** Contact shadows (ambient occlusion), sun shafts through trees and around peaks, and longer-range shadows.
 - **Living sky.** Day/night cycle, clouds, rain and snow, aurora at the poles, fireflies, glowing coastlines and a galactic band at night.
 - **Wind-driven ocean.** Waves grow and shrink with the weather, and the water takes its colour from the planet's palette: deep warm blues on Earth, the planet's own tones elsewhere. The map matches.
+- **Living shorelines.** Waves sharpen into crests, break into foam as they reach the shallows, and wash up the beach, leaving dark wet sand behind; at sunset the crests glow where light shines through them.
 - **Places to visit.** A Locations panel offers one-tap teleports to beauty spots (beaches, canyons, peaks, lagoons…), 24 procedural landmarks and named rivers.
 - **Seamless detail.** Plants, trees and terrain blend in and out smoothly, so nothing visibly pops in.
 - **Runs on most hardware.** Quality is matched to the device GPU at startup (high / medium / low), and resolution keeps adjusting while you play. Supports devices up to ~7 years old.

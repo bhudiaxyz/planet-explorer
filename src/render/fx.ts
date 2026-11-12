@@ -3,6 +3,7 @@ import { gpuTier, chunkFade } from "./gputier";
 import { T, TERRAIN_GLSL, BIOME_GLSL } from "./terrain";
 import { CFG } from "../core/config";
 import { CurrentPalette } from "../core/palette";
+
 const CELL = CFG.chunk.cell.toFixed(2),
     SKIRT = CFG.chunk.skirt.toFixed(1);
 // uGLod = ground-cover LOD (near tier grows 28→12 m, far tier shrinks away 11→5 m)
@@ -21,6 +22,7 @@ tex3.minFilter = tex3.magFilter = THREE.LinearFilter;
 tex3.wrapS = tex3.wrapT = tex3.wrapR = THREE.RepeatWrapping;
 tex3.unpackAlignment = 1;
 tex3.needsUpdate = true;
+
 export const U = {
     uTime: { value: 0 },
     uWind: { value: 1 },
@@ -56,6 +58,14 @@ export const U = {
 /** Deep-water shade as a multiple of the palette water colour. Keeps red ≈ blue so the depths stay a warm navy
  *  (Earth #1a3d78 → ~#0c184a) instead of cold indigo; green drops most, so it never drifts teal. */
 export const WATER_DEEP = "vec3(.36, .2, .36)";
+
+/** Shore surf, shared by the water and terrain shaders so breaking bands and the wet line move together.
+ *  Waves run shoreward: phase = 1.6·depth + 1.3·t, warped by low-frequency noise so crests bend along the coast. */
+export const SURF_GLSL = `
+float surfPhase(vec3 w, float depth, float t) {
+  return depth * 1.6 + t * 1.3 + (vn(w * .045) * .7 + vn(w * .11 + vec3(4.1, 0., 2.7)) * .3) * 9.;
+}
+`;
 export const NOISE = `
 uniform sampler3D uN3;
 float h3(vec3 p) {
@@ -177,19 +187,19 @@ attribute float aE,aM;
             .replace(
                 "#include <common>",
                 `#include <common>
-varying vec3 vWp,vC;uniform float uTime,uOn,uR,uFade,uWet;uniform vec4 uRect,uFoot[48];uniform vec3 uN,uU,uV,uPl,uSun;uniform float uDayF,uCloudR,uAtOn;uniform samplerCube uCubeN,uCubeC;
+varying vec3 vWp,vC;float swashWet = 0.;uniform float uTime,uWind,uOn,uR,uFade,uWet;uniform vec4 uRect,uFoot[48];uniform vec3 uN,uU,uV,uPl,uSun;uniform float uDayF,uCloudR,uAtOn;uniform samplerCube uCubeN,uCubeC;
 #ifdef DUNES
 uniform vec3 uCs;
 #endif
-${NOISE}${IGN}${CLOUD_GLSL}`
+${NOISE}${SURF_GLSL}${IGN}${CLOUD_GLSL}`
             )
             .replace(
                 "#include <roughnessmap_fragment>",
                 `#include <roughnessmap_fragment>
 roughnessFactor=mix(roughnessFactor,.22,smoothstep(.12,.25,vC.b-vC.r));
 #ifdef WET
-// rain-soaked ground: glossier and darker; snow-white pixels keep their own look
-float wetF = uWet * (1. - smoothstep(.72, .85, min(vC.r, min(vC.g, vC.b))));
+// rain-soaked ground: glossier and darker; snow-white pixels keep their own look. Swash-wet sand (shore) is glossy too.
+float wetF = max(uWet * (1. - smoothstep(.72, .85, min(vC.r, min(vC.g, vC.b)))), swashWet * .9);
 roughnessFactor = mix(roughnessFactor, .38, wetF * .8);
 diffuseColor.rgb *= 1. - wetF * .28;
 #endif`
@@ -260,9 +270,21 @@ if (snowF > .5 && dd < 40. && uDayF > .1)
   diffuseColor.rgb += step(.992, h3(floor(vWp * 45.))) * .9 * uDayF * smoothstep(0., .2, sd0);
 float hh = length(vWp) - uR;
 if (abs(hh) < 1.3) {
+#ifdef WET
+  // swash: each breaking wave (same surfPhase as the water) runs up the beach and drains back. The wet sand behind
+  // its edge is darker and glossier (fed to the roughness below), and the leading edge carries a thin foam line.
+  float sp    = surfPhase(vWp, 0., uTime);
+  float run   = .25 + .35 * (.5 + .5 * sin(sp)) * (.7 + .3 * min(uWind, 1.5)); // how far up (m) this wave reaches
+  float wetB  = (1. - smoothstep(run - .08, run + .12, hh)) * smoothstep(-.6, -.1, hh);
+  diffuseColor.rgb *= 1. - wetB * .32;
+  swashWet = wetB;
+  float fo = smoothstep(.09, 0., abs(hh - run)) * smoothstep(-.2, .05, hh)
+           * (.55 + .45 * vn(vWp * 3.4 + uTime * .3));
+#else
   float fo = smoothstep(.45, 0., abs(hh - .1 - .3 * sin(uTime * .8 + vn(vWp * .4) * 6.)))
            * smoothstep(-.9, -.2, hh) * (1. - smoothstep(.3, .9, hh));
   fo *= .5 + .5 * vn(vWp * 3. + uTime * .3);
+#endif
   diffuseColor.rgb = mix(diffuseColor.rgb, vec3(.95), fo * .85);
 }
 float fp = 0.;
@@ -370,7 +392,11 @@ vec3 transformed = lp;
 }
 // Water: five travelling wave trains (analytic normals, wind-scaled, small trains fade with distance), whitecap foam on crests, sky Fresnel.
 export function waterFx(m: THREE.MeshStandardMaterial) {
-    if (gpuTier === "high") (m as any).defines = { GLITTER: "" };
+    // GLITTER + WAVE_SSS: high · SURF (sharp crests, breaking shore waves): medium and high · low: unchanged shader
+    (m as any).defines = {
+        ...(gpuTier === "high" ? { GLITTER: "", WAVE_SSS: "" } : {}),
+        ...(gpuTier !== "low" ? { SURF: "" } : {}),
+    };
     m.onBeforeCompile = (s) => {
         bind(s, ["uTime", "uWind", "uSky", "uSun", "uDayF", "uCubeC", "uAtOn", "uN3", "uWater"]);
         s.uniforms.uAmp = T.uAmp;
@@ -409,7 +435,8 @@ transformed += normalize(position) * ripple;
             .replace(
                 "#include <common>",
                 "#include <common>\nvarying vec3 vWp;uniform float uTime,uWind,uDayF,uAtOn,uAmp;uniform vec3 uSky,uSun,uWater;uniform samplerCube uCubeC;\n" +
-                    NOISE
+                    NOISE +
+                    SURF_GLSL
             )
             .replace(
                 "#include <normal_fragment_maps>",
@@ -450,6 +477,11 @@ transformed += normalize(position) * ripple;
     cr += (sin(p6) * .15 + sin(p7) * .13) * A * fa;
   }
 
+#ifdef SURF
+  // sharper crests: steepen the normal where the summed crest field is high and flatten it in the troughs, giving a
+  // pointed-crest / round-trough profile (as real deep-water waves have) instead of soft sine swell
+  g *= 1. + .55 * smoothstep(-.2, .9, cr) - .25 * smoothstep(.2, -.7, cr);
+#endif
   // project gradient onto sphere surface → perturb normal
   g *= .35 * A;
   g -= nW * dot(g, nW);
@@ -475,10 +507,24 @@ transformed += normalize(position) * ripple;
     diffuseColor.rgb = mix(diffuseColor.rgb, wc,  .9);
     // shallows let a little seabed through (was 28 % opaque: sand under blue read as pale teal); open sea is opaque
     diffuseColor.a   = mix(mix(diffuseColor.a, .95, dp), .62, sh * (1. - crest));
+#ifdef SURF
+    // breaking waves: crests run shoreward through the shallows (< ~4 m), sharpening into a narrow foam front that
+    // leaves a fading foam wake behind it; broken up by noise so the line frays like real surf
+    float ph   = surfPhase(vWp, dep, uTime);
+    float wv   = fract(ph / 6.2832);                                  // 0 → 1 across one wave period
+    float zone = (1. - smoothstep(.3, 4., dep)) * smoothstep(.0, .25, dep);
+    float front = smoothstep(.86, .97, wv) * (1. - smoothstep(.97, 1., wv)); // the breaking crest
+    float wake  = (1. - smoothstep(.0, .35, wv)) * .55;                     // foam left behind as it passes
+    float fray  = smoothstep(.25, .7, vn(vWp * 1.9 + vec3(uTime * .4, 0., 0.)) * .65 + vn(vWp * 4.3) * .35);
+    float shore = clamp((front + wake) * zone * (.45 + .55 * fray) * (.6 + .4 * min(uWind, 1.5)), 0., 1.);
+    // the very edge (< 0.3 m) is always a thin lapping foam line
+    shore = max(shore, (1. - smoothstep(0., .3, dep)) * (.5 + .5 * sin(uTime * 2.2 + vn(vWp * .8) * 8.)) * .7);
+#else
     float shore = clamp((1. - smoothstep(0., 1.1, dep))
                 * (.55 + .45 * sin(dep * 7. - uTime * 1.6
                    + (vn(vWp * .6) * .62 + vn(vWp * 1.09 + vec3(7.3, 0., 2.1)) * .38) * 5.)),
                   0., 1.);
+#endif
     diffuseColor.rgb = mix(diffuseColor.rgb, vec3(.95, .98, 1.), shore * .6);
     diffuseColor.a   = mix(diffuseColor.a,   .9,                 shore * .6);
   }
@@ -508,6 +554,18 @@ transformed += normalize(position) * ripple;
   float sp = pow(max(dot(normal, hv), 0.), 900.);
   float up = smoothstep(-.02, .12, dot(normalize(vWp), uSun));
   totalEmissiveRadiance += vec3(1., .93, .8) * sp * 14. * up * uDayF * (1. - smoothstep(80., 400., length(vViewPosition)));
+}
+#endif
+#ifdef WAVE_SSS
+// high tier: light through the wave crests. Looking toward a low sun, the thin tops of the swell glow with a lighter,
+// more saturated tint of the palette water colour (as sunlit wave crests do), strongest at grazing view angles.
+{
+  vec3  sv   = normalize((viewMatrix * vec4(uSun, 0.)).xyz);
+  float back = pow(clamp(dot(-normalize(vViewPosition), sv), 0., 1.), 4.);
+  float lowS = 1. - smoothstep(.15, .55, dot(normalize(vWp), uSun));
+  float thin = smoothstep(.0, .6, 1. - abs(normal.z));                 // tilted facets = wave flanks
+  totalEmissiveRadiance += min(uWater * 3.5 + vec3(.0, .04, .05), vec3(1.)) * back * lowS * thin * .35 * uDayF
+                         * (1. - smoothstep(60., 300., length(vViewPosition)));
 }
 #endif`
             );

@@ -207,7 +207,8 @@ Touch = unknown mobile → conservative `low`. Desktop → `medium`, not `high`:
 | Shadow coverage (m across) | 156 | 240 | 240 | 380 |
 | Shadow PCF radius | 1 | 1 | 2.5 | 2.5 |
 | Plant shadows (rocks, shrubs, cactus) | off | off | on | on |
-| Water sun glitter | off | off | on | on |
+| Water sun glitter, light through wave crests | off | off | on | on |
+| Sharp wave crests, breaking surf, beach swash | off | on | on | on |
 | Bird flocks / shooting-star slots | 1 / 2 | 2 / 4 | 3 / 4 | 3 / 4 |
 | Lightning, cascade mist (max falls) | off | on (4) | on (8) | on (8) |
 | Butterflies & leaves, sand ripples | off | off | on | on |
@@ -555,6 +556,20 @@ Measured on a medium-tier laptop: no change in frame time or vertex count agains
 - **Vertex displacement:** three sinusoidal wave trains, with directions derived from the sun's azimuth, displace the sphere radially at amplitude `0.7 · uWind`, so the swell follows the weather. A fourth term is a ripple ring expanding from the player (`uPl`).
 - **Fragment normals:** five travelling wave trains (seven within 50–260 m), domain-warped to break tiling, bend the normal analytically (summed gradients, no finite differences). Their crest sum drives whitecap foam, scaled by wind.
 - **High tier: sun glitter** (`GLITTER` define, so other tiers compile exactly the same shader). A very tight Blinn-Phong highlight (`pow(n·h, 900)`) on the detailed wave normal is added as HDR emissive, so bloom turns the brightest facets into sparkles. It fades out beyond about 400 m and with a low sun.
+- **Geometry limit:** the ocean is one sphere (64×48 segments; 32×24 on low), so vertices are about 30 m apart and the vertex swell only reads at a distance. Close-up wave detail is per-pixel. Finer ocean geometry would cost every device.
+
+### Waves and shoreline (medium / high)
+
+Each effect is a compile-time define, so low tier compiles exactly the old shaders. None adds textures, render targets or geometry.
+
+| Effect | Define (tiers) | How |
+|---|---|---|
+| Sharp crests | `SURF` (medium, high) | The normal gradient is scaled by the crest field: ×1.55 where crests are high, ×0.75 in the troughs. This gives a pointed-crest, round-trough profile, as real deep-water waves have, instead of soft sine swell. |
+| Breaking shore waves | `SURF` (medium, high) | Waves run shoreward through water shallower than ~4 m: phase = `surfPhase(w, depth, t)`. Each period has a narrow breaking front (`wv` 0.86–0.97) and a fading foam wake, frayed by two noise octaves and stronger with wind. Below 0.3 m depth there is always a thin lapping foam line. This replaces the old evenly spaced sine ripple. |
+| Swash and wet sand | `WET` (medium, high, terrain shader) | Every wave runs up the beach (`run` = 0.25–0.6 m above sea level, from the same `surfPhase`) and drains back. Sand behind its edge is darker (−32 %) and glossy (`swashWet` feeds the wet-roughness path), with a thin foam line at the leading edge. |
+| Light through wave crests | `WAVE_SSS` (high) | Looking toward a low sun, tilted wave flanks emit a brighter, more saturated tint of `uWater` (`back⁴ × low-sun × flank`), fading out by 300 m. |
+
+`SURF_GLSL` (`surfPhase`) is shared by the water and terrain shaders, so the breaking bands on the water and the swash line on the beach move in step. The phase is `1.6·depth + 1.3·t`, warped by low-frequency noise so crests bend along the coast. The terrain evaluates it at depth 0, the waterline, where the water's bands arrive. `swashWet` is written in `color_fragment` and read in `roughnessmap_fragment`, which follows it in three's chunk order, so it is declared at file scope.
 
 ### Colour (palette-driven)
 
@@ -567,7 +582,7 @@ The deep shade is `uWater × WATER_DEEP`, with `WATER_DEEP = (.36, .2, .36)` exp
 | Depth | Atlas alpha gives depth below sea level: `mix(uWater, uWater·WATER_DEEP, smoothstep(2, 45 m))`, blended 90 % over the base. |
 | Variation | Large-scale noise darkens patches by up to 18 % in the same hue (no hue shift). |
 | Opacity | Material 0.9. Open sea rises to 0.95; shallows under 7 m drop to 0.62, so a little seabed shows. Lower values let the sand turn the blue teal. |
-| Shore | Animated foam bands within about 1 m of depth. |
+| Shore | Breaking-wave foam bands on medium and high (see Waves and shoreline); the evenly spaced foam ripple within about 1 m of depth on low. |
 | Polar ice | From about 50° latitude, blends toward a pale version of `uWater` (not a fixed cyan). |
 | Sky reflection | Fresnel `pow(1 − n·v, 4)` × 0.35 toward `uSky`, tinted 60 % by the normalised `uWater` hue so a pale sky can't wash the sea out. |
 
