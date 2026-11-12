@@ -54,7 +54,7 @@ export const EARTH: WorldPalette = {
     forest: "#2d5a2b",
     rock: "#7a736b",
     snow: "#f4f8ff",
-    water: "#1b4985", // shallow-water blue; the shader derives the deep shade
+    water: "#1a3d78", // warm royal blue (shallows); the shader derives the deep shade
     snowline: 0.3,
     forestDensity: 0.7,
     skyNight: "#03050d",

@@ -39,7 +39,7 @@ export const U = {
     uWet: { value: 0 }, // 0 dry … 1 soaked: rises with rain, dries over ~1 min (main.ts)
     // palette water colour (shallow-water shade). Planet points this at the ocean material's own .color, so palette
     // swaps and the GUI picker update ocean, rivers and map together. Deep water = uWater × WATER_DEEP (shader).
-    uWater: { value: new THREE.Color(0x1b4985) },
+    uWater: { value: new THREE.Color(0x1a3d78) },
     uN3: { value: tex3 },
     uAtOn: { value: 0 },
     uCubeN: { value: null as THREE.Texture | null },
@@ -53,8 +53,9 @@ export const U = {
         value: Array.from({ length: 48 }, () => new THREE.Vector4(0, 0, 0, 0)),
     },
 };
-/** Deep-water shade as a multiple of the palette water colour (Earth: #1b4985 → deep ultramarine). */
-export const WATER_DEEP = "vec3(.25, .187, .346)";
+/** Deep-water shade as a multiple of the palette water colour. Keeps red ≈ blue so the depths stay a warm navy
+ *  (Earth #1a3d78 → ~#0c184a) instead of cold indigo; green drops most, so it never drifts teal. */
+export const WATER_DEEP = "vec3(.36, .2, .36)";
 export const NOISE = `
 uniform sampler3D uN3;
 float h3(vec3 p) {
@@ -329,6 +330,25 @@ vec3 lp    = position;
 float _h   = max(lp.y, 0.0);
 lp.x      += _bx * _amt * _h;
 lp.z      += _bz * _amt * _h;
+#ifdef LEAF_FLUTTER
+// polygonal leaf blades (aLeaf 1 at the stem → 2 at the tip) flicker about their stem: fast, small, out of step with
+// their neighbours (phase from the vertex position), stronger in a strong wind. Bark and canopy blobs have aLeaf ≤ 1.
+if (aLeaf > 1.001 && aLeaf < 2.) {
+  float fl = (aLeaf - 1.) * (.05 + .07 * min(uWind, 2.)) * sin(uTime * 7.3 + dot(position, vec3(3.1, 1.7, 2.3)) + _ph);
+  lp += vec3(fl, fl * .6, -fl * .8);
+}
+#endif
+#ifdef FROND_SWAY
+// palm fronds (aLeaf 2 at the base → 3 at the tip): slow vertical bob growing toward the tip (squared, so the frond
+// bends rather than tilting rigidly), plus a little twist; each frond out of step via its azimuth around the crown
+if (aLeaf >= 2.) {
+  float fw = aLeaf - 2.;
+  float az = atan(position.z, position.x);
+  float bob = fw * fw * (.12 + .22 * min(uWind, 2.)) * sin(uTime * 2.3 + az * 3. + _ph);
+  lp.y += bob;
+  lp.xz += vec2(-sin(az), cos(az)) * bob * .35;
+}
+#endif
 vec3 transformed = lp;
 `
             );
@@ -437,9 +457,8 @@ transformed += normalize(position) * ripple;
     // palette water colour in the shallows → a darker, more saturated shade of it in the depths (Earth: rich blue →
     // deep ultramarine; other planets get their own water hue)
     vec3  wc  = mix(uWater, uWater * ${WATER_DEEP}, dp);
-    // gentle large-scale variation in depth of blue (was a +12 % green swing, which read as teal patches)
-    wc *= mix(vec3(1.), vec3(.9, .95, 1.12),
-              vn(vWp * .018) * .6 + vn(vWp * .031 + vec3(3.3, 0., 1.7)) * .4);
+    // gentle large-scale variation: patches a little darker / richer, in the water's own hue (no hue shift)
+    wc *= mix(1., .82, vn(vWp * .018) * .6 + vn(vWp * .031 + vec3(3.3, 0., 1.7)) * .4);
     diffuseColor.rgb = mix(diffuseColor.rgb, wc,  .9);
     // shallows let a little seabed through (was 28 % opaque: sand under blue read as pale teal); open sea is opaque
     diffuseColor.a   = mix(mix(diffuseColor.a, .95, dp), .62, sh * (1. - crest));
@@ -453,13 +472,15 @@ transformed += normalize(position) * ripple;
 
   // icy tint near poles — abs(nW.y) ≈ 1 at poles, 0 at equator. Starts ~50° latitude (was ~27°, which paled most oceans).
   float icy = smoothstep(0.75, 0.92, abs(nW.y));
-  diffuseColor.rgb = mix(diffuseColor.rgb, vec3(.72, .86, .94), icy * .65);
+  // ice: a pale version of the palette water colour (was a fixed cyan, which ignored the palette and read teal)
+  diffuseColor.rgb = mix(diffuseColor.rgb, mix(uWater, vec3(.85), .7), icy * .65);
   diffuseColor.a   = mix(diffuseColor.a,   .9,                   icy * .55);
 
   // sky Fresnel
   float fr = pow(1. - clamp(dot(normal, normalize(vViewPosition)), 0., 1.), 4.);
-  // sky reflection at grazing angles, tinted toward deep blue so a pale sky doesn't wash the sea out (was 60 % raw sky)
-  diffuseColor.rgb = mix(diffuseColor.rgb, uSky * vec3(.55, .7, 1.) * (.45 + .4 * uDayF), fr * .4);
+  // sky reflection at grazing angles, tinted by the water's own hue so a pale sky doesn't wash the sea out
+  vec3 tintW = uWater / max(max(uWater.r, uWater.g), max(uWater.b, 1e-3)); // palette hue, normalised to max 1
+  diffuseColor.rgb = mix(diffuseColor.rgb, uSky * mix(vec3(1.), tintW, .6) * (.45 + .4 * uDayF), fr * .35);
 }`
             )
             .replace(

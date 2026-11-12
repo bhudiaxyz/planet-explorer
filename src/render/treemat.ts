@@ -14,6 +14,10 @@ function treeMat(tier: number) {
         }),
         m = tier === 2 ? mat : wind(mat, CFG.trees.windFactor * S.windSway),
         base = tier === 2 ? null : (m.onBeforeCompile as any);
+    // per-leaf flutter (fx.ts wind): detailed tier only — the only tier whose geometry has polygonal leaf blades.
+    // Palm frond bob: detailed and medium (both tiers build fronds with the sway bands).
+    if (tier === 0) (m as any).defines = { LEAF_FLUTTER: "", FROND_SWAY: "" };
+    else if (tier === 1) (m as any).defines = { FROND_SWAY: "" };
     const keep =
         tier === 0
             ? "if(lodN<lodA)discard;"
@@ -44,7 +48,7 @@ if (vLd < uLod.z - 20. || dot(normalize(wpL), cameraPosition / crL) < length(wpL
             )
             .replace(
                 "#include <color_vertex>",
-                "#include <color_vertex>\nvColor.rgb=color*mix(vec3(1.),instanceColor,aLeaf);"
+                "#include <color_vertex>\nvColor.rgb=color*mix(vec3(1.),instanceColor,min(aLeaf,1.));"
             )
             .replace(
                 "#include <project_vertex>",

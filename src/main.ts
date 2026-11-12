@@ -181,6 +181,7 @@ const scene = new THREE.Scene(),
         post: postFX,
         rebuild,
         rebuildVeg: () => scatter.rebuild(),
+        resetMap: () => mapOverlay.reset(),
         spots,
     });
     addEventListener("resize", () => {

@@ -157,7 +157,7 @@ export class MapOverlay {
           if (e < 0.) {
             float dp = smoothstep(.0, .35, -e);
             sea = mix(uWater, uWater * ${WATER_DEEP}, dp);
-            sea = mix(sea, min(uWater * 2.2 + .03, vec3(1.)), 1. - smoothstep(.0, .012, -e));
+            sea = mix(sea, min(uWater * 1.8, vec3(1.)), 1. - smoothstep(.0, .012, -e)); // coast: lighter, same hue
             sea = pow(sea, vec3(1.0/2.2)); // linear → display, but no hill shading or saturation boost: true palette hue
           }
           // atlas colours are already LDR — just gamma-correct

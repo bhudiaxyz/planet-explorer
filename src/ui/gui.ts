@@ -15,6 +15,8 @@ interface Ctx {
     post: PostFX;
     rebuild: (respawn?: boolean) => void;
     rebuildVeg: () => void;
+    /** Re-render the map's base image (e.g. after the water colour changes). */
+    resetMap: () => void;
     spots: Spot[];
 }
 // [setting, min, max, step]; terrain settings rebuild the planet when released (radius also respawns the player)
@@ -39,7 +41,7 @@ locsStyle.textContent = [
 document.head.appendChild(locsStyle);
 
 /** Builds the settings panel (G toggles it). */
-export function setupGui({ planet, player, post, rebuild, rebuildVeg, spots }: Ctx) {
+export function setupGui({ planet, player, post, rebuild, rebuildVeg, resetMap, spots }: Ctx) {
     const gui = new GUI({ title: "Planet settings", width: Math.min(280, innerWidth - 8) });
     gui.close();
     const seedState = { word: currentSeedWord };
@@ -93,7 +95,10 @@ export function setupGui({ planet, player, post, rebuild, rebuildVeg, spots }: C
             .addColor(biomeColors, k)
             .name(k + " colour")
             .onFinishChange(() => rebuild());
-    biomes.addColor(biomeColors, "water").onChange((v: string) => planet.water.color.set(v));
+    biomes
+        .addColor(biomeColors, "water")
+        .onChange((v: string) => planet.water.color.set(v)) // ocean + rivers follow live (shared colour)
+        .onFinishChange(resetMap); // map re-renders once the pick is released
     const sky = gui.addFolder("Sky & weather");
     sky.add(S, "timeOfDay", 0, 1, 0.001).listen();
     sky.add(S, "dayLength", 20, 1200, 1).name("day length (s)");

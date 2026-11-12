@@ -1,7 +1,8 @@
 import * as THREE from "three";
 import { rng } from "../core/noise";
 import { CurrentPalette } from "../core/palette";
-import { N0, add, T, cyl, blob, done, frond } from "./geoutil";
+import { N0, add, T, cyl, blob, done, frond, leaves, logCanopies } from "./geoutil";
+import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 export { treeMats } from "../render/treemat";
 
 // ---- species builders; q = 1 detailed tier, q = 0.5 medium tier (same seed → same height/lean, so tiers match in silhouette). Foliage hue comes from LEAF × per-tree variation.
@@ -130,8 +131,8 @@ function palm(r: () => number, q: number) {
                 .clone()
                 .addScaledVector(d, 1.8)
                 .add(new THREE.Vector3(0, -1.1, 0));
-        frond(p, prev, m1, 0.5, N0);
-        frond(p, m1, tip, 0.42, N0);
+        frond(p, prev, m1, 0.5, N0, [2, 2.5]); // inner segment: base barely moves
+        frond(p, m1, tip, 0.42, N0, [2.5, 3]); // outer segment: tip bobs most
     }
     if (hq)
         for (let k = 0; k < 3; k++)
@@ -401,7 +402,31 @@ function juniper(r: () => number, q: number) {
     return done(p);
 }
 const SP = [pine, oak, birch, palm, fir, dead, acacia, cypress, willow, mangrove, kapok, baobab, spruce, juniper]; // species index: pine 0 · oak 1 · birch 2 · palm 3 · fir 4 · snag 5 · acacia 6 · cypress 7 · willow 8 · mangrove 9 · kapok 10 · baobab 11 · spruce 12 · juniper 13
-export const treeGeos = (seed: number, q = 1) => SP.map((f, i) => f(rng(seed + 55 + i * 31), q));
+// Broadleaf species whose detailed tier gets polygonal leaves over its canopy blobs: oak, birch, acacia, willow, mangrove,
+// kapok, baobab. Leaves use their own random stream, so the crown shape (and its match with the medium tier) is unchanged.
+const LEAFY = new Set([1, 2, 6, 8, 9, 10, 11]);
+const LEAF_BUDGET = 110, // leaves per detailed tree (440 triangles): kept small, these trees also cast shadows
+    LEAVES_PER_M2 = 0.32, // density over canopy surface, until the budget caps it
+    LEAF_SIZE = [0.7, 0.5, 0.75, 0.45, 0.6, 0.9, 0.6]; // per species, in LEAFY order: oak big, birch/willow small, kapok large
+function withLeaves(f: (r: () => number, q: number) => THREE.BufferGeometry, si: number, seed: number) {
+    const canopies: [THREE.Vector3, number, number][] = [];
+    logCanopies(canopies);
+    const crown = f(rng(seed + 55 + si * 31), 1);
+    logCanopies(null);
+    const p: THREE.BufferGeometry[] = [],
+        lr = rng(seed + 977 + si * 13),
+        size = LEAF_SIZE[[...LEAFY].indexOf(si)];
+    // per-tree budget (≤ LEAF_BUDGET leaves = 4·LEAF_BUDGET triangles), shared across the crown's blobs by surface area
+    const areas = canopies.map(([, r, sy]) => r * r * sy),
+        total = areas.reduce((a, b) => a + b, 0),
+        budget = Math.min(LEAF_BUDGET, Math.round(4 * Math.PI * total * LEAVES_PER_M2));
+    canopies.forEach(([c, r, sy], k) =>
+        leaves(p, lr, c, r, sy, Math.max(3, Math.round((budget * areas[k]) / total)), size)
+    );
+    return p.length ? mergeGeometries([crown, ...p])! : crown;
+}
+export const treeGeos = (seed: number, q = 1) =>
+    SP.map((f, i) => (q > 0.7 && LEAFY.has(i) ? withLeaves(f, i, seed) : f(rng(seed + 55 + i * 31), q)));
 // base foliage colour per species (HSL in the working space); Forest multiplies in seasonal / blossom / drought variation per tree
 // extra species -> [base slot, dH, dS, dL]: kapok <- mangrove (lush), baobab <- acacia (dusty), spruce <- fir (blue-green), juniper <- pine (dark grey-green)
 const EXTRA: [number, number, number, number][] = [

@@ -173,10 +173,10 @@ void main() {
   vec3 sunDir  = normalize(uSun);
 
   float fresnel = pow(1.0 - max(0.0, dot(viewDir, vWorldNormal)), 2.5);
-  baseColor += min(uWater * 3.0 + 0.04, vec3(1.0)) * fresnel * 0.55; // sky-lit sheen in the water's own hue
+  baseColor += min(uWater * 2.2 + 0.02, vec3(1.0)) * fresnel * 0.45; // sky-lit sheen in the water's own hue
 
   float sss = (1.0 - edgeMask) * max(0.0, dot(sunDir, -vWorldNormal)) * 0.35;
-  baseColor += min(uWater * 2.0 + 0.02, vec3(1.0)) * sss;
+  baseColor += min(uWater * 1.6, vec3(1.0)) * sss;
 
   vec3 halfVec    = normalize(viewDir + sunDir);
   float NdotH     = max(0.0, dot(vWorldNormal, halfVec));
