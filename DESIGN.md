@@ -571,6 +571,8 @@ Each effect is a compile-time define, so low tier compiles exactly the old shade
 
 `SURF_GLSL` (`surfPhase`) is shared by the water and terrain shaders, so the breaking bands on the water and the swash line on the beach move in step. The phase is `1.6·depth + 1.3·t`, warped by low-frequency noise so crests bend along the coast. The terrain evaluates it at depth 0, the waterline, where the water's bands arrive. `swashWet` is written in `color_fragment` and read in `roughnessmap_fragment`, which follows it in three's chunk order, so it is declared at file scope.
 
+**Uniforms must be declared per shader.** Every terrain material receives all of `U` and `T` as uniform values, but each GLSL uniform must still be declared in that shader's own header string. A new identifier used without a declaration (as `uWind` once was in the swash code) fails to compile the whole terrain program on the tiers that enable the define. The land then disappears and only the ocean sphere shows. `npm run build` does not check GLSL, so check shader changes in the browser on every tier.
+
 ### Colour (palette-driven)
 
 One colour drives every water surface: the palette's `water` (the shallow-water shade), held in `U.uWater`. `Planet` points `U.uWater.value` at the ocean material's own `.color` object. Palette swaps (`gui.ts` → `water.color.set`) and the Biomes water picker therefore reach the ocean, rivers, lakes and map with no extra sync code.
