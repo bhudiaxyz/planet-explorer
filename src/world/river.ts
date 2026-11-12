@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import type { Planet } from "./planet";
 import { S, CFG } from "../core/config";
-import { U } from "../render/fx";
+import { U, WATER_DEEP } from "../render/fx";
 import { gpuTier } from "../render/gputier";
 import { rng } from "../core/noise";
 import { RIVER_NAMES } from "../core/names";
@@ -140,6 +140,7 @@ const RIVER_FRAG = `
 uniform float uTime;
 uniform float uHighDetail;
 uniform vec3 uSun;
+uniform vec3 uWater; // palette water colour, shared with the ocean
 
 varying vec2 vUv;
 varying vec3 vWorldNormal;
@@ -163,19 +164,19 @@ void main() {
   float v = isLake
     ? fract((vUv.x - 0.5) * 7.0 - uTime * 0.5)
     : fract(vUv.y - uTime * flowSpeed);
-  // matched to the ocean (render/fx.ts waterFx): blue shallows, ultramarine depths — was teal
-  vec3 deepColor    = vec3(0.004, 0.024, 0.09);
-  vec3 shallowColor = vec3(0.024, 0.145, 0.27);
+  // same palette-driven shades as the ocean (render/fx.ts waterFx), so rivers meet the sea without a colour step
+  vec3 deepColor    = uWater * ${WATER_DEEP};
+  vec3 shallowColor = uWater;
   vec3 baseColor = mix(shallowColor, deepColor, edgeMask);
 
   vec3 viewDir = normalize(cameraPosition - vWorldPos);
   vec3 sunDir  = normalize(uSun);
 
   float fresnel = pow(1.0 - max(0.0, dot(viewDir, vWorldNormal)), 2.5);
-  baseColor += vec3(0.16, 0.42, 0.72) * fresnel * 0.55;
+  baseColor += min(uWater * 3.0 + 0.04, vec3(1.0)) * fresnel * 0.55; // sky-lit sheen in the water's own hue
 
   float sss = (1.0 - edgeMask) * max(0.0, dot(sunDir, -vWorldNormal)) * 0.35;
-  baseColor += vec3(0.06, 0.38, 0.52) * sss;
+  baseColor += min(uWater * 2.0 + 0.02, vec3(1.0)) * sss;
 
   vec3 halfVec    = normalize(viewDir + sunDir);
   float NdotH     = max(0.0, dot(vWorldNormal, halfVec));
@@ -659,13 +660,14 @@ export class RiverSystem {
 
     private _buildMaterial(): THREE.Material {
         if (gpuTier === "low") {
-            return new THREE.MeshBasicMaterial({
-                color: 0x163a64,
+            const m = new THREE.MeshBasicMaterial({
                 transparent: true,
                 opacity: 0.7,
                 depthWrite: false,
                 side: THREE.DoubleSide,
             });
+            m.color = U.uWater.value; // same colour object as the ocean: follows palette swaps
+            return m;
         }
 
         const highDetail = gpuTier === "high" ? 1.0 : 0.0;
@@ -678,6 +680,7 @@ export class RiverSystem {
                 uTime: U.uTime,
                 uHighDetail: { value: highDetail },
                 uSun: U.uSun,
+                uWater: U.uWater,
             },
             vertexShader: RIVER_VERT,
             fragmentShader: RIVER_FRAG,

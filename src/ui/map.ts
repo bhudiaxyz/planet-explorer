@@ -3,7 +3,7 @@ import type { Planet } from "../world/planet";
 import type { Player } from "../player/player";
 import { type Landmark, LANDMARK_ICON } from "../world/landmarks";
 import type { Spot } from "../world/spots";
-import { U } from "../render/fx";
+import { U, WATER_DEEP } from "../render/fx";
 
 const W = 1024,
     H = 512;
@@ -135,11 +135,13 @@ export class MapOverlay {
             uniforms: {
                 uCube: { value: atlas.rtC.texture },
                 uCubeN: { value: atlas.rtN.texture },
+                uWater: U.uWater, // palette water colour (shared with the ocean shader)
             },
             vertexShader: `void main() { gl_Position = vec4(position.xy, 0., 1.); }`,
             fragmentShader: `
         uniform samplerCube uCube;
         uniform samplerCube uCubeN;
+        uniform vec3 uWater;
         void main() {
           vec2 uv = gl_FragCoord.xy / vec2(${W}.0, ${H}.0);
           float lon = (uv.x - .5) * 6.283185307;
@@ -148,13 +150,15 @@ export class MapOverlay {
           vec4 col = textureCube(uCube, dir);
           vec4 nm  = textureCube(uCubeN, dir);
           // The atlas holds the *seabed* colour under the sea (alpha = elevation, < 0 underwater), so oceans used to show
-          // as dark sand. Paint them with the in-game ocean blues instead (same linear colours as waterFx in render/fx.ts),
-          // shallows → depths, with a pale coastline so land and sea separate at a glance.
+          // as dark sand. Paint them with the palette water colour instead — the same shallow → deep mix as the in-game
+          // ocean (waterFx in render/fx.ts) — with a lighter coastline so land and sea separate at a glance.
           float e = col.a;
+          vec3 sea = vec3(0.);
           if (e < 0.) {
             float dp = smoothstep(.0, .35, -e);
-            col.rgb = mix(vec3(.0108, .0675, .234), vec3(.0027, .0126, .081), dp);
-            col.rgb = mix(col.rgb, vec3(.072, .198, .45), 1. - smoothstep(.0, .012, -e));
+            sea = mix(uWater, uWater * ${WATER_DEEP}, dp);
+            sea = mix(sea, min(uWater * 2.2 + .03, vec3(1.)), 1. - smoothstep(.0, .012, -e));
+            sea = pow(sea, vec3(1.0/2.2)); // linear → display, but no hill shading or saturation boost: true palette hue
           }
           // atlas colours are already LDR — just gamma-correct
           col.rgb = pow(max(col.rgb, vec3(0.)), vec3(1.0/2.2));
@@ -165,9 +169,10 @@ export class MapOverlay {
             float ao   = nm.w;
             col.rgb *= mix(0.55, 1.0, diff) * mix(0.75, 1.0, ao);
           }
-          // saturation boost
+          // saturation boost (land)
           float luma = dot(col.rgb, vec3(0.299, 0.587, 0.114));
           col.rgb = mix(vec3(luma), col.rgb, 1.4);
+          if (e < 0.) col.rgb = sea;
           gl_FragColor = vec4(col.rgb, 1.);
         }`,
         });
@@ -243,10 +248,16 @@ export class MapOverlay {
             bctx.save();
             bctx.lineCap = "round";
             bctx.lineJoin = "round";
-            drawPaths("rgba(40, 110, 230, 0.30)", 16, 20); // broad outer halo
-            drawPaths("rgba(80, 165, 255, 0.60)", 8, 10); // mid glow
-            drawPaths("rgba(160, 215, 255, 0.90)", 3, 4); // inner bright line
-            drawPaths("rgba(220, 245, 255, 1.00)", 1.5, 0); // crisp centre
+            // river glow from the palette water colour, lightened step by step toward a near-white core
+            const water = (U.uWater.value as THREE.Color).clone().convertLinearToSRGB(),
+                tone = (lift: number, a: number) => {
+                    const c = water.clone().lerp(new THREE.Color(1, 1, 1), lift);
+                    return `rgba(${Math.round(c.r * 255)}, ${Math.round(c.g * 255)}, ${Math.round(c.b * 255)}, ${a})`;
+                };
+            drawPaths(tone(0.15, 0.3), 16, 20); // broad outer halo
+            drawPaths(tone(0.4, 0.6), 8, 10); // mid glow
+            drawPaths(tone(0.7, 0.9), 3, 4); // inner bright line
+            drawPaths(tone(0.88, 1), 1.5, 0); // crisp centre
             bctx.restore();
 
             // River name labels at the midpoint of each main path
@@ -265,7 +276,7 @@ export class MapOverlay {
                     const name = rNames[ri] ?? "";
                     bctx.shadowColor = "rgba(0,20,60,0.9)";
                     bctx.shadowBlur = 5;
-                    bctx.fillStyle = "rgba(160, 220, 255, 0.9)";
+                    bctx.fillStyle = tone(0.7, 0.9);
                     bctx.fillText(name, px, py - 5);
                 }
                 bctx.restore();

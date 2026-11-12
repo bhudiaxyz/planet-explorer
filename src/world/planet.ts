@@ -74,6 +74,7 @@ void main() {
     };
     constructor(scene: THREE.Scene) {
         scene.add(this.group);
+        U.uWater.value = this.water.color; // one colour object: every .color.set() reaches ocean, rivers and map
         waterFx(this.water);
     }
 

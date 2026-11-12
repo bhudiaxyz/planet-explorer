@@ -37,6 +37,9 @@ export const U = {
     uOn: { value: 0 },
     uNight: { value: 0 },
     uWet: { value: 0 }, // 0 dry … 1 soaked: rises with rain, dries over ~1 min (main.ts)
+    // palette water colour (shallow-water shade). Planet points this at the ocean material's own .color, so palette
+    // swaps and the GUI picker update ocean, rivers and map together. Deep water = uWater × WATER_DEEP (shader).
+    uWater: { value: new THREE.Color(0x1b4985) },
     uN3: { value: tex3 },
     uAtOn: { value: 0 },
     uCubeN: { value: null as THREE.Texture | null },
@@ -50,6 +53,8 @@ export const U = {
         value: Array.from({ length: 48 }, () => new THREE.Vector4(0, 0, 0, 0)),
     },
 };
+/** Deep-water shade as a multiple of the palette water colour (Earth: #1b4985 → deep ultramarine). */
+export const WATER_DEEP = "vec3(.25, .187, .346)";
 export const NOISE = `
 uniform sampler3D uN3;
 float h3(vec3 p) {
@@ -334,7 +339,7 @@ vec3 transformed = lp;
 export function waterFx(m: THREE.MeshStandardMaterial) {
     if (gpuTier === "high") (m as any).defines = { GLITTER: "" };
     m.onBeforeCompile = (s) => {
-        bind(s, ["uTime", "uWind", "uSky", "uSun", "uDayF", "uCubeC", "uAtOn", "uN3"]);
+        bind(s, ["uTime", "uWind", "uSky", "uSun", "uDayF", "uCubeC", "uAtOn", "uN3", "uWater"]);
         s.uniforms.uAmp = T.uAmp;
         s.uniforms.uPl = U.uPl;
         VW(s);
@@ -370,7 +375,7 @@ transformed += normalize(position) * ripple;
         s.fragmentShader = s.fragmentShader
             .replace(
                 "#include <common>",
-                "#include <common>\nvarying vec3 vWp;uniform float uTime,uWind,uDayF,uAtOn,uAmp;uniform vec3 uSky,uSun;uniform samplerCube uCubeC;\n" +
+                "#include <common>\nvarying vec3 vWp;uniform float uTime,uWind,uDayF,uAtOn,uAmp;uniform vec3 uSky,uSun,uWater;uniform samplerCube uCubeC;\n" +
                     NOISE
             )
             .replace(
@@ -429,8 +434,9 @@ transformed += normalize(position) * ripple;
     float dep = max(-texture(uCubeC, normalize(vWp)).a * uAmp, 0.);
     float sh  = 1. - smoothstep(0., 7., dep);
     float dp  = smoothstep(2., 45., dep);
-    // Earth-like ocean (linear RGB): rich blue shallows → deep ultramarine. Red/green kept low so it never drifts teal.
-    vec3  wc  = mix(vec3(.0108, .0675, .234), vec3(.0027, .0126, .081), dp);
+    // palette water colour in the shallows → a darker, more saturated shade of it in the depths (Earth: rich blue →
+    // deep ultramarine; other planets get their own water hue)
+    vec3  wc  = mix(uWater, uWater * ${WATER_DEEP}, dp);
     // gentle large-scale variation in depth of blue (was a +12 % green swing, which read as teal patches)
     wc *= mix(vec3(1.), vec3(.9, .95, 1.12),
               vn(vWp * .018) * .6 + vn(vWp * .031 + vec3(3.3, 0., 1.7)) * .4);
