@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { rng } from "../core/noise";
 import { CurrentPalette } from "../core/palette";
-import { N0, add, done, tiny } from "./geoutil";
+import { N0, add, done, tiny, M } from "./geoutil";
 
 // Glowing crystals. Four kinds, each with near / mid / far tiers (see plants.ts): crystal spikes (dry mid-high ground),
 // geodes (dry mid altitude), ice crystals (near the snowline) and ember shards (hot, dry lowlands).
@@ -18,9 +18,9 @@ export function crystalGeo() {
         add(
             p,
             new THREE.OctahedronGeometry(1, 0),
-            new THREE.Matrix4().compose(
+            M(
                 new THREE.Vector3(Math.cos(a) * rad, h * 0.5, Math.sin(a) * rad),
-                new THREE.Quaternion().setFromEuler(new THREE.Euler((r() - 0.5) * 0.3, a, 0.25 + (r() - 0.5) * 0.2)),
+                new THREE.Euler((r() - 0.5) * 0.3, a, 0.25 + (r() - 0.5) * 0.2),
                 new THREE.Vector3(0.12 + r() * 0.05, h, 0.12 + r() * 0.05)
             ),
             N0,
@@ -40,9 +40,9 @@ export function crystalLow() {
         add(
             p,
             new THREE.OctahedronGeometry(1, 0),
-            new THREE.Matrix4().compose(
+            M(
                 new THREE.Vector3(Math.cos(a) * 0.08, h * 0.5, Math.sin(a) * 0.08),
-                new THREE.Quaternion().setFromEuler(new THREE.Euler(0, a, 0.2)),
+                new THREE.Euler(0, a, 0.2),
                 new THREE.Vector3(0.14, h, 0.14)
             ),
             N0,
@@ -69,7 +69,7 @@ const glowSpike = (
     add(
         p,
         shape,
-        new THREE.Matrix4().compose(pos, new THREE.Quaternion().setFromEuler(rot), new THREE.Vector3(w, h, w)),
+        M(pos, rot, new THREE.Vector3(w, h, w)),
         N0,
         0, // no height AO: crystals glow evenly, and the bright shade (1.0) is what the glow mask keys on
         false,
@@ -93,9 +93,9 @@ export function geodeGeo(det = 1, spikes = 7) {
     for (const side of [-1, 1])
         darkRock(
             p,
-            new THREE.Matrix4().compose(
+            M(
                 new THREE.Vector3(side * 0.32, 0.15, 0),
-                new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0, side * 0.35)),
+                new THREE.Euler(0, 0, side * 0.35),
                 new THREE.Vector3(0.42, 0.42, 0.62)
             ),
             det
@@ -117,15 +117,7 @@ export function geodeGeo(det = 1, spikes = 7) {
 export const geodeLow = () => geodeGeo(0, 3);
 export function geodeTiny() {
     const p: THREE.BufferGeometry[] = [];
-    darkRock(
-        p,
-        new THREE.Matrix4().compose(
-            new THREE.Vector3(0, 0.15, 0),
-            new THREE.Quaternion(),
-            new THREE.Vector3(0.6, 0.4, 0.6)
-        ),
-        0
-    );
+    darkRock(p, M(new THREE.Vector3(0, 0.15, 0), null, new THREE.Vector3(0.6, 0.4, 0.6)), 0);
     glowSpike(p, new THREE.Vector3(0, 0.4, 0), new THREE.Euler(), 0.14, 0.3);
     return done(p);
 }
@@ -173,11 +165,7 @@ export function emberGeo(n = 5) {
         add(
             p,
             new THREE.OctahedronGeometry(1, 0),
-            new THREE.Matrix4().compose(
-                pos,
-                new THREE.Quaternion().setFromEuler(rot),
-                new THREE.Vector3(0.11, h, 0.11)
-            ),
+            M(pos, rot, new THREE.Vector3(0.11, h, 0.11)),
             new THREE.Color(0.06, 0.04, 0.035),
             h,
             false

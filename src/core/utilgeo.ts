@@ -46,3 +46,25 @@ export function basisFromCode(code: number, normal: THREE.Vector3, tangentU: THR
     else tangentU.set(0, 1, 0);
     tangentV.crossVectors(normal, tangentU);
 }
+
+/** One rejection-sampling attempt at a uniformly random unit direction: draws 3 numbers from rand, writes the result to
+ *  out and returns true, or returns false (out undefined) when the sample falls outside the unit ball or too near its
+ *  centre. Callers loop and skip failures; one attempt per call keeps their random sequences and try budgets unchanged. */
+export function randomDir(rand: () => number, out: THREE.Vector3): boolean {
+    out.set(rand() * 2 - 1, rand() * 2 - 1, rand() * 2 - 1);
+    const l = out.lengthSq();
+    if (l > 1 || l < 0.01) return false;
+    out.normalize();
+    return true;
+}
+
+/** Project `forward` onto the tangent plane at `up` and normalise it; at the poles, where forward ∥ up, fall back to a
+ *  perpendicular from the X then Y axis. Mutates and returns `forward`. */
+export function tangentForward(forward: THREE.Vector3, up: THREE.Vector3): THREE.Vector3 {
+    forward.addScaledVector(up, -forward.dot(up));
+    if (forward.lengthSq() < 1e-6) forward.crossVectors(up, AXIS_X);
+    if (forward.lengthSq() < 1e-6) forward.crossVectors(up, AXIS_Y);
+    return forward.normalize();
+}
+const AXIS_X = new THREE.Vector3(1, 0, 0),
+    AXIS_Y = new THREE.Vector3(0, 1, 0);

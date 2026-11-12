@@ -1,34 +1,16 @@
 import * as THREE from "three";
 import type { Planet } from "./planet";
-import { smoothstep } from "../core/utilgeo";
-import { treeDensityCPU } from "./treeutil"; // shared with spots.ts
+import { smoothstep, randomDir } from "../core/utilgeo";
 import { rng } from "../core/noise";
 import { S, CFG } from "../core/config";
-import { treeGeos, lowGeos, treeMats, getLeafColors } from "./trees";
+import { treeGeos, lowGeos, treeMats, getLeafColors, SPECIES, SP } from "./trees";
 import { canBake, bakePoints } from "../render/bake";
 import { gpuTier, isTouchDevice } from "../render/gputier";
 import { U } from "../render/fx";
 import type { Obs } from "./collision";
+
 const UP = new THREE.Vector3(0, 1, 0);
 const _lod = CFG.treeLod;
-/** Species indices (order matches treeGeos / lowGeos / getLeafColors() in trees.ts). */
-const SP = {
-    pine: 0,
-    oak: 1,
-    birch: 2,
-    palm: 3,
-    fir: 4,
-    snag: 5,
-    acacia: 6,
-    cypress: 7,
-    willow: 8,
-    mangrove: 9,
-    kapok: 10,
-    baobab: 11,
-    spruce: 12,
-    juniper: 13,
-} as const;
-const TRUNK = [0.5, 0.7, 0.28, 0.5, 0.45, 0.45, 0.35, 0.35, 0.5, 0.3, 0.75, 1.5, 0.4, 0.3]; // base trunk radius per species, for collision
 
 type Lists = {
     count: number;
@@ -136,7 +118,7 @@ export class Forest {
                     [
                         e,
                         m,
-                        treeDensityCPU(planet, d, m),
+                        planet.treeDensity(d, m),
                         Math.abs(planet.radiusAt(t) - (planet.radius + e * S.amplitude)) / (0.01 * planet.radius),
                     ],
                     i * 4
@@ -179,35 +161,21 @@ export class Forest {
         elevation: number,
         rand: () => number
     ): Omit<Tree, "candidateIndex" | "speciesIndex"> {
-        const c = this.scratchColor.copy(this.leafColors[speciesIndex]);
+        const sp = SPECIES[speciesIndex],
+            c = this.scratchColor.copy(this.leafColors[speciesIndex]);
         c.offsetHSL((rand() - 0.5) * 0.05, (rand() - 0.5) * 0.12, (rand() - 0.5) * 0.1);
         const a = rand(),
-            decid =
-                speciesIndex === SP.oak ||
-                speciesIndex === SP.birch ||
-                speciesIndex === SP.acacia ||
-                speciesIndex === SP.willow ||
-                speciesIndex === SP.kapok ||
-                speciesIndex === SP.baobab;
+            decid = sp.decid;
         if (decid && temperature < 0.6 && a < 0.35) c.setHSL(0.03 + 0.12 * rand(), 0.75, 0.28 + 0.1 * rand());
         else if (decid && a > 0.94) c.setHSL(0.93 + 0.04 * rand(), 0.5, 0.55);
         else if (a > 0.88) c.offsetHSL(0.04, 0.1, 0.1);
         if (moisture < -0.15) c.offsetHSL(-0.03, -0.15, 0.02);
-        const lean = speciesIndex === SP.palm || speciesIndex === SP.juniper ? 0.3 : 0.14;
+        const lean = sp.lean;
         return {
             scale: (0.55 + rand() * 1.1) * (1 - smoothstep(0.3, 0.55, elevation) * 0.35),
             yaw: rand() * 6.28,
-            widthScale:
-                (0.65 + 0.7 * rand()) *
-                (speciesIndex === SP.cypress || speciesIndex === SP.spruce
-                    ? 0.8
-                    : speciesIndex === SP.juniper
-                      ? 1.3
-                      : speciesIndex === SP.acacia || speciesIndex === SP.willow || speciesIndex === SP.mangrove
-                        ? 1.2
-                        : 1),
-            heightScale:
-                (0.65 + 0.8 * rand()) * (speciesIndex === SP.cypress ? 1.15 : speciesIndex === SP.mangrove ? 0.9 : 1),
+            widthScale: (0.65 + 0.7 * rand()) * sp.width,
+            heightScale: (0.65 + 0.8 * rand()) * sp.height,
             tiltX: (rand() - 0.5) * lean,
             tiltZ: (rand() - 0.5) * lean,
             color: [c.r, c.g, c.b],
@@ -240,10 +208,7 @@ export class Forest {
             d = new THREE.Vector3();
         let n = 0;
         for (let i = 0; i < tries; i++) {
-            d.set(rand() * 2 - 1, rand() * 2 - 1, rand() * 2 - 1);
-            const l = d.lengthSq();
-            if (l > 1 || l < 0.01) continue;
-            d.normalize().toArray(candidateDirs, n++ * 3);
+            if (randomDir(rand, d)) d.toArray(candidateDirs, n++ * 3);
         }
         const dirs = candidateDirs.subarray(0, n * 3);
         const [[highDetailGeos, midDetailGeos, lowDetailGeos], [sampleData, stand]] = await Promise.all([
@@ -301,7 +266,9 @@ export class Forest {
             px.push(x);
             py.push(y);
             pz.push(z);
-            (grid.get(kk) ?? grid.set(kk, []).get(kk)!).push(id);
+            let bucket = grid.get(kk);
+            if (!bucket) grid.set(kk, (bucket = []));
+            bucket.push(id);
             acceptedTrees.push({
                 candidateIndex: k,
                 speciesIndex: speciesIdx,
@@ -383,7 +350,7 @@ export class Forest {
     collect(dir: THREE.Vector3, radiusM: number, out: Obs[]) {
         const thr = Math.cos(radiusM / this.pl.radius);
         this.speciesLists.forEach((lists, i) => {
-            const base = TRUNK[i];
+            const base = SPECIES[i].trunk;
             for (let k = 0; k < lists.count; k++) {
                 const dx = lists.dir[k * 3],
                     dy = lists.dir[k * 3 + 1],

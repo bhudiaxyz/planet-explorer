@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { Planet } from "../world/planet";
 import { S } from "../core/config";
 import { rng } from "../core/noise";
+import { tangentForward } from "../core/utilgeo";
 import type { Collider } from "../world/collision";
 import { isTouchDevice, lockPointer } from "./touch";
 const EYE_HEIGHT = 2.4,
@@ -112,10 +113,7 @@ export class Player {
         // fly → walk: drop from current altitude, gravity handles the descent
         this.dir.copy(this.cam.position).normalize();
         this.forward.copy(this.cam.getWorldDirection(scratchForward));
-        this.forward.addScaledVector(this.dir, -this.forward.dot(this.dir));
-        if (this.forward.lengthSq() < 1e-6) this.forward.crossVectors(this.dir, AXIS_X);
-        if (this.forward.lengthSq() < 1e-6) this.forward.crossVectors(this.dir, AXIS_Y);
-        this.forward.normalize();
+        tangentForward(this.forward, this.dir);
         this.pitch = 0;
         this.verticalVelocity = -30;
         this.groundRadius = this.cam.position.length() - EYE_HEIGHT;
@@ -129,10 +127,7 @@ export class Player {
             const up = this.dronePosition.clone().normalize();
             this.droneHoverHeight = this.dronePosition.length() - this.planet.radiusAt(up);
             this.forward.copy(this.cam.getWorldDirection(scratchForward));
-            this.forward.addScaledVector(up, -this.forward.dot(up));
-            if (this.forward.lengthSq() < 1e-6) this.forward.crossVectors(up, AXIS_X);
-            if (this.forward.lengthSq() < 1e-6) this.forward.crossVectors(up, AXIS_Y);
-            this.forward.normalize();
+            tangentForward(this.forward, up);
             this.pitch = 0;
             this.mode = "drone";
         }
@@ -141,10 +136,7 @@ export class Player {
     private snapToGround() {
         this.dir.copy(this.dronePosition).normalize();
         this.forward.copy(this.cam.getWorldDirection(scratchForward));
-        this.forward.addScaledVector(this.dir, -this.forward.dot(this.dir));
-        if (this.forward.lengthSq() < 1e-6) this.forward.crossVectors(this.dir, AXIS_X);
-        if (this.forward.lengthSq() < 1e-6) this.forward.crossVectors(this.dir, AXIS_Y);
-        this.forward.normalize();
+        tangentForward(this.forward, this.dir);
         this.pitch = 0;
         this.verticalVelocity = 0;
         this.groundRadius = this.planet.radiusAt(this.dir);
@@ -173,9 +165,7 @@ export class Player {
             if (this.groundRadius < 1) return;
             const up = this.up.copy(this.dir),
                 planetRadius = this.planet.radius;
-            this.forward.addScaledVector(up, -this.forward.dot(up));
-            if (this.forward.lengthSq() < 1e-6) this.forward.crossVectors(up, AXIS_X);
-            this.forward.normalize();
+            tangentForward(this.forward, up);
             const right = scratchRight.crossVectors(this.forward, up),
                 isUnderwater = this.groundRadius < planetRadius - 0.5;
             if (moveAxis || strafeAxis) {
@@ -219,10 +209,7 @@ export class Player {
             const droneUp = this.up.copy(dronePos).normalize();
 
             // project forward onto tangent plane; guard against alignment with up (poles)
-            this.forward.addScaledVector(droneUp, -this.forward.dot(droneUp));
-            if (this.forward.lengthSq() < 1e-6) this.forward.crossVectors(droneUp, AXIS_X);
-            if (this.forward.lengthSq() < 1e-6) this.forward.crossVectors(droneUp, AXIS_Y);
-            this.forward.normalize();
+            tangentForward(this.forward, droneUp);
 
             const speed = sprint ? 40 : 15;
 

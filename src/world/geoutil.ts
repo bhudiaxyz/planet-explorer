@@ -63,6 +63,10 @@ export function add(
     parts.push(g);
 }
 export const T = (x: number, y: number, z: number) => new THREE.Matrix4().makeTranslation(x, y, z);
+/** Placement matrix: position, rotation (Euler, or null for none), scale. Arguments are evaluated in order, so call
+ *  sites that draw random numbers inside them keep the same sequence. */
+export const M = (pos: THREE.Vector3, rot: THREE.Euler | null, scale: THREE.Vector3) =>
+    new THREE.Matrix4().compose(pos, rot ? new THREE.Quaternion().setFromEuler(rot) : new THREE.Quaternion(), scale);
 export function cyl(
     p: THREE.BufferGeometry[],
     a: THREE.Vector3,
@@ -92,15 +96,7 @@ export const blob = (
     leaf = true
 ) => {
     if (leaf) canopyLog?.push([c0.clone(), r, sy]);
-    add(
-        p,
-        new THREE.IcosahedronGeometry(1, det),
-        new THREE.Matrix4().compose(c0, new THREE.Quaternion(), new THREE.Vector3(r, r * sy, r)),
-        c,
-        r * sy,
-        true,
-        leaf
-    );
+    add(p, new THREE.IcosahedronGeometry(1, det), M(c0, null, new THREE.Vector3(r, r * sy, r)), c, r * sy, true, leaf);
 };
 // One polygonal leaf: a diamond (tip at +y) folded slightly along its midrib, with both faces built in — the tree material
 // is single-sided, and making it double-sided would cost every tree. 4 triangles, unit length, ~0.55 wide.
@@ -168,7 +164,7 @@ export const tiny = (c: THREE.Color, y: number, sx: number, sy: number, leaf: bo
     add(
         p,
         new THREE.OctahedronGeometry(1, 0),
-        new THREE.Matrix4().compose(new THREE.Vector3(0, y, 0), new THREE.Quaternion(), new THREE.Vector3(sx, sy, sx)),
+        M(new THREE.Vector3(0, y, 0), null, new THREE.Vector3(sx, sy, sx)),
         c,
         sy,
         true,

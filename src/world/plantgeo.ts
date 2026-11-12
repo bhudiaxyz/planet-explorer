@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { rng } from "../core/noise";
 import { CurrentPalette } from "../core/palette";
-import { UP, N0, add, T, cyl, blob, done, tiny } from "./geoutil";
+import { UP, N0, add, T, cyl, blob, done, tiny, M } from "./geoutil";
 
 export function grassGeo(blades: number, segs: number, wScale = 1) {
     const pos: number[] = [],
@@ -204,11 +204,7 @@ export function deadScrubLow() {
     add(
         p,
         new THREE.OctahedronGeometry(1, 0),
-        new THREE.Matrix4().compose(
-            new THREE.Vector3(0, 0.35, 0),
-            new THREE.Quaternion(),
-            new THREE.Vector3(0.45, 0.38, 0.45)
-        ),
+        M(new THREE.Vector3(0, 0.35, 0), null, new THREE.Vector3(0.45, 0.38, 0.45)),
         new THREE.Color(0.18, 0.14, 0.1),
         0.38,
         false,
@@ -245,11 +241,7 @@ export function sedgeLow() {
         add(
             p,
             new THREE.PlaneGeometry(0.38, 1.4),
-            new THREE.Matrix4().compose(
-                new THREE.Vector3(0, 0.7, 0),
-                new THREE.Quaternion().setFromEuler(new THREE.Euler(0, a, 0)),
-                new THREE.Vector3(1, 1, 1)
-            ),
+            M(new THREE.Vector3(0, 0.7, 0), new THREE.Euler(0, a, 0), new THREE.Vector3(1, 1, 1)),
             new THREE.Color(0.45, 0.42, 0.18),
             0.7,
             false,
@@ -272,9 +264,9 @@ export function reedGeo(blades = 8) {
         const h = 1.1 + r() * 0.8,
             a = r() * 6.283,
             rad = r() * 0.18,
-            m = new THREE.Matrix4().compose(
+            m = M(
                 new THREE.Vector3(Math.cos(a) * rad, h / 2, Math.sin(a) * rad),
-                new THREE.Quaternion().setFromEuler(new THREE.Euler((r() - 0.5) * 0.25, 0, (r() - 0.5) * 0.25)),
+                new THREE.Euler((r() - 0.5) * 0.25, 0, (r() - 0.5) * 0.25),
                 new THREE.Vector3(1, 1, 1)
             );
         add(

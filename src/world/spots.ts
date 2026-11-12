@@ -4,7 +4,7 @@ import { LANDMARK_ICON } from "./landmarks";
 import { SPOT_NAMES } from "../core/names";
 import { rng } from "../core/noise";
 import { S } from "../core/config";
-import { treeDensityCPU } from "./treeutil";
+import { randomDir } from "../core/utilgeo";
 
 export type Spot = { name: string; icon: string; dir: THREE.Vector3; group?: string };
 
@@ -124,7 +124,7 @@ const FEATURES: Omit<Feature, "candidates">[] = [
         score: (e, _nbrs, t, m) => {
             if (e < 0.05 || e > 0.35 || t < 0.15 || t > 0.6 || m < 0.55) return 0;
             // tmp is the current sample direction — captured via closure from findSpots
-            const td = treeDensityCPU(_planet!, _tmp, m);
+            const td = _planet!.treeDensity(_tmp, m);
             return td > 0.3 ? td : 0;
         },
     },
@@ -190,9 +190,7 @@ export async function findSpots(planet: Planet, riversReady?: Promise<void>): Pr
             await yield_();
             lastYield = performance.now();
         }
-        _tmp.set(rand() * 2 - 1, rand() * 2 - 1, rand() * 2 - 1);
-        if (_tmp.lengthSq() > 1 || _tmp.lengthSq() < 0.01) continue;
-        _tmp.normalize();
+        if (!randomDir(rand, _tmp)) continue;
         const e = planet.elev(_tmp);
         const t = planet.temp(_tmp, e);
         const m = planet.moistureAt(_tmp);
@@ -234,9 +232,7 @@ export async function findSpots(planet: Planet, riversReady?: Promise<void>): Pr
                     await yield_();
                     rescanYield = performance.now();
                 }
-                _tmp.set(rand() * 2 - 1, rand() * 2 - 1, rand() * 2 - 1);
-                if (_tmp.lengthSq() > 1 || _tmp.lengthSq() < 0.01) continue;
-                _tmp.normalize();
+                if (!randomDir(rand, _tmp)) continue;
                 const e = planet.elev(_tmp),
                     t = planet.temp(_tmp, e),
                     m = planet.moistureAt(_tmp);

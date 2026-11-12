@@ -401,21 +401,17 @@ function juniper(r: () => number, q: number) {
     blob(p, new THREE.Vector3(0.6, h * 0.7, 0), 2.0, N0, 0.45, det); // leeward-swept main mat
     return done(p);
 }
-const SP = [pine, oak, birch, palm, fir, dead, acacia, cypress, willow, mangrove, kapok, baobab, spruce, juniper]; // species index: pine 0 · oak 1 · birch 2 · palm 3 · fir 4 · snag 5 · acacia 6 · cypress 7 · willow 8 · mangrove 9 · kapok 10 · baobab 11 · spruce 12 · juniper 13
-// Broadleaf species whose detailed tier gets polygonal leaves over its canopy blobs: oak, birch, acacia, willow, mangrove,
-// kapok, baobab. Leaves use their own random stream, so the crown shape (and its match with the medium tier) is unchanged.
-const LEAFY = new Set([1, 2, 6, 8, 9, 10, 11]);
+// Species with a leafSize get polygonal leaves over their canopy blobs on the detailed tier. Leaves use their own random
+// stream, so the crown shape (and its match with the medium tier) is unchanged.
 const LEAF_BUDGET = 110, // leaves per detailed tree (440 triangles): kept small, these trees also cast shadows
-    LEAVES_PER_M2 = 0.32, // density over canopy surface, until the budget caps it
-    LEAF_SIZE = [0.7, 0.5, 0.75, 0.45, 0.6, 0.9, 0.6]; // per species, in LEAFY order: oak big, birch/willow small, kapok large
-function withLeaves(f: (r: () => number, q: number) => THREE.BufferGeometry, si: number, seed: number) {
+    LEAVES_PER_M2 = 0.32; // density over canopy surface, until the budget caps it
+function withLeaves(f: (r: () => number, q: number) => THREE.BufferGeometry, si: number, seed: number, size: number) {
     const canopies: [THREE.Vector3, number, number][] = [];
     logCanopies(canopies);
     const crown = f(rng(seed + 55 + si * 31), 1);
     logCanopies(null);
     const p: THREE.BufferGeometry[] = [],
-        lr = rng(seed + 977 + si * 13),
-        size = LEAF_SIZE[[...LEAFY].indexOf(si)];
+        lr = rng(seed + 977 + si * 13);
     // per-tree budget (≤ LEAF_BUDGET leaves = 4·LEAF_BUDGET triangles), shared across the crown's blobs by surface area
     const areas = canopies.map(([, r, sy]) => r * r * sy),
         total = areas.reduce((a, b) => a + b, 0),
@@ -426,7 +422,9 @@ function withLeaves(f: (r: () => number, q: number) => THREE.BufferGeometry, si:
     return p.length ? mergeGeometries([crown, ...p])! : crown;
 }
 export const treeGeos = (seed: number, q = 1) =>
-    SP.map((f, i) => (q > 0.7 && LEAFY.has(i) ? withLeaves(f, i, seed) : f(rng(seed + 55 + i * 31), q)));
+    SPECIES.map((sp, i) =>
+        q > 0.7 && sp.leafSize ? withLeaves(sp.build, i, seed, sp.leafSize) : sp.build(rng(seed + 55 + i * 31), q)
+    );
 // base foliage colour per species (HSL in the working space); Forest multiplies in seasonal / blossom / drought variation per tree
 // extra species -> [base slot, dH, dS, dL]: kapok <- mangrove (lush), baobab <- acacia (dusty), spruce <- fir (blue-green), juniper <- pine (dark grey-green)
 const EXTRA: [number, number, number, number][] = [
@@ -638,21 +636,62 @@ const lowJuniper = (r: () => number) => {
     return done(p);
 };
 export const lowGeos = (seed: number) => {
-    const r = rng(seed + 56);
-    return [
-        lowPine(r),
-        lowBlob(r, 4.5, 3.8),
-        lowBlob(r, 8, 2.2),
-        lowPalm(r),
-        lowFir(r),
-        lowDead(r),
-        lowAcacia(r),
-        lowCypress(r),
-        lowWillow(r),
-        lowMangrove(r),
-        lowKapok(r),
-        lowBaobab(r),
-        lowSpruce(r),
-        lowJuniper(r),
-    ];
+    const r = rng(seed + 56); // one stream shared by every low-poly builder, consumed in SPECIES order
+    return SPECIES.map((sp) => sp.low(r));
 };
+
+/** One row per tree species, in index order. Order is load-bearing: the detailed / leaf seeds use the index, and all
+ *  low-poly builders share one random stream in this order, so reordering rows changes every tree. Append new species.
+ *  - build / low: detailed+medium builder (q = 1 / 0.5) and low-poly builder
+ *  - trunk: base trunk radius (m) for collision · lean: max random tilt · width / height: shape multipliers
+ *  - decid: deciduous (autumn / blossom colours) · leafSize: polygonal leaf size on the detailed tier (absent = none) */
+const SPECIES_NAMES = [
+    "pine",
+    "oak",
+    "birch",
+    "palm",
+    "fir",
+    "snag",
+    "acacia",
+    "cypress",
+    "willow",
+    "mangrove",
+    "kapok",
+    "baobab",
+    "spruce",
+    "juniper",
+] as const;
+type Species = {
+    name: (typeof SPECIES_NAMES)[number];
+    build: (r: () => number, q: number) => THREE.BufferGeometry;
+    low: (r: () => number) => THREE.BufferGeometry;
+    trunk: number;
+    lean: number;
+    width: number;
+    height: number;
+    decid: boolean;
+    leafSize?: number;
+};
+const blobOak = (r: () => number) => lowBlob(r, 4.5, 3.8),
+    blobBirch = (r: () => number) => lowBlob(r, 8, 2.2);
+// prettier-ignore
+export const SPECIES: Species[] = [
+    { name: "pine",     build: pine,     low: lowPine,     trunk: 0.5,  lean: 0.14, width: 1,   height: 1,    decid: false },
+    { name: "oak",      build: oak,      low: blobOak,     trunk: 0.7,  lean: 0.14, width: 1,   height: 1,    decid: true,  leafSize: 0.7 },
+    { name: "birch",    build: birch,    low: blobBirch,   trunk: 0.28, lean: 0.14, width: 1,   height: 1,    decid: true,  leafSize: 0.5 },
+    { name: "palm",     build: palm,     low: lowPalm,     trunk: 0.5,  lean: 0.3,  width: 1,   height: 1,    decid: false },
+    { name: "fir",      build: fir,      low: lowFir,      trunk: 0.45, lean: 0.14, width: 1,   height: 1,    decid: false },
+    { name: "snag",     build: dead,     low: lowDead,     trunk: 0.45, lean: 0.14, width: 1,   height: 1,    decid: false },
+    { name: "acacia",   build: acacia,   low: lowAcacia,   trunk: 0.35, lean: 0.14, width: 1.2, height: 1,    decid: true,  leafSize: 0.75 },
+    { name: "cypress",  build: cypress,  low: lowCypress,  trunk: 0.35, lean: 0.14, width: 0.8, height: 1.15, decid: false },
+    { name: "willow",   build: willow,   low: lowWillow,   trunk: 0.5,  lean: 0.14, width: 1.2, height: 1,    decid: true,  leafSize: 0.45 },
+    { name: "mangrove", build: mangrove, low: lowMangrove, trunk: 0.3,  lean: 0.14, width: 1.2, height: 0.9,  decid: false, leafSize: 0.6 },
+    { name: "kapok",    build: kapok,    low: lowKapok,    trunk: 0.75, lean: 0.14, width: 1,   height: 1,    decid: true,  leafSize: 0.9 },
+    { name: "baobab",   build: baobab,   low: lowBaobab,   trunk: 1.5,  lean: 0.14, width: 1,   height: 1,    decid: true,  leafSize: 0.6 },
+    { name: "spruce",   build: spruce,   low: lowSpruce,   trunk: 0.4,  lean: 0.14, width: 0.8, height: 1,    decid: false },
+    { name: "juniper",  build: juniper,  low: lowJuniper,  trunk: 0.3,  lean: 0.3,  width: 1.3, height: 1,    decid: false },
+];
+/** Species index by name (for pickSpecies). */
+type SpeciesName = (typeof SPECIES_NAMES)[number];
+// typed so a misspelt SP.xxx is a compile error (a plain Record<string, number> would silently give undefined)
+export const SP = Object.fromEntries(SPECIES.map((s, i) => [s.name, i])) as Record<SpeciesName, number>;

@@ -126,6 +126,17 @@ void main() {
     moistureAt(d: THREE.Vector3) {
         return this.noise2.get(d.x * S.frequency * 2.2 + 30, d.y * S.frequency * 2.2, d.z * S.frequency * 2.2);
     }
+    /** CPU mirror of the GPU treeDensity() (render/terrain.ts): forestMask × groveMask × moisture. Returns 0–1; > 0 means
+     *  trees can grow here. Used by the forest (when the GPU bake is unavailable) and the spot scanner. */
+    treeDensity(d: THREE.Vector3, moisture: number): number {
+        const f = S.frequency,
+            n = this.noise2;
+        return (
+            smoothstep(-0.05, 0.22, n.get(d.x * f * 5 + 50, d.y * f * 5, d.z * f * 5)) *
+            smoothstep(-0.12, 0.2, moisture) *
+            (0.25 + 0.75 * smoothstep(-0.1, 0.3, n.get(d.x * f * 18, d.y * f * 18 + 91, d.z * f * 18)))
+        );
+    }
     temp(d: THREE.Vector3, e: number) {
         return 1 - 1.1 * d.y * d.y - 1.2 * Math.max(e, 0);
     }

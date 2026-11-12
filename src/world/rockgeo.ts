@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { rng } from "../core/noise";
 import { CurrentPalette } from "../core/palette";
-import { T, add, done, tiny } from "./geoutil";
+import { T, add, done, tiny, M } from "./geoutil";
 
 export function rockGeo() {
     const p: THREE.BufferGeometry[] = [];
@@ -21,9 +21,9 @@ export function rockSlabGeo() {
     add(
         p,
         new THREE.IcosahedronGeometry(1, 2),
-        new THREE.Matrix4().compose(
+        M(
             new THREE.Vector3(0, 0.12, 0),
-            new THREE.Quaternion().setFromEuler(new THREE.Euler(0, r() * 6.28, (r() - 0.5) * 0.25)),
+            new THREE.Euler(0, r() * 6.28, (r() - 0.5) * 0.25),
             new THREE.Vector3(1.15, 0.2, 1.0)
         ),
         new THREE.Color(CurrentPalette.rockWarmAlt),
@@ -34,9 +34,9 @@ export function rockSlabGeo() {
     add(
         p,
         new THREE.IcosahedronGeometry(1, 1),
-        new THREE.Matrix4().compose(
+        M(
             new THREE.Vector3(0.35, 0.3, -0.15),
-            new THREE.Quaternion().setFromEuler(new THREE.Euler((r() - 0.5) * 0.5, r() * 6.28, (r() - 0.5) * 0.4)),
+            new THREE.Euler((r() - 0.5) * 0.5, r() * 6.28, (r() - 0.5) * 0.4),
             new THREE.Vector3(0.48, 0.36, 0.42)
         ),
         new THREE.Color(CurrentPalette.rockWarmDark),
@@ -50,11 +50,7 @@ export function rockSlabLow() {
     add(
         p,
         new THREE.IcosahedronGeometry(1, 0),
-        new THREE.Matrix4().compose(
-            new THREE.Vector3(0, 0.12, 0),
-            new THREE.Quaternion(),
-            new THREE.Vector3(1.1, 0.22, 1.0)
-        ),
+        M(new THREE.Vector3(0, 0.12, 0), null, new THREE.Vector3(1.1, 0.22, 1.0)),
         new THREE.Color(CurrentPalette.rockWarmAlt),
         0.22,
         true
@@ -71,9 +67,9 @@ export function frostRockGeo() {
         add(
             p,
             new THREE.IcosahedronGeometry(1, 1), // det=1 stays angular after jitter
-            new THREE.Matrix4().compose(
+            M(
                 new THREE.Vector3(i * 0.4 - 0.2, s * 0.55 + i * 0.1, i * 0.15 - 0.08),
-                new THREE.Quaternion().setFromEuler(new THREE.Euler((r() - 0.5) * 0.5, r() * 6.28, (r() - 0.5) * 0.6)),
+                new THREE.Euler((r() - 0.5) * 0.5, r() * 6.28, (r() - 0.5) * 0.6),
                 new THREE.Vector3(s, s * 0.9, s * 0.8)
             ),
             new THREE.Color(CurrentPalette.rockCool),
@@ -102,15 +98,7 @@ const ico = (
     rot: THREE.Euler,
     s: THREE.Vector3,
     c: string
-) =>
-    add(
-        p,
-        new THREE.IcosahedronGeometry(1, det),
-        new THREE.Matrix4().compose(pos, new THREE.Quaternion().setFromEuler(rot), s),
-        new THREE.Color(c),
-        s.y,
-        true
-    );
+) => add(p, new THREE.IcosahedronGeometry(1, det), M(pos, rot, s), new THREE.Color(c), s.y, true);
 // flat-shaded hex prism (non-indexed + computeVertexNormals → crisp facets)
 const hex = (p: THREE.BufferGeometry[], x: number, z: number, r: number, h: number, c: string) => {
     const g = new THREE.CylinderGeometry(r, r * 1.05, h, 6, 1).toNonIndexed();
@@ -192,9 +180,9 @@ export function screeGeo(n = 7) {
         add(
             p,
             new THREE.OctahedronGeometry(1, 0),
-            new THREE.Matrix4().compose(
+            M(
                 new THREE.Vector3(Math.cos(a) * d, s * 0.35, Math.sin(a) * d),
-                new THREE.Quaternion().setFromEuler(new THREE.Euler(r() * 3, r() * 6.28, r() * 3)),
+                new THREE.Euler(r() * 3, r() * 6.28, r() * 3),
                 new THREE.Vector3(s * 1.2, s * 0.6, s)
             ),
             new THREE.Color(i % 3 ? CurrentPalette.rockCool : CurrentPalette.rockWarmDark),

@@ -67,6 +67,12 @@ Quality features are added as `#ifdef NAME` blocks, enabled per material with `(
 
 Anything that needs the full terrain function is evaluated on the GPU **once**, into a render target, and only sampled afterwards (`render/bake.ts`). This covers chunk heights, normals and colours, the planet cube maps, plant placement and CPU point queries via `bakePoints()`. The per-frame vertex shaders never run `e3()`. The plant and chunk visible shaders include only `HELPERS_GLSL`, not the terrain noise library.
 
+### Shared helpers
+
+- **`core/utilgeo.ts`:** `smoothstep`, `frame` / `basisFromCode` (cube-face lattice), `randomDir(rand, out)` (one rejection-sampling attempt at a random unit direction; returns false on a rejected sample, so callers keep their attempt budgets and random sequences), and `tangentForward(forward, up)` (project onto the tangent plane, with pole fallbacks).
+- **`world/geoutil.ts`:** the procedural-geometry kit. `add()` bakes one primitive with colour, AO, soft jitter and the `aLeaf` motion band. `M(pos, euler | null, scale)` builds a placement matrix (its arguments are evaluated in order, so random draws inside them keep their sequence). Also `T`, `cyl`, `blob`, `frond`, `leaves`, `tiny` (the far-tier octahedron) and `done` (merge).
+- **`Planet` terrain queries:** `elev`, `radiusAt`, `moistureAt`, `temp` and `treeDensity` (the CPU mirror of the GPU tree-density field).
+
 ### Verifying a change
 
 `npm run build` type-checks TypeScript only. Shader errors surface only when a program compiles in the browser, and only for the tier whose defines include the broken code. Check shader changes by loading the app on every tier (high, medium and low; a spoofed `WEBGL_debug_renderer_info` works) and watching the console for `WebGLProgram` errors.
@@ -95,7 +101,7 @@ src/
 │   ├── aerialfx.ts       ← aerial haze post-pass
 │   └── shadows.ts        ← sun / moon shadow rigs
 ├── world/
-│   ├── planet.ts         ← coarse mesh, cube-map bake, river integration
+│   ├── planet.ts         ← coarse mesh, cube-map bake, river integration; CPU terrain queries (elev, radiusAt, moistureAt, treeDensity)
 │   ├── chunks.ts         ← streamed high-detail terrain chunks
 │   ├── sky.ts            ← sun / moon cycle, weather state
 │   ├── skyfx.ts          ← cloud shell shader
@@ -104,15 +110,14 @@ src/
 │   ├── precip.ts         ← GPU rain / snow
 │   ├── river.ts          ← valley tracing, meanders, tributaries, lakes, water shader
 │   ├── forest.ts         ← tree placement + LOD
-│   ├── trees.ts          ← procedural tree geometry (14 species × 3 tiers)
-│   ├── treeutil.ts       ← CPU twin of the GPU tree-density field (forest fallback + spot scanner)
+│   ├── trees.ts          ← procedural tree geometry + the SPECIES table (14 species × 3 tiers)
 │   ├── geoutil.ts        ← shared procedural-geometry builders
 │   ├── vegetation.ts     ← GPU instanced scatter (reads bake textures)
 │   ├── plants.ts         ← 22-kind plant, rock & crystal catalog with per-kind GLSL gates
 │   ├── plantgeo.ts       ← foliage geometry (grass, flowers, shrubs, …)
 │   ├── crystalgeo.ts     ← glowing crystal geometry (spikes, geodes, ice crystals, ember shards)
 │   ├── rockgeo.ts        ← rock geometry (rocks, slabs, frost rocks, cobbles, tors, scree, basalt)
-│   ├── landmarks.ts      ← 8 procedural landmark types
+│   ├── landmarks.ts      ← 8 procedural landmark types, one builder each
 │   ├── footprints.ts     ← snow footprint trail
 │   ├── collision.ts      ← obstacle collider: trees, landmarks, plants (terrain height is the walk mode's)
 │   └── spots.ts          ← terrain beauty-spot scanner
@@ -136,7 +141,7 @@ src/
 | Sky & atmosphere | `world/sky.ts`, `world/skyfx.ts`, `world/night.ts`, `world/precip.ts` | Sun/moon/weather state, cloud shell + rainbow, aurora/fireflies/bioluminescence, GPU rain/snow. |
 | Ambient life | `world/life.ts` | Bird flocks, shooting stars, lightning, waterfall mist, butterflies & falling leaves. |
 | Rivers & lakes | `world/river.ts` | Valley-tracing paths, meanders, tributaries, lakes; single animated water shader. |
-| Trees | `world/forest.ts`, `world/trees.ts`, `world/treeutil.ts`, `world/geoutil.ts` | 14 species picked by altitude/climate; clustered placement, three LOD levels, per-tree hue and shape variation. |
+| Trees | `world/forest.ts`, `world/trees.ts`, `world/geoutil.ts` | 14 species picked by altitude/climate; clustered placement, three LOD levels, per-tree hue and shape variation. |
 | Ground cover | `world/plants.ts`, `world/vegetation.ts`, `world/plantgeo.ts`, `world/rockgeo.ts`, `world/crystalgeo.ts` | 22 plant, rock and crystal kinds with biome/altitude-specific placement gates. |
 | Landmarks | `world/landmarks.ts` | 24 landmarks across 8 procedural types, placed at build time. |
 | Player | `player/player.ts`, `player/touch.ts`, `world/collision.ts`, `world/footprints.ts` | Walk / drone / fly controller; collision; snow footprints; virtual joystick. |
@@ -534,7 +539,8 @@ Both the outer fade (plant appearing at range limit) and inner fade (plant disap
 
 ## 7. Tree system (`world/forest.ts`, `world/trees.ts`)
 
-- **Species (14):** pine, oak, birch, palm, fir, snag, acacia, cypress, willow, mangrove, kapok, baobab, spruce, juniper. Each species function in `trees.ts` builds both the detailed (`q = 1`) and medium (`q = 0.5`) tiers from the same seed, so silhouettes match. `lowGeos()` builds a separate low-poly set. Index order must match across `treeGeos`, `lowGeos`, `getLeafColors()` and the `SP` / `TRUNK` tables in `forest.ts`.
+- **The `SPECIES` table (`trees.ts`)** is the single source for every per-species value: detailed and low-poly builders, collision trunk radius, lean, width and height multipliers, deciduous flag and leaf size. `treeGeos`, `lowGeos`, `Forest.style()` and the collider all read it, and `SP` (name → index, for `pickSpecies`) is derived from it. Row order is load-bearing: the detailed seed (`seed + 55 + i·31`) and the leaf seed (`seed + 977 + i·13`) use the index, and all low-poly builders share one random stream (`rng(seed + 56)`) consumed in table order.
+- **Species (14):** pine, oak, birch, palm, fir, snag, acacia, cypress, willow, mangrove, kapok, baobab, spruce, juniper. Each species function in `trees.ts` builds both the detailed (`q = 1`) and medium (`q = 0.5`) tiers from the same seed, so silhouettes match. `lowGeos()` builds a separate low-poly set. The species index is the row in `SPECIES`; `getLeafColors()` uses the same order (10 palette slots, then the `EXTRA` derived colours).
 - **Species by altitude** (`pickSpecies`, elevation `e`, temperature `tp`, moisture `m`, smooth `stand` noise so neighbours form stands):
 
   | Band | Species |
@@ -688,7 +694,7 @@ The collider keeps a list of obstacles within ~18–22 m, rebuilt when the playe
 | 1 | Solid unless the feet are above ~90 % of `H`, then walkable. | Small rocks, shrubs |
 | 2 | Walkable dome: no push. Feet are lifted along `domeAt(H, ρ)`, the profile of a half-buried ball. | Large rocks |
 
-Sources: trees from the CPU forest table (`forest.collect`, trunk radius × instance scale), landmarks from their builders, and plants from a GPU read-back of the near placement texture (`readRT`), so the CPU sees exactly the plants the shader draws. Plant collision is currently switched off (`false &&` in `Scatter`), because the collider's shapes no longer match the catalog's `look` scales. Resolution runs two passes over the list and returns the dome boost, which the walk mode eases toward.
+Sources: trees from the CPU forest table (`forest.collect`, trunk radius × instance scale), landmarks from their builders, and plants from a GPU read-back of the near placement texture (`readRT`), so the CPU sees exactly the plants the shader draws. Plant and rock collision is **parked, not dead**: it is switched off (`false &&` in `Scatter`) because the collider's shapes no longer match the catalog's `look` scales, and is intended to be re-enabled. Keep `fromLayer`, `Layer.pix` / `psnap` / `onData` and the `readRT` snapshots. To re-enable, fix the per-kind shapes in `fromLayer`, then drop `false &&`. Resolution runs two passes over the list and returns the dome boost, which the walk mode eases toward.
 
 ---
 
@@ -696,6 +702,7 @@ Sources: trees from the CPU forest table (`forest.collect`, trunk radius × inst
 
 24 landmarks are placed at build time, three of each of eight kinds: monolith ring, twisted spire, tombstone field, floating island, stone arch, crashed ship, basalt pillar field and impact crater. Each placement is seeded (`rng(S.seed …)`) and searched for suitable ground: elevation 0.04 to a per-kind maximum (0.18 for craters, rings and arches; 0.45 for spires; otherwise 0.3) and temperature above 0.3.
 
+- **Builders.** `buildLandmarks` places each landmark, then dispatches to `BUILDERS[kind]`: one function per kind (`build_ring`, `build_spire`, …, `build_island`). Each receives a `Ctx` with the shared random stream, the landmark's frame and ground sampler, the part list, colours and the collision / bobbing outputs, and destructures only what it uses. Builders run in placement order and keep their original statement order, so the random sequence, and therefore every landmark, is reproducible from the seed. Shared helpers: `part()` (one transformed, flat-coloured part), `bake()` (merge parts into the shadow-casting mesh) and `glow()` (merge crystal parts into an unlit, shadow-casting mesh). `part()` is deliberately not geoutil's `add()`, which would also attach an `aLeaf` attribute landmarks don't use.
 - **One mesh per landmark.** Each part is transformed and given a flat vertex colour, then all parts are merged with `mergeGeometries` into a single shadow-casting mesh. This brought about 210 draw calls (and as many shadow draws) down to 16. Glowing crystal accents use a separate unlit `MeshBasicMaterial` mesh per landmark.
 - **Ground fitting.** Parts are placed in the landmark's local frame (`quaternion = setFromUnitVectors(UP, d)`), and `ground(x, z)` samples the real terrain radius under each part, so rings and fields follow the slope.
 - **Collision.** Each builder pushes `Obs` footprints for its solid parts (see §8b).
@@ -911,9 +918,9 @@ World seed is a pronounceable word (e.g. `KaliSeron`) stored in the URL as `?see
 
 ## 13a. Adding a tree species
 
-1. Add a species builder `(r, q) => geometry` and a low-poly builder to `world/trees.ts`; append them to `SP` and `lowGeos()`.
+1. In `world/trees.ts`, write a detailed builder `(r, q) => geometry` and a low-poly builder `(r) => geometry`, add the name to `SPECIES_NAMES`, and **append** one row to `SPECIES`. The row holds the builders plus `trunk` (collision radius), `lean`, `width` / `height` multipliers, `decid` (autumn / blossom colours) and an optional `leafSize` (polygonal leaves). Append, never insert: row order feeds the seeds and the shared low-poly random stream, so inserting changes every tree after it.
 2. Append an `EXTRA` leaf-colour entry (or add bark/leaf slots to every palette in `core/palette.ts`).
-3. In `world/forest.ts`: add the index to `SP`, a trunk radius to `TRUNK`, and a branch in `pickSpecies()`.
+3. Add a branch in `pickSpecies()` (`world/forest.ts`) using `SP.yourName`. `SP` is derived from the table, and a misspelt name is a compile error.
 
 ---
 
