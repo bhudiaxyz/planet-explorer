@@ -22,8 +22,12 @@ const SP = {
     cypress: 7,
     willow: 8,
     mangrove: 9,
+    kapok: 10,
+    baobab: 11,
+    spruce: 12,
+    juniper: 13,
 } as const;
-const TRUNK = [0.5, 0.7, 0.28, 0.5, 0.45, 0.45, 0.35, 0.35, 0.5, 0.3]; // base trunk radius per species, for collision
+const TRUNK = [0.5, 0.7, 0.28, 0.5, 0.45, 0.45, 0.35, 0.35, 0.5, 0.3, 0.75, 1.5, 0.4, 0.3]; // base trunk radius per species, for collision
 
 type Lists = {
     count: number;
@@ -62,9 +66,12 @@ function pickSpecies(elevation: number, temperature: number, moisture: number, s
     if (elevation < 0.09 && temperature > 0.58 && moisture > 0.05) return SP.mangrove; // warm wet shore
     if (elevation < 0.1 && temperature > 0.62 && moisture > -0.1) return SP.palm; // warm dry coast
     if (elevation > 0.44) return SP.snag; // treeline
-    if (elevation > 0.3 || temperature < 0.42) return SP.fir; // high / cold
-    if (temperature > 0.62 && moisture < -0.05) return SP.acacia; // dry warm lowland
-    if (temperature < 0.55) return SP.pine;
+    if (elevation > 0.37) return standNoise > 0.15 ? SP.fir : SP.juniper; // subalpine krummholz, the odd stunted fir
+    if (elevation > 0.3 || temperature < 0.42) return standNoise > 0 ? SP.spruce : SP.fir; // high / cold: spruce and fir stands
+    if (temperature > 0.62 && moisture < -0.05)
+        return elevation < 0.18 && standNoise > 0.05 ? SP.baobab : SP.acacia; // dry warm lowland
+    if (temperature > 0.62 && moisture > 0.2 && elevation < 0.2 && standNoise > 0.05) return SP.kapok; // humid tropical lowland emergents
+    if (temperature < 0.55) return elevation > 0.22 && standNoise > 0.1 ? SP.spruce : SP.pine;
     if (moisture > 0.15) {
         if (elevation < 0.22 && standNoise < 0.0) return SP.willow; // low wet meadow / damp grassland
         return standNoise > 0.1 ? SP.oak : SP.birch; // wet: oak and birch stands
@@ -174,19 +181,23 @@ export class Forest {
                 speciesIndex === SP.oak ||
                 speciesIndex === SP.birch ||
                 speciesIndex === SP.acacia ||
-                speciesIndex === SP.willow;
+                speciesIndex === SP.willow ||
+                speciesIndex === SP.kapok ||
+                speciesIndex === SP.baobab;
         if (decid && temperature < 0.6 && a < 0.35) c.setHSL(0.03 + 0.12 * rand(), 0.75, 0.28 + 0.1 * rand());
         else if (decid && a > 0.94) c.setHSL(0.93 + 0.04 * rand(), 0.5, 0.55);
         else if (a > 0.88) c.offsetHSL(0.04, 0.1, 0.1);
         if (moisture < -0.15) c.offsetHSL(-0.03, -0.15, 0.02);
-        const lean = speciesIndex === SP.palm ? 0.3 : 0.14;
+        const lean = speciesIndex === SP.palm || speciesIndex === SP.juniper ? 0.3 : 0.14;
         return {
             scale: (0.55 + rand() * 1.1) * (1 - smoothstep(0.3, 0.55, elevation) * 0.35),
             yaw: rand() * 6.28,
             widthScale:
                 (0.65 + 0.7 * rand()) *
-                (speciesIndex === SP.cypress
+                (speciesIndex === SP.cypress || speciesIndex === SP.spruce
                     ? 0.8
+                    : speciesIndex === SP.juniper
+                      ? 1.3
                     : speciesIndex === SP.acacia || speciesIndex === SP.willow || speciesIndex === SP.mangrove
                       ? 1.2
                       : 1),

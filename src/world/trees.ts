@@ -304,10 +304,98 @@ function mangrove(r: () => number, q: number) {
     }
     return done(p);
 }
-const SP = [pine, oak, birch, palm, fir, dead, acacia, cypress, willow, mangrove]; // species index: pine 0 · oak 1 · birch 2 · palm 3 · fir 4 · snag 5 · acacia 6 · cypress 7 · willow 8 · mangrove 9
+// ---- extra species: no palette slots of their own; bark/leaf borrow a base slot (see EXTRA) so all 14 palettes keep working unchanged.
+function kapok(r: () => number, q: number) {
+    // tall rainforest emergent: buttressed straight trunk, wide layered flat-topped crown
+    const hq = q > 0.7,
+        det = hq ? 1 : 0,
+        p: THREE.BufferGeometry[] = [],
+        h = 18 + r() * 6,
+        bark = new THREE.Color(CurrentPalette.treeBark[8]);
+    cyl(p, new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, h, 0), 0.75, 0.35, bark, hq ? 7 : 5);
+    const nbut = hq ? 4 : 3;
+    for (let k = 0; k < nbut; k++) {
+        const a = (k / nbut) * 6.283 + r() * 0.4;
+        cyl(p, new THREE.Vector3(Math.cos(a) * 1.6, 0, Math.sin(a) * 1.6), new THREE.Vector3(0, 2.6, 0), 0.22, 0.12, bark, 3);
+    }
+    const nb = hq ? 5 : 3;
+    for (let k = 0; k < nb; k++) {
+        const a = k * (6.283 / nb) + r(),
+            b = new THREE.Vector3(0, h * (0.82 + 0.12 * r()), 0),
+            tip = b.clone().add(new THREE.Vector3(Math.cos(a), 0.35, Math.sin(a)).normalize().multiplyScalar(3.5 + r() * 1.5));
+        cyl(p, b, tip, 0.28, 0.1, bark, hq ? 5 : 3);
+        blob(p, tip.clone().add(new THREE.Vector3(0, 0.6, 0)), 2.8 + r(), N0, 0.4, det);
+    }
+    blob(p, new THREE.Vector3(0, h + 1.2, 0), 3.6, N0, 0.42, det);
+    if (hq) blob(p, new THREE.Vector3((r() - 0.5) * 2, h * 0.7, (r() - 0.5) * 2), 1.6, N0, 0.6, det); // mid-trunk epiphyte clump
+    return done(p);
+}
+function baobab(r: () => number, q: number) {
+    // squat bottle trunk with a sparse crown of stubby branches (hot dry lowland)
+    const hq = q > 0.7,
+        p: THREE.BufferGeometry[] = [],
+        h = 6 + r() * 2,
+        bark = new THREE.Color(CurrentPalette.treeBark[3]);
+    cyl(p, new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, h * 0.45, 0), 1.5, 1.35, bark, hq ? 9 : 6);
+    cyl(p, new THREE.Vector3(0, h * 0.45, 0), new THREE.Vector3(0, h * 0.8, 0), 1.35, 0.7, bark, hq ? 9 : 6);
+    const nb = hq ? 6 : 4;
+    for (let k = 0; k < nb; k++) {
+        const a = k * (6.283 / nb) + r() * 0.5,
+            b = new THREE.Vector3(0, h * 0.78, 0),
+            tip = b.clone().add(new THREE.Vector3(Math.cos(a), 0.9, Math.sin(a)).normalize().multiplyScalar(1.8 + r()));
+        cyl(p, b, tip, 0.3, 0.12, bark, hq ? 5 : 3);
+        blob(p, tip, 1.0 + r() * 0.5, N0, 0.55, hq ? 1 : 0);
+    }
+    return done(p);
+}
+function spruce(r: () => number, q: number) {
+    // narrow, dense, many-tiered spire (mid mountain slopes)
+    const hq = q > 0.7,
+        p: THREE.BufferGeometry[] = [],
+        h = 14 + r() * 6;
+    cyl(p, new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, h * 0.96, 0), 0.4, 0.08, new THREE.Color(CurrentPalette.treeBark[4]), hq ? 6 : 5);
+    const n = hq ? 12 : 7;
+    for (let i = 0; i < n; i++) {
+        const ch = h * (hq ? 0.16 : 0.24),
+            rad = 2.0 * (1 - (i / n) * 0.9) * (0.9 + 0.2 * r()),
+            y = h * (0.06 + (hq ? 0.075 : 0.125) * i);
+        add(p, new THREE.ConeGeometry(rad, ch, hq ? 8 : 6), T(0, y + ch / 2, 0), N0, ch / 2, false, true);
+    }
+    return done(p);
+}
+function juniper(r: () => number, q: number) {
+    // krummholz: short, multi-stemmed, wind-flattened mats just below the treeline
+    const hq = q > 0.7,
+        det = hq ? 1 : 0,
+        p: THREE.BufferGeometry[] = [],
+        h = 2.2 + r() * 1.5,
+        bark = new THREE.Color(CurrentPalette.treeBark[5]),
+        ns = hq ? 3 : 2;
+    for (let k = 0; k < ns; k++) {
+        const a = k * (6.283 / ns) + r(),
+            mid = new THREE.Vector3(Math.cos(a) * 0.6, h * 0.5, Math.sin(a) * 0.6),
+            top = new THREE.Vector3(Math.cos(a) * 1.4 + 0.8, h, Math.sin(a) * 1.4);
+        cyl(p, new THREE.Vector3(0, 0, 0), mid, 0.3, 0.2, bark, hq ? 5 : 3);
+        cyl(p, mid, top, 0.2, 0.08, bark, hq ? 4 : 3);
+        blob(p, top, 1.6 + r() * 0.6, N0, 0.5, det);
+    }
+    blob(p, new THREE.Vector3(0.6, h * 0.7, 0), 2.0, N0, 0.45, det); // leeward-swept main mat
+    return done(p);
+}
+const SP = [pine, oak, birch, palm, fir, dead, acacia, cypress, willow, mangrove, kapok, baobab, spruce, juniper]; // species index: pine 0 · oak 1 · birch 2 · palm 3 · fir 4 · snag 5 · acacia 6 · cypress 7 · willow 8 · mangrove 9 · kapok 10 · baobab 11 · spruce 12 · juniper 13
 export const treeGeos = (seed: number, q = 1) => SP.map((f, i) => f(rng(seed + 55 + i * 31), q));
 // base foliage colour per species (HSL in the working space); Forest multiplies in seasonal / blossom / drought variation per tree
-export const getLeafColors = () => CurrentPalette.treeLeavesHSL.map(([h, s, l]) => new THREE.Color().setHSL(h, s, l));
+// extra species -> [base slot, dH, dS, dL]: kapok <- mangrove (lush), baobab <- acacia (dusty), spruce <- fir (blue-green), juniper <- pine (dark grey-green)
+const EXTRA: [number, number, number, number][] = [
+    [9, -0.02, 0.05, 0.03],
+    [6, -0.03, -0.12, 0.02],
+    [4, 0.05, -0.05, 0.02],
+    [0, 0.04, -0.15, -0.03],
+];
+export const getLeafColors = () => {
+    const base = CurrentPalette.treeLeavesHSL.map(([h, s, l]) => new THREE.Color().setHSL(h, s, l));
+    return [...base, ...EXTRA.map(([i, dh, ds, dl]) => base[i].clone().offsetHSL(dh, ds, dl))];
+};
 
 // ---- low-poly distance tier (a few dozen triangles)
 const lowPine = (r: () => number) => {
@@ -446,6 +534,34 @@ const lowMangrove = (r: () => number) => {
     blob(p, new THREE.Vector3(0, h + 1.2, 0), 3.0, N0, 0.7, 0);
     return done(p);
 };
+const lowKapok = (r: () => number) => {
+    const p: THREE.BufferGeometry[] = [],
+        h = 18 + r() * 6;
+    cyl(p, new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, h, 0), 0.75, 0.35, new THREE.Color(CurrentPalette.treeBark[8]), 3);
+    blob(p, new THREE.Vector3(0, h + 0.8, 0), 5.5, N0, 0.38, 0);
+    return done(p);
+};
+const lowBaobab = (r: () => number) => {
+    const p: THREE.BufferGeometry[] = [],
+        h = 6 + r() * 2;
+    cyl(p, new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, h * 0.8, 0), 1.5, 0.8, new THREE.Color(CurrentPalette.treeBark[3]), 5);
+    blob(p, new THREE.Vector3(0, h * 0.95, 0), 2.8, N0, 0.4, 0);
+    return done(p);
+};
+const lowSpruce = (r: () => number) => {
+    const p: THREE.BufferGeometry[] = [],
+        h = 14 + r() * 6;
+    cyl(p, new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, h * 0.4, 0), 0.4, 0.25, new THREE.Color(CurrentPalette.treeBark[4]), 3);
+    add(p, new THREE.ConeGeometry(2.0, h * 0.9, 6), T(0, h * 0.5, 0), N0, h * 0.45, false, true);
+    return done(p);
+};
+const lowJuniper = (r: () => number) => {
+    const p: THREE.BufferGeometry[] = [],
+        h = 2.2 + r() * 1.5;
+    cyl(p, new THREE.Vector3(0, 0, 0), new THREE.Vector3(0.6, h * 0.7, 0), 0.3, 0.15, new THREE.Color(CurrentPalette.treeBark[5]), 3);
+    blob(p, new THREE.Vector3(0.6, h * 0.8, 0), 2.6, N0, 0.45, 0);
+    return done(p);
+};
 export const lowGeos = (seed: number) => {
     const r = rng(seed + 56);
     return [
@@ -459,5 +575,9 @@ export const lowGeos = (seed: number) => {
         lowCypress(r),
         lowWillow(r),
         lowMangrove(r),
+        lowKapok(r),
+        lowBaobab(r),
+        lowSpruce(r),
+        lowJuniper(r),
     ];
 };
