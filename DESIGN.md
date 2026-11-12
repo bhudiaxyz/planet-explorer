@@ -35,13 +35,13 @@ src/
 │   ├── precip.ts         ← GPU rain / snow
 │   ├── river.ts          ← valley tracing, meanders, tributaries, lakes, water shader
 │   ├── forest.ts         ← tree placement + LOD
-│   ├── trees.ts          ← procedural tree geometry
+│   ├── trees.ts          ← procedural tree geometry (14 species × 3 tiers)
 │   ├── treeutil.ts       ← tree geometry helpers
 │   ├── geoutil.ts        ← shared procedural-geometry builders
 │   ├── vegetation.ts     ← GPU instanced scatter (reads bake textures)
-│   ├── plants.ts         ← 15-kind plant catalog with per-kind GLSL gates
+│   ├── plants.ts         ← 19-kind plant & rock catalog with per-kind GLSL gates
 │   ├── plantgeo.ts       ← foliage geometry (grass, flowers, shrubs, …)
-│   ├── rockgeo.ts        ← rock / crystal geometry
+│   ├── rockgeo.ts        ← rock geometry (rocks, slabs, frost rocks, cobbles, tors, scree, basalt)
 │   ├── landmarks.ts      ← 8 procedural landmark types
 │   ├── footprints.ts     ← snow footprint trail
 │   ├── collision.ts      ← terrain + scatter collision
@@ -66,8 +66,8 @@ src/
 | Sky & atmosphere | `world/sky.ts`, `world/skyfx.ts`, `world/night.ts`, `world/precip.ts` | Sun/moon/weather state, cloud shell + rainbow, aurora/fireflies/bioluminescence, GPU rain/snow. |
 | Ambient life | `world/life.ts` | Bird flocks, shooting stars, lightning, waterfall mist, butterflies & falling leaves. |
 | Rivers & lakes | `world/river.ts` | Valley-tracing paths, meanders, tributaries, lakes; single animated water shader. |
-| Trees | `world/forest.ts`, `world/trees.ts`, `world/treeutil.ts`, `world/geoutil.ts` | Clustered placement, three LOD levels, per-tree hue and shape variation. |
-| Ground cover | `world/plants.ts`, `world/vegetation.ts`, `world/plantgeo.ts`, `world/rockgeo.ts` | 15 plant kinds with biome-specific placement gates. |
+| Trees | `world/forest.ts`, `world/trees.ts`, `world/treeutil.ts`, `world/geoutil.ts` | 14 species picked by altitude/climate; clustered placement, three LOD levels, per-tree hue and shape variation. |
+| Ground cover | `world/plants.ts`, `world/vegetation.ts`, `world/plantgeo.ts`, `world/rockgeo.ts` | 19 plant and rock kinds with biome/altitude-specific placement gates. |
 | Landmarks | `world/landmarks.ts` | 24 landmarks across 8 procedural types, placed at build time. |
 | Player | `player/player.ts`, `player/touch.ts`, `world/collision.ts`, `world/footprints.ts` | Walk / drone / fly controller; collision; snow footprints; virtual joystick. |
 | Locations | `world/spots.ts` | Terrain beauty-spot scanner; results populate the Locations panel and map. |
@@ -108,7 +108,7 @@ main.ts (async IIFE):
 
 - **Shader compile dominates a Windows cold start.** Chrome/Edge on Windows translate WebGL through ANGLE to D3D11, whose HLSL compiler (`fxc`) fully inlines and unrolls the terrain noise: each bake program that evaluates `e3()` takes 2–20 s to compile, against well under a second on GL, Metal or Vulkan. Four measures keep this off the critical path:
   - `precompileBakes()` (`render/bake.ts`) builds a throwaway scene holding every bake material and calls `compileAsync` on it at the start of step 1, with a float render target bound. Three keys programs on the target's colour space, so compiling against the canvas would warm the wrong variants. With `KHR_parallel_shader_compile` the driver compiles them all concurrently while the CPU setup runs.
-  - The plant placement bake is a single program for all 15 kinds (runtime `uKind` branch), not one per kind (§6).
+  - The plant placement bake is a single program for all 19 kinds (runtime `uKind` branch), not one per kind (§6).
   - The visible plant vertex shader includes only `HELPERS_GLSL`, not the whole terrain library it never calls (§6).
   - `renderer.debug.checkShaderErrors` is on only in dev builds. In production it would read each program's info log right after linking, forcing a synchronous wait per program.
 
@@ -349,7 +349,7 @@ Uses `distanceToSquared` with early-exit — no `sqrt` in the inner loop.
 
 ### Plant catalog pattern
 
-Each of 15 plant kinds is one `plant({...})` call declaring:
+Each of 19 plant and rock kinds is one `plant({...})` call declaring:
 - `tiers`: array of `tier(geoFn, cellSize, radius, lodBand, …)` — one per LOD level.
 - `gate`: GLSL snippet that returns `REJECT` to veto an instance (e.g. wrong biome).
 - `look`: GLSL snippet for per-instance colour/scale variation.
@@ -359,13 +359,13 @@ Adding a new plant kind requires only this one entry — nothing else changes.
 
 ### Shader program count
 
-Only structural `#if` flags (`KIND`, `DISP`, `PUSH`, `MOSS`) are compiled as `#define` values. All numeric tier parameters (`PMUL`, `CELLSZ`, `WK`, `TSN`, `TO_FULL`, `TO_GONE`, `TI_GONE`, `TI_FULL`, `SCW`, `SCH`, `LEAN`) are passed as uniforms. This means tiers of the same plant kind with the same structural flags share one compiled shader program — unique programs drop from ~45 (15 kinds × 3 tiers) to ~15 on high tier.
+Only structural `#if` flags (`KIND`, `DISP`, `PUSH`, `MOSS`) are compiled as `#define` values. All numeric tier parameters (`PMUL`, `CELLSZ`, `WK`, `TSN`, `TO_FULL`, `TO_GONE`, `TI_GONE`, `TI_FULL`, `SCW`, `SCH`, `LEAN`) are passed as uniforms. This means tiers of the same plant kind with the same structural flags share one compiled shader program — unique programs drop from ~55 (19 kinds × up to 3 tiers) to ~19 on high tier.
 
 The visible vertex shader reads placement from the baked texel and never evaluates terrain, so it includes only `HELPERS_GLSL` (`sm_`, `hs`, `basis` and the biome colour uniforms) instead of `TERRAIN_GLSL`. `look` snippets may use only those.
 
 ### Placement bake
 
-One texel per instance cell. A bake-pass shader evaluates elevation, moisture, slope and cluster density in GLSL, writing either a height value (accepted) or a sentinel (rejected). **All kinds share one bake program.** `decideGLSL()` emits each kind's `pre` / `gate` / `result` as `if (uKind == k) { … }`, a dynamically uniform branch, rather than `#if KIND==k`, and `placementBakeMaterial()` has no defines. That is one compile instead of 15, which matters on Windows (§2). `decide()` has a single exit: `REJECT` sets a flag, later stages are skipped with `if (!rej)`, and one final `return` picks the sentinel or the kind's result. With ~30 early returns in one program, ANGLE's D3D translation warned X4000 ("potentially uninitialized variable"). A parity check against the original per-kind programs (15 kinds × 9 lattice patches × 16 384 cells) gave identical output. The vertex shader reads the texel; rejected instances are collapsed to `vec3(0)` — a degenerate point the GPU clips away with zero fill-rate cost.
+One texel per instance cell. A bake-pass shader evaluates elevation, moisture, slope and cluster density in GLSL, writing either a height value (accepted) or a sentinel (rejected). **All kinds share one bake program.** `decideGLSL()` emits each kind's `pre` / `gate` / `result` as `if (uKind == k) { … }`, a dynamically uniform branch, rather than `#if KIND==k`, and `placementBakeMaterial()` has no defines. That is one compile instead of one per kind, which matters on Windows (§2). `decide()` has a single exit: `REJECT` sets a flag, later stages are skipped with `if (!rej)`, and one final `return` picks the sentinel or the kind's result. With ~30 early returns in one program, ANGLE's D3D translation warned X4000 ("potentially uninitialized variable"). A parity check against the original per-kind programs (then 15 kinds × 9 lattice patches × 16 384 cells) gave identical output. The vertex shader reads the texel; rejected instances are collapsed to `vec3(0)` — a degenerate point the GPU clips away with zero fill-rate cost.
 
 ### LOD bands (`CFG.plantLod`, `CFG.plantRadius`)
 
@@ -376,15 +376,33 @@ Each tier is `[full-size until, gone beyond, inner gone below, inner full above]
 | `near` / `mid` | grass, ferns, reeds, tall sedge | `[60,90,0,0.5]` / `[74,106,3,14]` | 90 / 104 |
 | `flower` | flowers (single tier) | `[65,90,0,0.5]` | 90 |
 | `mush` | mushrooms (single tier) | `[30,50,0,0.5]` | 48 |
-| `shrub` / `shrubMid` | shrubs, alpine scrub, cactus, dead scrub | `[75,110,0,0.5]` / `[70,152,5,22]` | 110 / 160 |
-| `rock` / `rockMid` | rocks, rock slabs, frost rocks, boulders, crystals | `[80,140,0,0.5]` / `[70,195,5,22]` | 140 / 210 |
+| `shrub` / `shrubMid` | shrubs, alpine scrub, cactus, dead scrub, cobbles (no far tier) | `[75,110,0,0.5]` / `[70,152,5,22]` | 110 / 160 |
+| `rock` / `rockMid` | rocks, rock slabs, frost rocks, boulders, crystals, tors, basalt columns, scree | `[80,140,0,0.5]` / `[70,195,5,22]` | 140 / 210 |
 | `far` | third tier of every multi-tier kind | `[90,200,12,36]` | 204 |
 
 Far tiers draw on high tier only; mid tiers on medium and above.
 
+### Rocks by altitude
+
+Rocks share the plant pipeline: each type is a catalog entry with `wind: 0`, `hardy: true` (survives near the snowline) and its own `clusterField` index. The `gate` picks the altitude band, `look` sets size and tint. Geometry lives in `world/rockgeo.ts` and reuses the palette rock colours (`rockWarm`, `rockWarmAlt`, `rockWarmDark`, `rockCool`), so every planet palette works unchanged.
+
+| Kind | # | Elevation `e` | Other conditions | Size | Tiers |
+|---|---|---|---|---|---|
+| cobbles | 15 | < 0.12, densest below 0.1 | slope < 0.5 | 0.3–0.7 m pebble beds | shrub / shrubMid (no far) |
+| rocks | 3 | any, more on slopes and > 0.4 | — | 0.3–1.9 m | rock / rockMid / far |
+| rock slabs | 8 | any, more 0.25–0.5 | slope-weighted | flat, 0.2–1.4 m | rock / rockMid / far |
+| tors | 16 | 0.14–0.42 | slope < 0.7, rare | stacked blocks ~1.5–8 m tall | rock (8.5 m cell) / rockMid / far |
+| basalt columns | 17 | 0.2–0.52 | dry (`m` < 0.25), clustered (`cf²`) | hex prisms ~0.6–5 m | rock (8.5 m cell) / rockMid / far |
+| boulders | 13 | > 0.28 | slope-weighted | 1.6–4.8 m | rock (8.5 m cell) / rockMid / far |
+| scree | 18 | > 0.3, ramps to 0.5 | density rises with slope (0.2→0.8) | shard fields 0.1–0.5 m | rock / rockMid / far |
+| frost rocks | 9 | > 0.38 | — | 0.3–1.6 m angular | rock / rockMid / far |
+| crystals | 14 | > 0.22 | `m` < 0.35 | thin spires | rock / rockMid / far |
+
+Large kinds (tors, basalt, boulders) use a doubled 8.5 m cell so the instance lattice stays small for rare placements. Cobbles and scree are not collidable (they're stepped over). Plant collision is currently disabled globally (see `Scatter` in `vegetation.ts`), so `collide` only controls shadow casting.
+
 ### Plant shadows
 
-On high tier, the near tier of collidable kinds (rocks, slabs, frost rocks, boulders, shrubs, cactus) casts shadows through a `customDepthMaterial`. It runs the same placement block as the visible shader, injected at `begin_vertex`, because the depth shader includes `beginnormal_vertex` only under `USE_DISPLACEMENTMAP`. Without it, Three's shared depth material draws every instance untransformed, piled at the planet centre: wasted vertex work and no visible shadow. Grass used to be in exactly that state, so it no longer casts at all; thin blades would cost thousands of instances for a barely visible stipple.
+On high tier, the near tier of collidable kinds (rocks, slabs, frost rocks, boulders, tors, basalt columns, shrubs, cactus) casts shadows through a `customDepthMaterial`. It runs the same placement block as the visible shader, injected at `begin_vertex`, because the depth shader includes `beginnormal_vertex` only under `USE_DISPLACEMENTMAP`. Without it, Three's shared depth material draws every instance untransformed, piled at the planet centre: wasted vertex work and no visible shadow. Grass used to be in exactly that state, so it no longer casts at all; thin blades would cost thousands of instances for a barely visible stipple.
 
 ### Wind
 
@@ -404,6 +422,20 @@ Both the outer fade (plant appearing at range limit) and inner fade (plant disap
 
 ## 7. Tree system (`world/forest.ts`, `world/trees.ts`)
 
+- **Species (14):** pine, oak, birch, palm, fir, snag, acacia, cypress, willow, mangrove, kapok, baobab, spruce, juniper. Each species function in `trees.ts` builds both the detailed (`q = 1`) and medium (`q = 0.5`) tiers from the same seed, so silhouettes match. `lowGeos()` builds a separate low-poly set. Index order must match across `treeGeos`, `lowGeos`, `getLeafColors()` and the `SP` / `TRUNK` tables in `forest.ts`.
+- **Species by altitude** (`pickSpecies`, elevation `e`, temperature `tp`, moisture `m`, smooth `stand` noise so neighbours form stands):
+
+  | Band | Species |
+  |---|---|
+  | shore `e` < 0.1, warm | mangrove (wet), palm (dry) |
+  | warm lowland | baobab / acacia (dry), kapok (humid, `e` < 0.2) |
+  | temperate | oak / birch / willow (wet), cypress / birch (drier), pine (cool), spruce on upper cool slopes |
+  | `e` 0.3–0.37 or cold | spruce / fir stands |
+  | `e` 0.37–0.44 subalpine | juniper krummholz, odd stunted fir |
+  | `e` > 0.44 treeline | snag |
+
+  Heights span ~2–4 m (juniper) to ~18–24 m (kapok), before per-tree scale (0.55–1.65, shrinking with altitude) and width/height jitter.
+- **Palette slots:** palettes define 10 bark and 10 leaf colours. The four newer species borrow a base slot. Bark is reused directly, and leaf colour is offset in HSL via `EXTRA` in `trees.ts` (kapok ← mangrove, baobab ← acacia, spruce ← fir, juniper ← pine), so palettes need no edits.
 - Three LOD tiers: 0 detailed (shadow-casting), 1 medium, 2 low-poly.
 - **Distance cross-fade:** tiers blend over `CFG.treeLod = [H0, H1, M0, M1] = [40, 70, 130, 170]` m (scaled by tier, see §3) with strictly complementary IGN screen-door dither: with `a = smoothstep(H0, H1, d)` and `b = smoothstep(M0, M1, d)`, tier 0 keeps `noise ≥ a`, tier 1 keeps `b ≤ noise < a`, tier 2 keeps `noise < b`. No holes, no double coverage, no pops.
 - **Static far set:** the low-poly tier holds every tree and is never rebuilt; its vertex shader collapses instances near the camera or on the far side of the planet. Only the detailed (≤ H1 + 15 m) and medium (H0 − 15 … M1 + 15 m) sets are rebuilt as you move, from per-tree matrices composed once and cached.
@@ -580,7 +612,13 @@ World seed is a pronounceable word (e.g. `KaliSeron`) stored in the URL as `?see
 ## 13. Adding a plant kind
 
 1. Add a geometry builder to `world/plantgeo.ts` (foliage) or `world/rockgeo.ts` (rocks).
-2. Add one `plant({name, tiers, gate, look})` entry to `world/plants.ts`. Nothing else needs editing.
+2. Add one `plant({name, kind, tiers, gate, look})` entry to `world/plants.ts` with an unused `kind` number (also the `clusterField` index). Nothing else needs editing.
+
+## 13a. Adding a tree species
+
+1. Add a species builder `(r, q) => geometry` and a low-poly builder to `world/trees.ts`; append them to `SP` and `lowGeos()`.
+2. Append an `EXTRA` leaf-colour entry (or add bark/leaf slots to every palette in `core/palette.ts`).
+3. In `world/forest.ts`: add the index to `SP`, a trunk radius to `TRUNK`, and a branch in `pickSpecies()`.
 
 ---
 

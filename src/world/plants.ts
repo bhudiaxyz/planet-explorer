@@ -37,6 +37,17 @@ import {
     frostRockGeo,
     frostRockLow,
     frostRockTiny,
+    cobbleGeo,
+    cobbleLow,
+    torGeo,
+    torLow,
+    torTiny,
+    screeGeo,
+    screeLow,
+    screeTiny,
+    basaltGeo,
+    basaltLow,
+    basaltTiny,
 } from "./rockgeo";
 
 // ============================================================================================================================================
@@ -482,6 +493,87 @@ export const PLANTS: PlantSpec[] = [
             : h7 < .88 ? vec3(1.0, .35, .08)
             :             vec3(.18, .90, .55))
         * (2.8 + h1 * 1.4);
+    `,
+    }),
+    // ---- rock variety by altitude: cobbles (shore) → tors (uplands) → basalt columns (dry mid/high) → scree (steep high slopes)
+    plant({
+        name: "cobbles",
+        kind: 15,
+        wind: 0,
+        hardy: true,
+        lean: 0.1,
+        disp: true,
+        moss: true, // shore and riverbed pebble beds; too small to read from far away, so no far tier
+        tiers: [tier(cobbleGeo, 3.4, RAD.shrub, LOD.shrub), tier(cobbleLow, 6.8, RAD.shrubMid, LOD.shrubMid)],
+        pre: "cf = clusterField(d, 15.);",
+        gate: "if (e >= .12 || sl >= .5 || h6 <= 1. - (.006 + (1. - sm_(.02, .1, e)) * .02) * PMUL * (.1 + cf * 2.5)) REJECT;",
+        look: `
+      float s = .6 + h1 * .9;
+      sc = vec3(s, s * (.7 + h7 * .5), s);
+      tint = (h7 < .35 ? vec3(.42, .40, .38) : h7 < .7 ? vec3(.36, .30, .24) : vec3(.5, .48, .46))
+        * 3.6 * (.75 + h2 * .4);
+    `,
+    }),
+    plant({
+        name: "tors",
+        kind: 16,
+        wind: 0,
+        hardy: true,
+        collide: true,
+        lean: 0.05,
+        disp: true,
+        moss: true, // rare stacked outcrops, ~1.5–8 m tall, on upland moors
+        tiers: [
+            tier(torGeo, 8.5, RAD.rock, LOD.rock),
+            tier(torLow, 17, RAD.rockMid, LOD.rockMid),
+            tier(torTiny, 34, RAD.far, LOD.far),
+        ],
+        pre: "cf = clusterField(d, 16.);",
+        gate: "if (e < .14 || e >= .42 || sl >= .7 || h6 <= 1. - (.0008 + sm_(.14, .3, e) * .004) * PMUL * (.1 + cf * 1.4)) REJECT;",
+        look: `
+      float s = 1. + h1 * 1.8;
+      sc = vec3(s * (.8 + h2 * .4), s * (.6 + h7 * 1.1), s * (.8 + h2 * .4));
+      tint = (h7 < .4 ? vec3(.36, .33, .30) : h7 < .75 ? vec3(.30, .28, .27) : vec3(.42, .34, .26))
+        * 4. * (.75 + h2 * .4);
+    `,
+    }),
+    plant({
+        name: "basalt columns",
+        kind: 17,
+        wind: 0,
+        hardy: true,
+        collide: true,
+        lean: 0.04, // tight clusters of hex prisms, ~0.6–5 m tall, on dry mid/high ground
+        tiers: [
+            tier(basaltGeo, 8.5, RAD.rock, LOD.rock),
+            tier(basaltLow, 17, RAD.rockMid, LOD.rockMid),
+            tier(basaltTiny, 34, RAD.far, LOD.far),
+        ],
+        pre: "cf = clusterField(d, 17.);",
+        gate: "if (e < .2 || e >= .52 || m >= .25 || h6 <= 1. - .003 * PMUL * cf * cf * 3.) REJECT;",
+        look: `
+      float s = .8 + h1 * 1.2;
+      sc = vec3(s, s * (.6 + h7 * 1.6), s);
+      tint = (h7 < .5 ? vec3(.18, .18, .20) : vec3(.24, .22, .22)) * 4. * (.8 + h2 * .3);
+    `,
+    }),
+    plant({
+        name: "scree",
+        kind: 18,
+        wind: 0,
+        hardy: true,
+        lean: 0.4, // shard fields above ~tree line, denser the steeper the slope
+        tiers: [
+            tier(screeGeo, 4.25, RAD.rock, LOD.rock),
+            tier(screeLow, 8.5, RAD.rockMid, LOD.rockMid),
+            tier(screeTiny, 17, RAD.far, LOD.far, 1.6, 1),
+        ],
+        pre: "cf = clusterField(d, 18.);",
+        gate: "if (e < .3 || h6 <= 1. - (.002 + sm_(.2, .8, sl) * .03) * sm_(.3, .5, e) * PMUL * (.3 + cf * 1.2)) REJECT;",
+        look: `
+      sc = vec3(.6 + h1);
+      tint = (h7 < .4 ? vec3(.5, .52, .56) : h7 < .75 ? vec3(.4, .4, .42) : vec3(.36, .3, .26))
+        * 3.4 * (.75 + h2 * .4);
     `,
     }),
 ];

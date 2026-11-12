@@ -13,7 +13,8 @@ Inspired by **Beyond Fable** and **threejs-procedural-planets**.
 - **Whole planet from one seed.** Terrain, biomes, plants, sky, weather, water and rivers, all generated on the GPU.
 - **13 Solar System palettes.** From Earth to Mercury and out to Pluto and Haumea, each palette gives the world its own look.
 - **Rivers, streams and lakes.** They follow valleys from high ground to the sea, branch into tributaries, meander, and pool into lakes.
-- **Rich ground cover.** 15 kinds of plants and rocks, each growing in the biomes that suit it, with forests whose trees vary in shape and colour.
+- **Rich ground cover.** 19 kinds of plants and rocks, from shore cobbles and upland tors to basalt columns and scree fields, each growing where the altitude and climate suit it.
+- **Forests that change with altitude.** 14 tree species, from mangroves and kapok giants on tropical coasts to spruce, wind-bent juniper and bare snags at the treeline.
 - **Living sky.** Day/night cycle, clouds, rain and snow, aurora at the poles, fireflies, glowing coastlines and a galactic band at night.
 - **Wind-driven ocean.** Waves grow and shrink with the weather.
 - **Places to visit.** A Locations panel offers one-tap teleports to beauty spots (beaches, canyons, peaks, lagoons…), 24 procedural landmarks and named rivers.
