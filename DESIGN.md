@@ -2,6 +2,75 @@
 
 Developer reference for the procedural planet explorer. Covers architecture decisions, system internals, and implementation details. For a feature overview see [README.md](README.md).
 
+New to the code? Read §0 first: it explains the conventions every other section assumes.
+
+**Contents.**
+
+- **Foundations:** §0 How to read this codebase · §1 Source layout · §2 Startup sequence · §3 GPU tier detection
+- **World:** §4 Terrain · §5 Rivers & lakes · §6 Ground cover · §7 Trees · §7a Sky, weather & precipitation · §8 Night systems · §8a Ambient life · §8b Player, controls & collision · §8c Landmarks · §9 Water & ocean · §9a Weather on the ground, atmosphere & light
+- **Presentation:** §10 Rendering pipeline · §11 Settings & Locations panels · §11a Palettes & configuration · §12 Seed system
+- **How-tos:** §13 Adding a plant kind · §13a Adding a tree species · §14 Build & deploy
+
+---
+
+## 0. How to read this codebase
+
+The patterns below recur in almost every file. Reading this section first makes the rest of the document, and the code, much easier to follow.
+
+### The world is a sphere: directions, not coordinates
+
+The planet is centred at the origin. Almost every system stores a position as a **unit direction `d`** (a point on the unit sphere) plus a **height**: ground radius = `planet.radiusAt(d)` = `R + e3(d)·amplitude`. "Up" anywhere is just `d`. There is no global up, no heightmap and no tangent grid. Instead:
+
+- Ground-anchored lattices (terrain chunks, plant cells, shadow snapping) use the **cube-face frame**. `frame(dir, radius, cellSize)` (`core/utilgeo.ts`) picks the dominant cube face and returns integer cell coordinates on its gnomonic grid. `basis()` (GLSL) / `basisFromCode()` (TS) rebuild that face's normal and tangents from a single face code (`face·2 + sign`), so a whole lattice is described by three numbers.
+- Walking moves the direction, not a position: a step rotates `d` by `distance / groundRadius`. The camera is placed at `d · (groundRadius + eye height)` and oriented with `camera.up = d`.
+
+### Four kinds of shared state
+
+| Object | File | What it holds | Changes |
+|---|---|---|---|
+| `S` | `core/config.ts` | Live user settings: seed, radius, octaves, snowline, time of day, weather, wind. Bound to the settings panel. | At runtime (GUI); terrain settings trigger a rebuild |
+| `CFG` | `core/config.ts` | Engineering constants: LOD distances, chunk sizes, counts, river parameters. Every former magic number lives here. | Never at runtime (`as const`) |
+| `T` | `render/terrain.ts` | Uniforms for the shared terrain function: frequency, octaves, amplitude, snowline, radius, biome colours, noise permutation texture. Filled from `S` by `syncTerrain()` on each build. | Per build |
+| `U` | `render/fx.ts` | Per-frame shared uniforms: time, wind, sun, daylight, sky colour, wetness, snowfall, LOD bands, water colour, player position. | Every frame (`main.ts` loop) |
+
+Materials receive these by passing the **same uniform objects** (not copies), so a single assignment in `main.ts`, such as `U.uWet.value = …`, reaches every shader that uses it. The exception to watch for: `ShaderPass` and `UniformsUtils.clone` copy plain uniform objects, which freezes them (see §10, aerial pass).
+
+### Shader injection into Three's materials
+
+Most lit surfaces (terrain, water, trees, plants) are stock `MeshStandardMaterial`s, so they keep Three's lighting, shadows and fog. Custom behaviour is spliced in with `onBeforeCompile`, which string-replaces Three's shader **chunks**:
+
+```ts
+m.onBeforeCompile = (s) => {
+    Object.assign(s.uniforms, U, T);                       // bind shared uniforms (same objects)
+    s.vertexShader = s.vertexShader
+        .replace("#include <common>", "#include <common>\nuniform float uTime; …") // declarations
+        .replace("#include <begin_vertex>", "vec3 transformed = …;");             // custom displacement
+    s.fragmentShader = s.fragmentShader
+        .replace("#include <color_fragment>", "#include <color_fragment>\n …");   // custom colour
+};
+```
+
+Rules this implies:
+
+- **Every GLSL identifier must be declared in that shader's own header string.** Binding a uniform value in JS doesn't declare it in GLSL. An undeclared name fails the *whole program* at runtime, and `npm run build` cannot see it, because GLSL is just strings to TypeScript. Several bugs in this project's history came from exactly this (`uWind`, `vNormal`, `vColor` in a depth pass).
+- **Chunk order matters.** In the fragment shader, `color_fragment` → `roughnessmap_fragment` → `normal_fragment_maps` → `emissivemap_fragment` run in that order. A value computed in one and read in a later one is declared at file scope in the header.
+- **Depth/shadow materials run the same vertex code without vertex colours.** Anything reading `vColor` there must be inside `#ifdef USE_COLOR`.
+- **Vertex shaders and fragment shaders are separate programs**, so the same name in each (for example `gN`) does not clash, and a declaration in one does not reach the other.
+- **Backticks inside injected GLSL break the JS template literal.** Keep comments in shader strings backtick-free.
+- `customProgramCacheKey` must include every switch that changes the injected source, or Three reuses the wrong compiled program.
+
+### Tier features are compile-time defines
+
+Quality features are added as `#ifdef NAME` blocks, enabled per material with `(m as any).defines = { NAME: "" }` only on tiers that should have them. The lower tiers then compile **byte-identical** shaders to before a feature existed, so a new effect cannot slow down or break them. Examples: `DUNES`, `GLITTER`, `WAVE_SSS` (high); `WET`, `SURF`, `MIST` (medium+); `LEAF_FLUTTER`, `CANOPY_SWAY` (per tree tier).
+
+### Bake once, read every frame
+
+Anything that needs the full terrain function is evaluated on the GPU **once**, into a render target, and only sampled afterwards (`render/bake.ts`). This covers chunk heights, normals and colours, the planet cube maps, plant placement and CPU point queries via `bakePoints()`. The per-frame vertex shaders never run `e3()`. The plant and chunk visible shaders include only `HELPERS_GLSL`, not the terrain noise library.
+
+### Verifying a change
+
+`npm run build` type-checks TypeScript only. Shader errors surface only when a program compiles in the browser, and only for the tier whose defines include the broken code. Check shader changes by loading the app on every tier (high, medium and low; a spoofed `WEBGL_debug_renderer_info` works) and watching the console for `WebGLProgram` errors.
+
 ---
 
 ## 1. Source layout
@@ -13,8 +82,8 @@ src/
 │   ├── config.ts         ← S (live settings) + CFG (engineering constants) + seed-word state
 │   ├── noise.ts          ← CPU Perlin noise (shared permutation table with GPU)
 │   ├── palette.ts        ← 13 Solar System planet palettes
-│   ├── names.ts          ← pronounceable seed-word generator
-│   ├── util.ts           ← general utilities (RNG, hashing)
+│   ├── names.ts          ← landmark / river name pools
+│   ├── util.ts           ← seed words (generate / hash), general utilities
 │   └── utilgeo.ts        ← geometry math (smoothstep, frame, spherical helpers)
 ├── render/
 │   ├── gputier.ts        ← GPU probe → high / medium / low tier
@@ -36,7 +105,7 @@ src/
 │   ├── river.ts          ← valley tracing, meanders, tributaries, lakes, water shader
 │   ├── forest.ts         ← tree placement + LOD
 │   ├── trees.ts          ← procedural tree geometry (14 species × 3 tiers)
-│   ├── treeutil.ts       ← tree geometry helpers
+│   ├── treeutil.ts       ← CPU twin of the GPU tree-density field (forest fallback + spot scanner)
 │   ├── geoutil.ts        ← shared procedural-geometry builders
 │   ├── vegetation.ts     ← GPU instanced scatter (reads bake textures)
 │   ├── plants.ts         ← 22-kind plant, rock & crystal catalog with per-kind GLSL gates
@@ -45,7 +114,7 @@ src/
 │   ├── rockgeo.ts        ← rock geometry (rocks, slabs, frost rocks, cobbles, tors, scree, basalt)
 │   ├── landmarks.ts      ← 8 procedural landmark types
 │   ├── footprints.ts     ← snow footprint trail
-│   ├── collision.ts      ← terrain + scatter collision
+│   ├── collision.ts      ← obstacle collider: trees, landmarks, plants (terrain height is the walk mode's)
 │   └── spots.ts          ← terrain beauty-spot scanner
 ├── player/
 │   ├── player.ts         ← walk / drone / fly controller
@@ -507,6 +576,30 @@ Stems and frond bases sit at the low end of their ramps, so they stay attached t
 
 ---
 
+## 7a. Sky, weather & precipitation (`world/sky.ts`, `world/skyfx.ts`, `world/precip.ts`)
+
+### Day and sun
+
+`S.timeOfDay` (0–1) advances by `dt / S.dayLength` each frame. The sun direction is a circle tilted by `ATM.tilt`: `sun = (cos θ, sin θ·cos tilt, sin θ·sin tilt)`, θ = 2π·timeOfDay. The **moon is always exactly opposite the sun** (`−sun`), which effects such as moon glitter rely on. From the sun's elevation over the player's up, `sky.dayF` (0 night … 1 day, smoothstepped) drives lighting, stars, fireflies and most day/night shader terms. `sky.space` (0 on the ground … 1 in orbit) fades atmosphere, fog and sky colour with altitude.
+
+### Weather state machine
+
+With `S.weather = "auto"`, a timer picks a new state every 40–110 s: clear 50 %, fog 20 %, precipitation 30 %. A fixed `S.weather` overrides it. Precipitation falls as snow when the weather is `snow`, or when it is `precip` and the local temperature is below 0.35. The visible quantities never jump: `cloud`, `fogWeight` and `precipitationAmount` each ease toward their targets with `1 − exp(−0.5·dt)`. Ground effects derive from these in `main.ts`: `U.uWet` (rain), `U.uSnowFall` (snow), and lightning, which needs precipitation.
+
+### Sky colour, fog and lights
+
+The background (`sky.bg`) blends palette night → day → a sunset band (Gaussian in sun elevation, reduced by cloud) → overcast grey, then fades to black in space. `FogExp2` uses the same colour, with density raised by fog and precipitation. The sun's `DirectionalLight` warms toward the palette sunset light near the horizon and dims under cloud. The moon is a second `DirectionalLight`. The sun and moon discs are drawn 12 km from the camera along ±sun, with stars and nebulae rotating with the time of day.
+
+### Clouds (`skyfx.ts`)
+
+One sphere shell above the highest peaks (`cloudRadius = R + max(110, 1.3·amp + 50)`). Its fragment shader evaluates `cdens()`: wind-advected value noise, 3 octaves. A second 2-octave sample offset toward the sun gives self-shadowing. The sunset tint comes from the cloud point's own sun elevation, and distant clouds fade into the fog colour. The same `cdens()` is used by the terrain shader to cast cloud shadows on the ground.
+
+### Rain and snow (`precip.ts`)
+
+`N` points (1750 / 1100 / 600 by tier). Each has a random seed, and the vertex shader places it in a 50 × 36 × 50 m box anchored to the camera, falling and wrapping with `mod()`. Rain falls at 38 m/s; snow at 3 m/s with a sideways sine drift and larger points. The CPU uploads only the camera basis and amounts. Precipitation fades out between 50 and 80 m altitude.
+
+---
+
 ## 8. Night systems (`world/night.ts`)
 
 ### Aurora
@@ -564,6 +657,49 @@ Measured on a medium-tier laptop: no change in frame time or vertex count agains
 **Butterflies & falling leaves** (high only). 160 two-triangle "flutterers" in a world-anchored 70 m cell around the player (wrapping with `mod()`, as the fireflies do). Each picks its role from the ground under its home position: warm meadow → butterfly (bright wings flapping, wandering 0.6–2.2 m up); warm forest (`treeDensity`) → leaf (autumn tint, tumbling down from 9 m on a 9 s loop, drifting downwind); anywhere else, or above the snowline → hidden.
 
 **Sand ripples** (high only, `render/fx.ts`, `DUNES` define). Pixels close to the palette's sand colour (`uCs`) within 120 m get long parallel ridges (fixed world wind direction, warped by two noise octaves so they meander and fork). They are fed into the existing derivative bump so they mostly change lighting, plus a slight shade. Other tiers compile exactly the same terrain shader as before.
+
+---
+
+## 8b. Player, controls & collision (`player/player.ts`, `player/touch.ts`, `world/collision.ts`)
+
+### Movement modes
+
+| Mode | Position stored as | Movement | Ground |
+|---|---|---|---|
+| walk | unit direction `dir` + `groundRadius` | WASD rotate `dir` by `speed·dt / groundRadius` (9 m/s, 20 sprinting, half speed underwater). Gravity 28 m/s², jump 10 m/s. | Feet follow `planet.radiusAt(dir)` plus the collider's walkable-dome boost; underwater the floor is `R − 1.2`. |
+| drone | world position | Always flies forward (15 / 40 m/s); A/D yaw, Space/C change hover height. | Eases toward `terrain + hoverHeight` (faster when below it), never under 3 m. **L** starts a landing: hover height falls at 8 m/s until it snaps back to walk. |
+| fly | world position | Free 6-DoF: mouse looks, WASD moves along the camera axes, Q/E roll. Speed scales with altitude (`max(20, 1.5·alt)`, ×4 sprinting). | Clamped 3 m above the terrain. |
+
+**F** cycles walk → drone → fly → walk. Leaving fly drops the player from the current altitude with a −30 m/s start, and gravity handles the landing. Movement runs in sub-steps of at most 33 ms (`main.ts`), so speed and collision stay correct at low frame rates. A NaN check respawns the player if anything ever produces a non-finite position. All vectors are pre-allocated scratch objects, so there are no per-frame allocations.
+
+**Spawn** samples up to 2000 seeded directions for gentle, warm land (`0.04 < e < 0.25`, temperature > 0.45). `warpTo(dir)` (Locations panel) and every mode change set `forest.last` far away, forcing the tree LOD sets to rebuild around the new position.
+
+### Input
+
+Desktop uses Pointer Lock for mouse look (sensitivity 0.0022 rad/px) and keyboard state in a `Set`. Touch devices (`isTouchDevice`: primary pointer coarse, so touchscreen laptops keep desktop controls) get a `nipplejs` joystick on the left half of the screen and swipe-look on the right half (`S.touchLookSensitivity`). On-screen buttons map to the same `touchJump` / `touchSprint` / `touchDescend` / roll flags that the keyboard sets.
+
+### Collision
+
+The collider keeps a list of obstacles within ~18–22 m, rebuilt when the player moves more than 4 m or the sources change. Each obstacle is an **elliptical footprint** at a direction `d`: semi-axes `rx`, `rz` along an axis `ax`, a height `H` and a mode.
+
+| Mode | Behaviour | Used by |
+|---|---|---|
+| 0 | Solid pillar: the player is pushed out radially. | Tree trunks, monoliths, tombstones, spires |
+| 1 | Solid unless the feet are above ~90 % of `H`, then walkable. | Small rocks, shrubs |
+| 2 | Walkable dome: no push. Feet are lifted along `domeAt(H, ρ)`, the profile of a half-buried ball. | Large rocks |
+
+Sources: trees from the CPU forest table (`forest.collect`, trunk radius × instance scale), landmarks from their builders, and plants from a GPU read-back of the near placement texture (`readRT`), so the CPU sees exactly the plants the shader draws. Plant collision is currently switched off (`false &&` in `Scatter`), because the collider's shapes no longer match the catalog's `look` scales. Resolution runs two passes over the list and returns the dome boost, which the walk mode eases toward.
+
+---
+
+## 8c. Landmarks (`world/landmarks.ts`)
+
+24 landmarks are placed at build time, three of each of eight kinds: monolith ring, twisted spire, tombstone field, floating island, stone arch, crashed ship, basalt pillar field and impact crater. Each placement is seeded (`rng(S.seed …)`) and searched for suitable ground: elevation 0.04 to a per-kind maximum (0.18 for craters, rings and arches; 0.45 for spires; otherwise 0.3) and temperature above 0.3.
+
+- **One mesh per landmark.** Each part is transformed and given a flat vertex colour, then all parts are merged with `mergeGeometries` into a single shadow-casting mesh. This brought about 210 draw calls (and as many shadow draws) down to 16. Glowing crystal accents use a separate unlit `MeshBasicMaterial` mesh per landmark.
+- **Ground fitting.** Parts are placed in the landmark's local frame (`quaternion = setFromUnitVectors(UP, d)`), and `ground(x, z)` samples the real terrain radius under each part, so rings and fields follow the slope.
+- **Collision.** Each builder pushes `Obs` footprints for its solid parts (see §8b).
+- **Names.** Names are picked by `(seed + instance) % pool` from per-kind pools in `core/names.ts`. They feed the HUD (nearest landmark), the Locations panel and the map.
 
 ---
 
@@ -735,6 +871,32 @@ position: "fixed", top: "78px", left: "10px", zIndex: "49"
 2. **Scanned** (12 features × 3 = 36): Beach, Mountain Peak, Canyon, Island, Coastal Cliffs, Open Plains, Snow Field, Desert, Lagoon, Rainforest, Dense Forest, Crystal Field. Each feature has a `score(elev, neighbours, temp, moisture)` function. Random directions are sampled and scored, and the top 3 per feature are kept, at least ~30° apart. If a feature finds fewer than 3, it is padded with jittered fallbacks. Each spot gets a unique name from `SPOT_NAMES`.
 3. **Landmarks** (24): offset 8 m sideways from the landmark so you don't spawn inside it.
 4. **Rivers**: one per river, at 40% along its path. This is the only part that awaits `riversPromise`.
+
+## 11a. Palettes & configuration (`core/palette.ts`, `core/config.ts`)
+
+### Planet palettes
+
+A `WorldPalette` is a plain object of colours and a few climate values:
+
+- biome colours (sand, grass, forest, rock, snow, water)
+- sky colours (day, night, sunset)
+- light colours (sun, sunset, moon, ambient) and the sun and moon discs
+- atmosphere tints
+- rock, plant, cactus, crystal and rain colours
+- 10 tree bark and 10 leaf colours (HSL)
+- `snowline` and `forestDensity`
+
+There are 13 of them (Earth, Mercury … Haumea, in `PALETTES`). `CurrentPalette` is the active one. Geometry builders read it directly, which is why the tree and plant geometry is rebuilt on a palette change. `biomeColors` is a stable mutable copy of the six biome colours: the GUI colour pickers and `syncTerrain()` bind to it, so it survives palette swaps.
+
+**Changing palette** (`gui.ts`) calls `setPalette()`, copies the palette's `snowline` / `forestDensity` into `S`, sets the ocean colour (which, through `U.uWater`, reaches rivers and the map), then rebuilds the vegetation and the planet.
+
+**Adding a palette:** copy an existing palette object, give every field a value, and add it to `PALETTES`. Tree species beyond the first ten derive their colours from these slots (`EXTRA` in `trees.ts`), and water depth is derived from `water` (`WATER_DEEP`), so a palette never needs per-species or per-depth entries.
+
+### Settings vs constants
+
+User-facing settings live in `S`, which the settings panel binds to. Terrain settings rebuild the planet on release (`radius` also respawns). The tier code in `main.ts` overwrites some of them at startup: `resolution`, `octaves` and `renderScale`. Tuning constants live in `CFG`, grouped by system (`chunk`, `treeLod`, `plantLod`, `plantRadius`, `forest`, `shadow`, `trees`, `vegetation`, `ocean`, `river`, …), so a value is changed in one place.
+
+---
 
 ## 12. Seed system
 
