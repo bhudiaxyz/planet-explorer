@@ -327,9 +327,22 @@ float _amt = uWind * ${k.toFixed(4)} * sin(uTime * 1.1 + _ph);
 float _bx  = cos(_ph + 1.2),
       _bz  = sin(_ph + 1.2);
 vec3 lp    = position;
+// whole-tree bend, growing with height² so the trunk base stays planted and the crown leans most
+// (~8–10 cm at a 10 m crown in normal wind; it used to be linear and ~2 cm, too small to read)
 float _h   = max(lp.y, 0.0);
-lp.x      += _bx * _amt * _h;
-lp.z      += _bz * _amt * _h;
+float _bend = _amt * _h * (1. + _h * .35);
+lp.x      += _bx * _bend;
+lp.z      += _bz * _bend;
+#ifdef CANOPY_SWAY
+// canopy rustle: every foliage vertex (aLeaf ≥ 1: blobs, cones, fronds, leaves) drifts a little out of step with its
+// neighbours (phase from its own position), so the crown churns instead of moving as one rigid block. Grows with
+// height in the crown and with wind; bark (aLeaf = 0) never moves. One sin per vertex, near tiers only.
+if (aLeaf > .5) {
+  float rs = (.035 + .06 * min(uWind, 2.)) * min(_h * .12, 1.);
+  float ru = sin(uTime * 2.1 + dot(position, vec3(.9, .6, .7)) + _ph);
+  lp += vec3(ru, ru * .3, -ru * .7) * rs;
+}
+#endif
 #ifdef LEAF_FLUTTER
 // polygonal leaf blades (aLeaf 1 at the stem → 2 at the tip) flicker about their stem: fast, small, out of step with
 // their neighbours (phase from the vertex position), stronger in a strong wind. Bark and canopy blobs have aLeaf ≤ 1.

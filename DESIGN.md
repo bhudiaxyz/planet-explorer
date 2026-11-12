@@ -349,13 +349,15 @@ Uses `distanceToSquared` with early-exit — no `sqrt` in the inner loop.
 
 ### Shader
 
+River and lake colour comes from the palette and is shared with the ocean (§9).
+
 **Rivers:** `vUv.y` runs 0→1 along the flow direction. `fract(vUv.y - uTime * flowSpeed)` drives flow animation. `flowSpeed` varies between 0.9 (streams) and 0.2 (wide rivers). Cross-river speed variation: `flowSpeed *= isLake ? 1.0 : 1.0 + edgeMask * 0.4` — edges flow slightly faster than the centre.
 
 **Lakes:** `vUv.x` runs 0.5 (centre) → 1.0 (edge). `fract((vUv.x - 0.5) * 7.0 - uTime * 0.5)` produces expanding concentric ripple rings.
 
 **Cascades:** each ribbon vertex carries `aSteep`, the bed steepness over ±2 path points (drop / run through `smoothstep(0.08, 0.3)`). Steep reaches flow up to 3.5× faster and churn white across the whole width (two scrolling streak layers), with a little more opacity. The terrain has no cliffs, so a steep reach is a cascade down a slope rather than a vertical drop; spray is added separately (§8a).
 
-**Low tier material:** flat `MeshBasicMaterial` (no shader cost at all).
+**Low tier material:** flat `MeshBasicMaterial` in the palette water colour (no shader cost).
 
 ---
 
@@ -428,7 +430,7 @@ On high tier, the near tier of collidable kinds (rocks, slabs, frost rocks, boul
 
 ### Wind
 
-Each kind has a `wind` weight (uniform `WK`) multiplied by the global `S.windSway`. Rigid kinds — cactus, rocks, crystals — use `wind: 0`.
+Each kind has a `wind` weight (uniform `WK`) multiplied by the global `S.windSway`. Rigid kinds (cactus, rocks, crystals) use `wind: 0`. The whole plant bends and waves with height². Kinds with `rustle: true` (shrubs, alpine scrub, dead scrub) also churn per vertex: `RUSTLE` define, one `sin(2.6·t + pos-phase)` growing toward the top, scaled by `WK · uWind · uSway`. Grass, reeds, sedge and ferns already wave, so they don't take it.
 
 ### Density fields
 
@@ -464,9 +466,25 @@ Both the outer fade (plant appearing at range limit) and inner fade (plant disap
 - **Shader bands follow the tier:** `Forest` writes its tier-scaled `[H0, H1, M0, M1]` into `U.uLod`, so the shader cross-fade and the CPU-filled detailed/medium sets cover the same distances. With the unscaled defaults in the shader, low/medium left a dithered gap where trees thinned out at mid range.
 - **Altitude near-mode:** detailed/medium sets are enabled below 380 m and dropped above 420 m (hysteresis), and their strength fades in/out over ~0.4 s (`nearFadeSpeed`).
 - Per-tree hue and shape seeded from instance world position for variety.
-- The low-poly tier has no wind (never close enough to see sway), which removes sin/cos work from ~1 M vertices per frame.
+- **Polygonal leaves (detailed tier, broadleaf species).** Oak, birch, acacia, willow, mangrove, kapok and baobab get small leaf blades over their canopy blobs, on tier 0 only.
+  - *Shape:* a diamond folded slightly along the midrib, 4 triangles, with front and back faces built in. The tree material is single-sided, and making it double-sided would cost every tree.
+  - *Placement:* `treeGeos` builds these species through `withLeaves()`. While `logCanopies()` is set, `blob()` records each canopy ellipsoid; `leaves()` then scatters blades over them, shared out by surface area.
+  - *Budget:* at most `LEAF_BUDGET` = 110 leaves per tree (440 triangles). Density is `LEAVES_PER_M2` and size is `LEAF_SIZE` per species. A detailed oak goes from 1208 to 1648 triangles; medium and low tiers are unchanged.
+  - *Seed:* leaves use their own random stream (`seed + 977 + i·13`), so crown shape, and its match with the medium tier, is unchanged.
 
-**Instance-local wind bend:** The wind function hashes the tree's world position (from `instanceMatrix[3]`) to derive a unique phase and bend direction per tree. The height term `max(lp.y, 0.0)` ensures only the upper mesh deforms — trunks stay fixed, crowns sway. Computed entirely in the vertex shader.
+**Wind (tree material, `wind()` in `render/fx.ts`).** Detailed and medium tiers only; the low-poly far tier has no wind, which removes sin/cos work from about 1 M vertices per frame. All motion is vertex-shader only and adds no geometry.
+
+- **Whole-tree bend:** the tree's world position (from `instanceMatrix[3]`) hashes to a unique phase and bend direction. The offset is `amt · h · (1 + 0.35·h)` for local height `h`, so the trunk base stays planted and the crown leans most: about 8–10 cm at a 10 m crown in normal wind (it used to be linear, about 2 cm).
+- **Motion bands (`aLeaf`).** The attribute does double duty: the colour blend uses `min(aLeaf, 1)` (0 bark, 1 foliage), and higher values select a motion. `add(…, flutter = [from, to])` ramps them from a part's own base to its tip, measured on its y range before the transform.
+
+| `aLeaf` | Part | Extra motion (on top of the bend) | Define (tiers) |
+|---|---|---|---|
+| 0 | bark | none | — |
+| ≥ 1 | all foliage (blobs, cones, fronds, leaves) | canopy rustle: per-vertex `sin(2.1·t + pos-phase)`, amplitude `(.035 + .06·wind) × min(0.12·h, 1)`, so the crown churns instead of moving rigidly | `CANOPY_SWAY` (0, 1) |
+| 1 → 2 | leaf blade, stem → tip | fast flicker about the stem, `sin(7.3·t + pos-phase)`, amplitude `(.05 + .07·wind)` × ramp | `LEAF_FLUTTER` (0) |
+| 2 → 3 | palm frond, base → tip (two segments: 2–2.5, 2.5–3) | slow vertical bob, `sin(2.3·t + 3·azimuth)`, amplitude `(.12 + .22·wind)` × ramp², so the frond bends; plus a small twist | `FROND_SWAY` (0, 1) |
+
+Stems and frond bases sit at the low end of their ramps, so they stay attached to the crown. Each motion costs one `sin` per affected vertex.
 
 ---
 
@@ -530,13 +548,39 @@ Measured on a medium-tier laptop: no change in frame time or vertex count agains
 
 ---
 
-## 9. Water & ocean (`render/fx.ts`)
+## 9. Water & ocean (`render/fx.ts` `waterFx`, `world/river.ts`, `ui/map.ts`)
 
-- 3 Gerstner (trochoidal) wave trains superposed in the vertex shader.
-- Surface normals computed analytically per wave train — no finite-difference approximation.
-- Wave amplitude and frequency scaled by `uWind` so the ocean responds to weather in real time.
-- 4th additive displacement: a player-ripple ring expanding outward from `uPl`.
-- **High tier: sun glitter** (`GLITTER` define, so other tiers compile exactly the same shader as before). A very tight Blinn-Phong highlight (`pow(n·h, 900)`) on the detailed wave normal is added as HDR emissive, so bloom turns the brightest facets into sparkles. It fades out beyond about 400 m and with a low sun.
+### Surface motion
+
+- **Vertex displacement:** three sinusoidal wave trains, with directions derived from the sun's azimuth, displace the sphere radially at amplitude `0.7 · uWind`, so the swell follows the weather. A fourth term is a ripple ring expanding from the player (`uPl`).
+- **Fragment normals:** five travelling wave trains (seven within 50–260 m), domain-warped to break tiling, bend the normal analytically (summed gradients, no finite differences). Their crest sum drives whitecap foam, scaled by wind.
+- **High tier: sun glitter** (`GLITTER` define, so other tiers compile exactly the same shader). A very tight Blinn-Phong highlight (`pow(n·h, 900)`) on the detailed wave normal is added as HDR emissive, so bloom turns the brightest facets into sparkles. It fades out beyond about 400 m and with a low sun.
+
+### Colour (palette-driven)
+
+One colour drives every water surface: the palette's `water` (the shallow-water shade), held in `U.uWater`. `Planet` points `U.uWater.value` at the ocean material's own `.color` object. Palette swaps (`gui.ts` → `water.color.set`) and the Biomes water picker therefore reach the ocean, rivers, lakes and map with no extra sync code.
+
+The deep shade is `uWater × WATER_DEEP`, with `WATER_DEEP = (.36, .2, .36)` exported from `fx.ts`. Red stays about equal to blue, so depths are a warm navy rather than cold indigo; green drops most, so it never drifts teal. On Earth, `#1a3d78` becomes about `#0c184a`.
+
+| Layer | Rule |
+|---|---|
+| Depth | Atlas alpha gives depth below sea level: `mix(uWater, uWater·WATER_DEEP, smoothstep(2, 45 m))`, blended 90 % over the base. |
+| Variation | Large-scale noise darkens patches by up to 18 % in the same hue (no hue shift). |
+| Opacity | Material 0.9. Open sea rises to 0.95; shallows under 7 m drop to 0.62, so a little seabed shows. Lower values let the sand turn the blue teal. |
+| Shore | Animated foam bands within about 1 m of depth. |
+| Polar ice | From about 50° latitude, blends toward a pale version of `uWater` (not a fixed cyan). |
+| Sky reflection | Fresnel `pow(1 − n·v, 4)` × 0.35 toward `uSky`, tinted 60 % by the normalised `uWater` hue so a pale sky can't wash the sea out. |
+
+**Rivers and lakes** (`RIVER_FRAG`) use the same `uWater` / `WATER_DEEP` pair for shallow and deep, so rivers meet the sea without a colour step. Their Fresnel sheen and subsurface glow are lightened `uWater`. On low tier the river `MeshBasicMaterial` shares the same colour object, so it follows palette swaps too.
+
+### Planet map (`ui/map.ts`)
+
+The map is an equirectangular 1024×512 image baked from the planet cube maps once the atlas finishes, and cached until `reset()`.
+
+- **Land:** the atlas biome colour, gamma-corrected, hill-shaded from a fixed sun with the atlas AO, then saturation-boosted ×1.4.
+- **Sea:** the atlas stores *seabed* colour underwater (alpha = elevation < 0), so the sea is painted instead with the same `uWater → uWater·WATER_DEEP` mix as the ocean, plus a lighter same-hue band at the coastline. Sea pixels get no hill shading or saturation boost, so the map shows the true palette water hue.
+- **Rivers:** drawn on a 2-D canvas as four glow strokes, lightened in steps from the palette water colour toward white. Labels use the same tone.
+- **Refresh:** reset on every rebuild (palette swaps included) and when the Biomes water picker is released.
 
 ---
 

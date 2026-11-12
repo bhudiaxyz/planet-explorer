@@ -82,6 +82,8 @@ export interface PlantSpec {
     disp: boolean;
     push: boolean;
     moss: boolean;
+    /** per-vertex foliage rustle on top of the whole-plant sway (medium/large leafy plants) */
+    rustle: boolean;
     pre: string;
     gate: string;
     result: string;
@@ -119,6 +121,7 @@ const plant = (p: Def): PlantSpec => ({
     disp: false,
     push: false,
     moss: false,
+    rustle: false,
     pre: "",
     result: "return vec4(e*uAmp,h1,h2,h3);",
     ...p,
@@ -189,6 +192,7 @@ export const PLANTS: PlantSpec[] = [
         name: "shrubs",
         kind: 2,
         wind: 0.12,
+        rustle: true,
         collide: true,
         lean: 0.35,
         disp: true, // thickets
@@ -244,6 +248,7 @@ export const PLANTS: PlantSpec[] = [
         name: "alpine scrub",
         kind: 4,
         wind: 0.15,
+        rustle: true,
         hardy: true,
         lean: 0.35,
         disp: true,
@@ -404,6 +409,7 @@ export const PLANTS: PlantSpec[] = [
         name: "dead scrub",
         kind: 11,
         wind: 0.08,
+        rustle: true,
         hardy: true,
         lean: 0.25,
         tiers: [

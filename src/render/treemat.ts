@@ -16,8 +16,9 @@ function treeMat(tier: number) {
         base = tier === 2 ? null : (m.onBeforeCompile as any);
     // per-leaf flutter (fx.ts wind): detailed tier only — the only tier whose geometry has polygonal leaf blades.
     // Palm frond bob: detailed and medium (both tiers build fronds with the sway bands).
-    if (tier === 0) (m as any).defines = { LEAF_FLUTTER: "", FROND_SWAY: "" };
-    else if (tier === 1) (m as any).defines = { FROND_SWAY: "" };
+    // Canopy rustle: detailed and medium. The low-poly far tier has no wind at all (never close enough to see sway).
+    if (tier === 0) (m as any).defines = { LEAF_FLUTTER: "", FROND_SWAY: "", CANOPY_SWAY: "" };
+    else if (tier === 1) (m as any).defines = { FROND_SWAY: "", CANOPY_SWAY: "" };
     const keep =
         tier === 0
             ? "if(lodN<lodA)discard;"

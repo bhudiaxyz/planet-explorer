@@ -57,6 +57,14 @@ ${lookGLSL()}
     vec2  wDir = normalize(uSun.xz + vec2(0.001));
     float wave = sin(uTime * 1.8 + dot(vec2(ax.x, az.x) * 4.0, wDir) + ph * .5)
                * uWind * WK * y * y * 0.7 * uSway;
+#if RUSTLE
+    // medium/large plants (shrubs, scrub): foliage churns a little per vertex on top of the whole-plant sway, growing
+    // toward the top. One sin per vertex; only kinds with RUSTLE (wind > 0, not grass/reeds, which already wave).
+    {
+      float rr = sin(uTime * 2.6 + dot(pp, vec3(4.1, 2.3, 3.7)) + ph * 3.) * min(y * .5, 1.) * WK * uWind * .5 * uSway;
+      lp += vec3(rr, rr * .3, -rr * .8) * .25;
+    }
+#endif
     gP = d * (uR + D - .03) + ax * lp.x + u2 * lp.y + az * lp.z
        + (ax * sin(uTime * 1.6 + ph + y * .3) + az * cos(uTime * 1.3 + ph * 1.3 + y * .2)) * a
        + (ax * wDir.x + az * wDir.y) * wave;
@@ -159,6 +167,7 @@ class Layer {
             DISP: spec.disp ? 1 : 0,
             PUSH: spec.push ? 1 : 0,
             MOSS: spec.moss ? 1 : 0,
+            RUSTLE: spec.rustle ? 1 : 0,
         };
         const numUniforms = {
             PMUL: { value: tier.pmul },
