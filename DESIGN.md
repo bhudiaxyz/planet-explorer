@@ -226,7 +226,7 @@ Touch = unknown mobile → conservative `low`. Desktop → `medium`, not `high`:
 | Terrain chunks streamed (of 9×9 lattice) | ~37 | ~37 | ~37 | ~45 |
 | Forest count multiplier | 0.30 | 0.55 | 0.80 | 0.80 |
 | Star count | 900 | 1600 | 2500 | 2500 |
-| Rain/snow particle count | 1200 | 2200 | 3500 | 3500 |
+| Rain/snow particle count | 600 | 1100 | 1750 | 1750 |
 | Nebula count | 0 | 9 | 14 | 14 |
 | Galactic band points | 140 | 280 | 500 | 500 |
 | Firefly count | 50 | 120 | 220 | 220 |

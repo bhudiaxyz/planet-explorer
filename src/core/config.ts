@@ -64,7 +64,7 @@ export const CFG = {
     sky: {
         starCount: 2500,
         starSize: 1.6,
-        precipCount: 3500,
+        precipCount: 1750,
         nebulaCount: 14,
         nebulaOpacity: 0.18,
         sunDiscRadius: 450,

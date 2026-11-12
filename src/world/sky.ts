@@ -34,7 +34,7 @@ export class Sky {
         private planet: Planet
     ) {
         const starCount = gpuTier === "low" ? 900 : gpuTier === "medium" ? 1600 : SKY.starCount;
-        const precipCount = gpuTier === "low" ? 1200 : gpuTier === "medium" ? 2200 : SKY.precipCount;
+        const precipCount = gpuTier === "low" ? 600 : gpuTier === "medium" ? 1100 : SKY.precipCount;
         // P4: nebulae are fill-rate expensive on low tier (up to 512×512 per point); only visible
         // at night in clear weather — skipping them entirely has no visible impact at low resolution.
         const nebulaCount = gpuTier === "low" ? 0 : gpuTier === "medium" ? 9 : SKY.nebulaCount;
