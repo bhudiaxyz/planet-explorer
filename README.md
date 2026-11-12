@@ -15,6 +15,8 @@ Inspired by **Beyond Fable** and **threejs-procedural-planets**.
 - **Rivers, streams and lakes.** They follow valleys from high ground to the sea, branch into tributaries, meander, and pool into lakes.
 - **Rich ground cover.** 19 kinds of plants and rocks, from shore cobbles and upland tors to basalt columns and scree fields, each growing where the altitude and climate suit it.
 - **Forests that change with altitude.** 14 tree species, from mangroves and kapok giants on tropical coasts to spruce, wind-bent juniper and bare snags at the treeline.
+- **Weather you can see on the ground.** Rain leaves the ground glossy and dark until it dries, snow settles on rocks near the snowline, and mist pools in valleys at dawn and dusk.
+- **Extra polish on capable PCs.** Contact shadows (ambient occlusion), sun shafts through trees and around peaks, and longer-range shadows.
 - **Living sky.** Day/night cycle, clouds, rain and snow, aurora at the poles, fireflies, glowing coastlines and a galactic band at night.
 - **Wind-driven ocean.** Waves grow and shrink with the weather.
 - **Places to visit.** A Locations panel offers one-tap teleports to beauty spots (beaches, canyons, peaks, lagoons…), 24 procedural landmarks and named rivers.

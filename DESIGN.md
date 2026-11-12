@@ -203,13 +203,17 @@ Touch = unknown mobile → conservative `low`. Desktop → `medium`, not `high`:
 | Terrain octaves | 4 | 5 | 6 | 6 |
 | Camera far plane | 20 000 m | 30 000 m | 40 000 m | 40 000 m |
 | MSAA samples | 0 | 2 | 4 | 4 |
-| Shadow map size | 256 px | 512 px | 1024 px | 2048 px |
+| Shadow map size | 256 px | 512 px | 1024 px | 3072 px |
+| Shadow coverage (m across) | 156 | 240 | 240 | 380 |
 | Shadow PCF radius | 1 | 1 | 2.5 | 2.5 |
 | Plant shadows (rocks, shrubs, cactus) | off | off | on | on |
 | Water sun glitter | off | off | on | on |
 | Bird flocks / shooting-star slots | 1 / 2 | 2 / 4 | 3 / 4 | 3 / 4 |
 | Lightning, cascade mist (max falls) | off | on (4) | on (8) | on (8) |
 | Butterflies & leaves, sand ripples | off | off | on | on |
+| Wet ground after rain, valley mist | off | on | on | on |
+| Ambient occlusion, sun shafts | off | off | off | on |
+| Snow caps on rocks / hardy plants | on | on | on | on |
 | Shadow Hz | 20 | 30 | 30 | 30 |
 | Shadow frustum | 65% | 100% | 100% | 100% |
 | Aerial haze pass | off | on | on | on |
@@ -392,6 +396,14 @@ Each tier is `[full-size until, gone beyond, inner gone below, inner full above]
 
 Far tiers draw on high tier only; mid tiers on medium and above.
 
+### Snow caps
+
+Hardy kinds (rocks, scrub, cactus…; `TSNOW` uniform) blend upward-facing surfaces toward the palette snow colour `uCw`. They use the same climate test as the terrain and trees, `tt = 1 − 1.1·d.y² − 1.2·max(e, 0)` against `uSnow`. Computed in the vertex shader on every tier; a few instructions per vertex.
+
+### Wet ground
+
+`U.uWet` (0–1) rises with rain over ~10 s and dries over ~1 min (`main.ts`; snow doesn't count). The terrain shader's `WET` define (medium and high) lowers roughness to ~0.38 and darkens by up to 28 %, skipping snow-white pixels.
+
 ### Rocks by altitude
 
 Rocks share the plant pipeline: each type is a catalog entry with `wind: 0`, `hardy: true` (survives near the snowline) and its own `clusterField` index. The `gate` picks the altitude band, `look` sets size and tint. Geometry lives in `world/rockgeo.ts` and reuses the palette rock colours (`rockWarm`, `rockWarmAlt`, `rockWarmDark`, `rockCool`), so every planet palette works unchanged.
@@ -559,6 +571,18 @@ float fog = 1.0 - exp(-z * (0.2231 / uFar));
 ```
 `0.2231 ≈ −ln(0.8)` gives ~20% haze at the far plane regardless of draw distance tier. Haze colour is atmosphere scatter tint by day, deep blue by night.
 
+The pass is built from a `ShaderMaterial`, not a plain shader object. `ShaderPass` clones a plain object's uniforms, which froze the shared `U.uSun` / `U.uDayF` at startup, so the haze colour never followed the day/night cycle.
+
+Extras share the same pass and depth read, each behind a define so lower tiers compile the haze-only shader:
+
+| Define | Tiers | What it does |
+|---|---|---|
+| `MIST` | medium, high | Dawn/dusk valley fog. Reconstructs world position (`uInvPV`) and pools fog below ~18 % of the terrain amplitude, from 15 m to 140 m out. Strongest when the sun is near the horizon, gone above ~0.35 sun height or 900 m altitude. |
+| `AO` | high desktop | Depth-only ambient occlusion: 8 ring taps scaled to ~0.6 m world radius, counting neighbours 5 cm–1.5 m closer. Darkens up to 45 %, faded out by 120 m. |
+| `SHAFTS` | high desktop | Sun shafts: 12 taps toward the sun's screen position (`uSunUv`), counting sky texels. Occluders leave gaps that read as rays. Runs only while the sun is on screen and low (strength from view angle × (1 − sun height) × daylight). |
+
+`AerialPass.update()` sets the camera position, inverse view-projection and sun screen position each frame (medium and high only).
+
 ### Adaptive resolution
 
 Pixel ratio range: `[0.5, renderScale]` (renderScale set at startup by tier).
@@ -577,7 +601,7 @@ On window resize (e.g. dragging to a lower-DPR monitor) the pending ratio is imm
 - Both lights start with `needsUpdate = true`, so the startup warm-up renders each once. Three allocates a light's shadow map only when it first renders it, and a missing map leaves every lit draw with an empty `sampler2DShadow` (`GL_INVALID_OPERATION`).
 - **Shadow texel-snapping**: the frustum centre is quantised to shadow-map texel steps before upload, eliminating sub-texel drift (shadow shimmer) as the camera moves. The step uses each light's *actual* map size. It used to assume 1024² everywhere, so snapping only partly worked on low and medium tiers and for the half-size moon map.
 - `normalBias` is 0.4 m for the original 0.23 m texels and scales down with finer maps (0.2 m at 2048²), never up.
-- Shadow frustum half-extent: 65% of full size on `low` tier.
+- Shadow frustum: 65% of full size on `low` tier. High desktop uses a 3072² map over a 1.58× wider frustum (380 m across instead of 240 m), the same ~12 cm texels as the previous 2048² map, so the farther tree LODs stay shadowed. A second far-only shadow light isn't an option: in three each light's shadow darkens only that light's own contribution.
 
 ---
 

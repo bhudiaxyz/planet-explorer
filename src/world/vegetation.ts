@@ -17,6 +17,7 @@ import { PLANTS, type PlantSpec, type Tier, decideGLSL, lookGLSL } from "./plant
 const DECIDE = decideGLSL();
 const BEGIN = `
 bool kill = dot(aCell, aCell) > uK * uK;
+float snV = 0.;
 vec3  gP   = vec3(0.), gN = vec3(0., 1., 0.), tint = vec3(1.);
 vOuterF = 1.;
 vInnerF = 1.;
@@ -71,11 +72,16 @@ ${lookGLSL()}
 #if MOSS
     tint = mix(tint, vec3(.32, .77, .25), smoothstep(.6, .95, clamp(dot(gN, d), 0., 1.)) * step(.55, h1) * .7);
 #endif
+    // snow caps near the snowline on hardy kinds (rocks, scrub, cactus…): same climate test as terrain and trees,
+    // upward-facing surfaces only. Applied after the vertex colour below, as a blend toward the palette snow colour.
+    snV = (1. - smoothstep(uSnow - .02, uSnow + .16, 1. - 1.1 * d.y * d.y - 1.2 * max(D / uAmp, 0.)))
+        * smoothstep(.35, .8, dot(gN, d)) * TSNOW * .85;
   }
 }
 vec3 objectNormal = gN;
 #ifdef USE_COLOR
 vColor.rgb *= tint;
+vColor.rgb = mix(vColor.rgb, uCw * .95, snV);
 #endif`;
 
 const PLACEMENT_FS = `
@@ -167,6 +173,7 @@ class Layer {
             SCW: { value: tier.sw },
             SCH: { value: tier.sh },
             LEAN: { value: spec.lean },
+            TSNOW: { value: spec.hardy ? 1 : 0 },
         };
         this.rt = makeRT(n, n);
         const uK = { value: K };
@@ -200,7 +207,7 @@ class Layer {
             shaderParams.vertexShader = shaderParams.vertexShader
                 .replace(
                     "#include <common>",
-                    `#include <common>\nattribute vec2 aCell;uniform vec3 uSC,uPl,uSun;uniform float uK,uTime,uWind,uSway,uVeg,CELLSZ,WK,TO_FULL,TO_GONE,TI_GONE,TI_FULL,SCW,SCH,LEAN;uniform sampler2D uP;varying float vOuterF,vInnerF;\n${HELPERS_GLSL}`
+                    `#include <common>\nattribute vec2 aCell;uniform vec3 uSC,uPl,uSun;uniform float uK,uTime,uWind,uSway,uVeg,CELLSZ,WK,TO_FULL,TO_GONE,TI_GONE,TI_FULL,SCW,SCH,LEAN,TSNOW,uAmp,uSnow;uniform sampler2D uP;varying float vOuterF,vInnerF;\n${HELPERS_GLSL}`
                 )
                 .replace("#include <beginnormal_vertex>", BEGIN)
                 .replace("#include <begin_vertex>", "vec3 transformed=gP;")
@@ -252,7 +259,7 @@ class Layer {
                 s.vertexShader = s.vertexShader
                     .replace(
                         "#include <common>",
-                        `#include <common>\nattribute vec2 aCell;uniform vec3 uSC,uPl,uSun;uniform float uK,uTime,uWind,uSway,uVeg,CELLSZ,WK,TO_FULL,TO_GONE,TI_GONE,TI_FULL,SCW,SCH,LEAN;uniform sampler2D uP;float vOuterF,vInnerF;\n${HELPERS_GLSL}`
+                        `#include <common>\nattribute vec2 aCell;uniform vec3 uSC,uPl,uSun;uniform float uK,uTime,uWind,uSway,uVeg,CELLSZ,WK,TO_FULL,TO_GONE,TI_GONE,TI_FULL,SCW,SCH,LEAN,TSNOW,uAmp,uSnow;uniform sampler2D uP;float vOuterF,vInnerF;\n${HELPERS_GLSL}`
                     )
                     .replace(
                         "#include <begin_vertex>",

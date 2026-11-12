@@ -4,7 +4,7 @@ import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js"
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import { Pass, FullScreenQuad } from "three/addons/postprocessing/Pass.js";
 import { S } from "../core/config";
-import { gpuTier } from "./gputier";
+import { gpuTier, isTouchDevice } from "./gputier";
 import { AerialPass } from "./aerialfx";
 
 /**
@@ -56,6 +56,8 @@ export class PostFX {
     private frameAtDownscale = 0;
     private uselessDownscales = 0;
     private floor = 0.5;
+    private camera: THREE.Camera;
+    private sz = new THREE.Vector2();
     constructor(
         private renderer: THREE.WebGLRenderer,
         scene: THREE.Scene,
@@ -100,7 +102,11 @@ void main() {
   gl_FragColor = vec4(clamp(c.rgb, 0., 32.), 1.);
 }`,
         });
-        this.aerial = new AerialPass(rt.depthTexture!);
+        // mist: medium+ (one extra matrix multiply, only at dawn/dusk). AO + sun shafts: high desktop only (8 + 12 depth taps
+        // per pixel — fine on a discrete GPU, too much fill-rate for a phone or tablet).
+        const highDesk = gpuTier === "high" && !isTouchDevice;
+        this.aerial = new AerialPass(rt.depthTexture!, { mist: gpuTier !== "low", ao: highDesk, shafts: highDesk });
+        this.camera = camera;
         this.composer.addPass(new ScenePass(scene, camera, rt, clean));
         // P2: aerial haze pass skipped on low tier — full-screen depth read + exp() wastes fill-rate
         // on Mali/Adreno 3xx for ~8% max haze that's barely visible at low resolution.
@@ -135,6 +141,10 @@ void main() {
             this.renderer.setPixelRatio(this.pixelRatio);
             // P3: setPixelRatio already triggers internal setSize on all passes — the explicit call is redundant.
             this.composer.setPixelRatio(this.pixelRatio);
+        }
+        if (gpuTier !== "low") {
+            this.renderer.getDrawingBufferSize(this.sz);
+            this.aerial.update(this.camera, this.sz.x, this.sz.y);
         }
         this.composer.render();
         this.smoothedFrameTime += (dt - this.smoothedFrameTime) * 0.08;

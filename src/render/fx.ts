@@ -36,6 +36,7 @@ export const U = {
     uLod: { value: new THREE.Vector4(...CFG.treeLod) },
     uOn: { value: 0 },
     uNight: { value: 0 },
+    uWet: { value: 0 }, // 0 dry … 1 soaked: rises with rain, dries over ~1 min (main.ts)
     uN3: { value: tex3 },
     uAtOn: { value: 0 },
     uCubeN: { value: null as THREE.Texture | null },
@@ -137,8 +138,13 @@ export function terrainMat(
     if (gpu) (m as any).defines = { GPU_H: "" };
     else if (baked) (m as any).defines = { BASE_COL: "" };
     if (gpuTier === "high") (m as any).defines = { ...((m as any).defines ?? {}), DUNES: "" };
+    if (gpuTier !== "low") (m as any).defines = { ...((m as any).defines ?? {}), WET: "" }; // low: identical shader to before
     m.customProgramCacheKey = () =>
-        (cut ? "c" : "n") + (gpu ? "g" : "b") + (baked ? "k" : "") + (gpuTier === "high" ? "d" : "");
+        (cut ? "c" : "n") +
+        (gpu ? "g" : "b") +
+        (baked ? "k" : "") +
+        (gpuTier === "high" ? "d" : "") +
+        (gpuTier !== "low" ? "w" : "");
     m.onBeforeCompile = (s) => {
         Object.assign(s.uniforms, U, T, extraUniforms);
         s.vertexShader = s.vertexShader
@@ -165,7 +171,7 @@ attribute float aE,aM;
             .replace(
                 "#include <common>",
                 `#include <common>
-varying vec3 vWp,vC;uniform float uTime,uOn,uR,uFade;uniform vec4 uRect,uFoot[48];uniform vec3 uN,uU,uV,uPl,uSun;uniform float uDayF,uCloudR,uAtOn;uniform samplerCube uCubeN,uCubeC;
+varying vec3 vWp,vC;uniform float uTime,uOn,uR,uFade,uWet;uniform vec4 uRect,uFoot[48];uniform vec3 uN,uU,uV,uPl,uSun;uniform float uDayF,uCloudR,uAtOn;uniform samplerCube uCubeN,uCubeC;
 #ifdef DUNES
 uniform vec3 uCs;
 #endif
@@ -173,7 +179,14 @@ ${NOISE}${IGN}${CLOUD_GLSL}`
             )
             .replace(
                 "#include <roughnessmap_fragment>",
-                "#include <roughnessmap_fragment>\nroughnessFactor=mix(roughnessFactor,.22,smoothstep(.12,.25,vC.b-vC.r));"
+                `#include <roughnessmap_fragment>
+roughnessFactor=mix(roughnessFactor,.22,smoothstep(.12,.25,vC.b-vC.r));
+#ifdef WET
+// rain-soaked ground: glossier and darker; snow-white pixels keep their own look
+float wetF = uWet * (1. - smoothstep(.72, .85, min(vC.r, min(vC.g, vC.b))));
+roughnessFactor = mix(roughnessFactor, .38, wetF * .8);
+diffuseColor.rgb *= 1. - wetF * .28;
+#endif`
             ) // glazed ice is glossy
             .replace(
                 "#include <color_fragment>",

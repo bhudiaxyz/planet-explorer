@@ -30,8 +30,13 @@ export class Shadows {
         const { size: rawSize } = CFG.shadow;
         // high desktop (discrete GPU / M-series): 2048² sun map → ~12 cm texels, enough for rock/shrub contact shadows.
         // Phones stay at 1024: a 2048² depth map is 16 MB re-rendered at 30 Hz, too much bandwidth for a tiler GPU.
-        const sizeMul = gpuTier === "low" ? 0.25 : gpuTier === "medium" ? 0.5 : isTouchDevice ? 1 : 2;
-        this.half = gpuTier === "low" ? CFG.shadow.half * 0.65 : CFG.shadow.half;
+        // High desktop: 3072² over ±190 m — same ~12 cm texels as the old 2048² over ±120 m, but the shadowed range
+        // grows ~60%, so the medium-tier trees out to ~235 m (and the farther high-desktop tree LOD) stay grounded.
+        // A separate coarse far-shadow light isn't possible in three: each light's shadow only darkens its own light.
+        const highDesk = gpuTier === "high" && !isTouchDevice;
+        const sizeMul = gpuTier === "low" ? 0.25 : gpuTier === "medium" ? 0.5 : isTouchDevice ? 1 : 3;
+        this.half =
+            gpuTier === "low" ? CFG.shadow.half * 0.65 : highDesk ? CFG.shadow.half * (190 / 120) : CFG.shadow.half;
         const half = this.half;
         const size = Math.round(rawSize * sizeMul);
         this.hz = gpuTier === "low" ? 20 : gpuTier === "medium" ? 30 : CFG.shadow.hz;

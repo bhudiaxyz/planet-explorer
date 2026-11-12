@@ -306,6 +306,9 @@ const scene = new THREE.Scene(),
         U.uSky.value.copy(sky.bg);
         U.uCov.value = Math.min(1, S.cloudiness * 0.75 + sky.cloud * 0.55);
         U.uCT.value += dt * (0.6 + S.wind * 0.5);
+        // ground wetness: soaks in over ~10 s of rain, dries over ~1 min (snow doesn't wet the ground)
+        const raining = sky.snow ? 0 : sky.precipitationAmount;
+        U.uWet.value += (raining - U.uWet.value) * Math.min(1, dt * (raining > U.uWet.value ? 0.1 : 0.016));
         planet.clouds.update(camera.position, sky);
         skyDome.update(camera.position, player.up, sky, dt);
         planet.atmosphere.visible = planet.atmosphere.uniforms.fade.value > 0.01;
