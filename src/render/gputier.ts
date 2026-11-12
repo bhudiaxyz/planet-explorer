@@ -36,7 +36,13 @@ export function detectGpuTier(gl: WebGLRenderingContext | WebGL2RenderingContext
             return gl.getExtension("WEBGL_compressed_texture_astc") ? "high" : "medium";
         const isIpad =
             /ipad/i.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
-        return isIpad ? "high" : "medium";
+        if (!isIpad) return "medium";
+        // Every iPad reports "Apple GPU", so the chip is told apart by its display. The legacy form factors
+        // (≤ 1112 CSS px on the long side: 768×1024, 810×1080, 834×1112) are the A10/A10X/A12/A13 iPads of 2017–2021
+        // (iPad 6–9, mini 5, Air 3, Pro 10.5) — iPhone-class GPUs, so medium like iPhones. Air 4+, iPad 10, mini 6 and
+        // every Pro since 2018 have taller screens and stay high. iOS reports screen size in portrait regardless of rotation.
+        const longSide = typeof screen === "undefined" ? 0 : Math.max(screen.width, screen.height);
+        return longSide > 0 && longSide <= 1112 ? "medium" : "high";
     }
 
     // arc.{0,8} handles "Arc(TM) A770"; apple m\d+ is dead (apple gpu branch returns first, kept for clarity)
@@ -82,6 +88,10 @@ export function detectGpuTier(gl: WebGLRenderingContext | WebGL2RenderingContext
 
     return "medium";
 }
+
+/** Streamed detailed-terrain fade [start, end] in metres from the camera. High desktop draws detail ~85 m further
+ *  (the chunk manager only builds chunks inside this range, so the extra reach costs about what other tiers save). */
+export const chunkFade = (): [number, number] => (gpuTier === "high" && !isTouchDevice ? [240, 320] : [170, 235]);
 
 /** Instance count multiplier: 1.0 high, 0.65 medium, 0.50 low */
 export const plantRadiusMul = () => (gpuTier === "low" ? 0.5 : gpuTier === "medium" ? 0.65 : 1.0);

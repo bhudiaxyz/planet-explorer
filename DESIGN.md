@@ -155,9 +155,11 @@ const gl = probe.getContext("webgl2", ctxOpts) ?? probe.getContext("webgl", ctxO
 "apple gpu" in renderer string:
   Mac (not touch), WEBGL_compressed_texture_astc → Apple Silicon → high
   Mac (not touch), no ASTC                       → Intel/AMD Mac → medium
-  platform=MacIntel + maxTouchPoints > 1         → iPadOS 13+ (UA spoofed) → high
+  iPad (UA or MacIntel + maxTouchPoints > 1), screen long side ≤ 1112 CSS px → A10–A13 iPad → medium
+  iPad, taller screen                            → Air 4+/iPad 10/mini 6/any Pro since 2018 → high
   otherwise (iPhone)                             → medium
 ```
+Every iPad reports "Apple GPU", so the chip is inferred from the display. The legacy form factors (768×1024, 810×1080, 834×1112) are the 2017–2021 A10/A12/A13 iPads, which have iPhone-class GPUs.
 Safari reports every Mac GPU as "Apple GPU", including 2017–2020 Intel Macs; only Apple-designed GPUs support ASTC textures. iPadOS 13+ defaults to "Request Desktop Website", so the UA reads `"Macintosh"`; `navigator.platform + maxTouchPoints` detects the spoof.
 
 **HIGH regex:**
@@ -190,7 +192,7 @@ return isTouchDevice ? "low" : "medium";
 ```
 Touch = unknown mobile → conservative `low`. Desktop → `medium`, not `high`: a 7-year-old Intel iGPU in a privacy browser would otherwise get 4× MSAA, 320 resolution and far plant tiers. Adaptive resolution still raises sharpness where there is headroom.
 
-`npm run test:tiers` (`scripts/gputier.test.mts`) checks the classifier against real renderer strings: S22 Ultra (Snapdragon and Exynos), iPad in desktop mode, Intel and M-series Macs, touchscreen laptops, budget Android, SwiftShader, and a blocked debug extension.
+`npm run test:tiers` (`scripts/gputier.test.mts`) checks the classifier against real renderer strings: S22 Ultra (Snapdragon and Exynos), iPad in desktop mode, new and legacy-size iPads (screen size per case via an `@WxH` label suffix), Intel and M-series Macs, touchscreen laptops, budget Android, SwiftShader, and a blocked debug extension.
 
 ### What each tier gates
 
@@ -215,7 +217,9 @@ Touch = unknown mobile → conservative `low`. Desktop → `medium`, not `high`:
 | Footprints | off | on | on | on |
 | Ground-cover LOD tiers | near only | near + mid | near + mid + far | near + mid + far |
 | Plant radius multiplier | 0.50 | 0.65 | 1.0 | 1.0 |
-| Tree LOD distance multiplier | 0.45 | 0.65 | 1.0 | 1.0 |
+| Tree LOD distance multiplier | 0.45 | 0.65 | 1.0 | 1.3 |
+| Detailed-terrain fade (m) | 170–235 | 170–235 | 170–235 | 240–320 |
+| Terrain chunks streamed (of 9×9 lattice) | ~37 | ~37 | ~37 | ~45 |
 | Forest count multiplier | 0.30 | 0.55 | 0.80 | 0.80 |
 | Star count | 900 | 1600 | 2500 | 2500 |
 | Rain/snow particle count | 1200 | 2200 | 3500 | 3500 |
@@ -271,6 +275,12 @@ Two `fract` and one `dot` — no texture lookup, no integer trickery. Produces v
 ### `basis()` — cube-face frame from a float
 
 The GPU scatter system encodes cube face identity as a single float constant `uSC.z`. The vertex shader recovers face normal + two tangents via `fc / 2` and `fc % 2` integer decode. One consistent local frame per tile, no per-face branching in the draw call.
+
+### Streamed detail chunks (`world/chunks.ts`)
+
+A (2·CR+1)² = 9×9 lattice of 80×80-cell chunks (1.5 m cells, 120 m per chunk) follows the player on the cube-face lattice. Heights, normals and colour are baked per chunk; the vertex shader only fetches them. The terrain fragment shader dithers chunks out between `chunkFade()` metres (`render/gputier.ts`, 170–235 m, or 240–320 m on high desktop), and the coarse cube-mapped planet shows beyond.
+
+Only chunks that can come within `chunkFade()[1] + 15` m of any point of the centre chunk are built (`inReach`, using the same chord-on-sphere distance as the shader fade). Selection reruns only when the player enters a new centre chunk. The full lattice reaches ~±540 m, so the outer rings used to be baked and vertex-shaded without a fragment surviving. Skipping them roughly halves chunk bake and vertex work on every tier.
 
 ### Cube-map planet surface
 
@@ -439,6 +449,7 @@ Both the outer fade (plant appearing at range limit) and inner fade (plant disap
 - Three LOD tiers: 0 detailed (shadow-casting), 1 medium, 2 low-poly.
 - **Distance cross-fade:** tiers blend over `CFG.treeLod = [H0, H1, M0, M1] = [40, 70, 130, 170]` m (scaled by tier, see §3) with strictly complementary IGN screen-door dither: with `a = smoothstep(H0, H1, d)` and `b = smoothstep(M0, M1, d)`, tier 0 keeps `noise ≥ a`, tier 1 keeps `b ≤ noise < a`, tier 2 keeps `noise < b`. No holes, no double coverage, no pops.
 - **Static far set:** the low-poly tier holds every tree and is never rebuilt; its vertex shader collapses instances near the camera or on the far side of the planet. Only the detailed (≤ H1 + 15 m) and medium (H0 − 15 … M1 + 15 m) sets are rebuilt as you move, from per-tree matrices composed once and cached.
+- **Shader bands follow the tier:** `Forest` writes its tier-scaled `[H0, H1, M0, M1]` into `U.uLod`, so the shader cross-fade and the CPU-filled detailed/medium sets cover the same distances. With the unscaled defaults in the shader, low/medium left a dithered gap where trees thinned out at mid range.
 - **Altitude near-mode:** detailed/medium sets are enabled below 380 m and dropped above 420 m (hysteresis), and their strength fades in/out over ~0.4 s (`nearFadeSpeed`).
 - Per-tree hue and shape seeded from instance world position for variety.
 - The low-poly tier has no wind (never close enough to see sway), which removes sin/cos work from ~1 M vertices per frame.

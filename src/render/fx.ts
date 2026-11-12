@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { gpuTier } from "./gputier";
+import { gpuTier, chunkFade } from "./gputier";
 import { T, TERRAIN_GLSL, BIOME_GLSL } from "./terrain";
 import { CFG } from "../core/config";
 import { CurrentPalette } from "../core/palette";
@@ -180,7 +180,7 @@ ${NOISE}${IGN}${CLOUD_GLSL}`
                 `#include <color_fragment>
 #ifdef GPU_H
 {
-  float vis = min(uFade, 1. - smoothstep(170., 235., distance(normalize(vWp), normalize(cameraPosition)) * uR));
+  float vis = min(uFade, 1. - smoothstep(${chunkFade()[0].toFixed(1)}, ${chunkFade()[1].toFixed(1)}, distance(normalize(vWp), normalize(cameraPosition)) * uR));
   if (vis < 1. && ign(gl_FragCoord.xy) > vis) discard;
 }
 #endif

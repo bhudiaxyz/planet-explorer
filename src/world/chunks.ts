@@ -3,6 +3,7 @@ import { S, CFG } from "../core/config";
 import { terrainMat } from "../render/fx";
 import { makeRT, bakeChunk } from "../render/bake";
 import { frame, type Frame } from "../core/utilgeo";
+import { chunkFade } from "../render/gputier";
 const { cells: CS, cell: CC, radius: CR, budget: BUDGET, firstBudget: FIRST, makeAlt, clearAlt } = CFG.chunk;
 
 interface Shared {
@@ -31,6 +32,24 @@ export class ChunkManager {
     private lastChunkJ = 0; // last completed (face, chunk i, chunk j)
     private wantSet = new Set<string>();
     private todoArr: [number, number][] = [];
+    private scratchA = new THREE.Vector3();
+    private scratchB = new THREE.Vector3();
+    // Chunks are only drawn out to the shader fade (chunkFade, ~235 m) but the (2·CR+1)² lattice spans ~±540 m: two of the
+    // four rings were baked and vertex-shaded every move without a single fragment surviving. A chunk is kept only if some
+    // point of it can come within fade range of anywhere in the centre chunk (selection only reruns on entering a new one).
+    private readonly reach = chunkFade()[1] + 15;
+    private inReach(fr: Frame, ci: number, cj: number, a: number, b: number) {
+        if (Math.abs(a) <= 1 && Math.abs(b) <= 1) return true;
+        // per axis: nearest lattice coordinates of the centre chunk and the candidate (equal when they share the column)
+        const near = (c: number, o: number): [number, number] =>
+            o > 0 ? [(c + 1) * CS, (c + o) * CS] : o < 0 ? [c * CS, (c + o + 1) * CS] : [c * CS + CS / 2, c * CS + CS / 2];
+        const [ia, ib] = near(ci, a),
+            [ja, jb] = near(cj, b),
+            R = this.radius(),
+            pa = this.scratchA.copy(fr.normal).multiplyScalar(R).addScaledVector(fr.tangentU, ia * CC).addScaledVector(fr.tangentV, ja * CC).normalize(),
+            pb = this.scratchB.copy(fr.normal).multiplyScalar(R).addScaledVector(fr.tangentU, ib * CC).addScaledVector(fr.tangentV, jb * CC).normalize();
+        return pa.distanceTo(pb) * R < this.reach; // same chord-on-sphere metric as the shader fade
+    }
     constructor(
         private group: THREE.Group,
         private radius: () => number
@@ -74,6 +93,7 @@ export class ChunkManager {
         todo.length = 0;
         for (let a = -CR; a <= CR; a++)
             for (let b = -CR; b <= CR; b++) {
+                if (!this.inReach(currentFrame, ci, cj, a, b)) continue;
                 const k = `${currentFrame.face},${ci + a},${cj + b}`;
                 want.add(k);
                 if (!this.map.has(k)) todo.push([ci + a, cj + b]);

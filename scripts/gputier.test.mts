@@ -132,6 +132,13 @@ const cases: [string, string | null, boolean, number, string, boolean, string][]
         "high",
     ],
     ["iPad desktop-mode Safari", "Apple GPU", true, 5, "MacIntel", true, "high"],
+    // "@WxH" = screen size in CSS px (portrait, as iOS reports it); legacy-size iPads are A10–A13, iPhone-class
+    ["iPad Pro 11 (M-series) @834x1194", "Apple GPU", true, 5, "MacIntel", true, "high"],
+    ["iPad Air 5 (M1) @820x1180", "Apple GPU", true, 5, "MacIntel", true, "high"],
+    ["iPad Pro 12.9 @1024x1366", "Apple GPU", true, 5, "MacIntel", true, "high"],
+    ["iPad 9th gen (A13, 2021) @810x1080", "Apple GPU", true, 5, "MacIntel", true, "medium"],
+    ["iPad 6th gen (A10, 2018) @768x1024", "Apple GPU", true, 5, "MacIntel", true, "medium"],
+    ["iPad Air 3 (A12, 2019) @834x1112", "Apple GPU", true, 5, "MacIntel", true, "medium"],
     ["iPhone", "Apple GPU", true, 5, "iPhone", true, "medium"],
     ["Galaxy S22 Ultra Snapdragon", "Adreno (TM) 730", true, 5, "Linux armv8l", true, "high"],
     ["Galaxy S22 Ultra Exynos", "Samsung Xclipse 920", true, 5, "Linux armv8l", true, "high"],
@@ -160,6 +167,8 @@ let fails = 0,
     i = 0;
 for (const [label, r, coarse, tp, plat, astc, want] of cases) {
     setEnv(coarse, tp, plat);
+    const sz = /@(\d+)x(\d+)/.exec(label);
+    (globalThis as any).screen = sz ? { width: +sz[1], height: +sz[2] } : undefined;
     const m = await load(String(i++));
     const got = m.detectGpuTier(gl(r, astc) as any);
     const ok = got === want;

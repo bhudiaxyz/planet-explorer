@@ -6,7 +6,8 @@ import { rng } from "../core/noise";
 import { S, CFG } from "../core/config";
 import { treeGeos, lowGeos, treeMats, getLeafColors } from "./trees";
 import { canBake, bakePoints } from "../render/bake";
-import { gpuTier } from "../render/gputier";
+import { gpuTier, isTouchDevice } from "../render/gputier";
+import { U } from "../render/fx";
 import type { Obs } from "./collision";
 const UP = new THREE.Vector3(0, 1, 0);
 const _lod = CFG.treeLod;
@@ -106,8 +107,14 @@ export class Forest {
     private M0: number;
     private M1: number;
     constructor(private pl: Planet) {
-        const lodMul = gpuTier === "low" ? 0.45 : gpuTier === "medium" ? 0.65 : 1;
+        // high desktop keeps detailed / medium trees ~30% further out (discrete GPU, 2048² shadow map to match)
+        const lodMul =
+            gpuTier === "low" ? 0.45 : gpuTier === "medium" ? 0.65 : isTouchDevice ? 1 : 1.3;
         [this.H0, this.H1, this.M0, this.M1] = _lod.map((v) => v * lodMul) as [number, number, number, number];
+        // The shader cross-fade (uLod) must use the same scaled bands as the CPU tier sets. It used to keep the unscaled
+        // CFG.treeLod, so on low/medium the shader faded to detailed trees out to 70 m while the CPU only filled that tier
+        // to ~46–60 m: the dither gap showed as trees thinning out at mid range.
+        U.uLod.value.set(this.H0, this.H1, this.M0, this.M1);
     }
 
     /** Per-candidate terrain samples. mode 1: (elev, moisture, tree density, slope) · 2: coarse-mesh radius · 5: stand noise. */
