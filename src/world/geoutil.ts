@@ -160,6 +160,21 @@ export function leaves(
     }
 }
 export const done = (p: THREE.BufferGeometry[]) => mergeGeometries(p)!;
+/** Very-distant tier for plants, rocks and crystals: one scaled octahedron (8 faces, 24 vertices) centred at height y.
+ *  leaf = true marks it foliage (per-instance tint drives its colour); false keeps colour c. */
+export const tiny = (c: THREE.Color, y: number, sx: number, sy: number, leaf: boolean) => {
+    const p: THREE.BufferGeometry[] = [];
+    add(
+        p,
+        new THREE.OctahedronGeometry(1, 0),
+        new THREE.Matrix4().compose(new THREE.Vector3(0, y, 0), new THREE.Quaternion(), new THREE.Vector3(sx, sy, sx)),
+        c,
+        sy,
+        true,
+        leaf
+    );
+    return done(p);
+};
 /** Palm frond segment. sway = [from, to] places it in the frond motion band (2 base → 3 tip); omit for a rigid frond. */
 export function frond(
     p: THREE.BufferGeometry[],

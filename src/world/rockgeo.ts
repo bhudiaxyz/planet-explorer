@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { rng } from "../core/noise";
 import { CurrentPalette } from "../core/palette";
-import { T, add, done } from "./geoutil";
+import { T, add, done, tiny } from "./geoutil";
 
 export function rockGeo() {
     const p: THREE.BufferGeometry[] = [];
@@ -89,23 +89,10 @@ export function frostRockLow() {
     return done(p);
 }
 
-const tinyRock = (c: THREE.Color, y: number, sx: number, sy: number) => {
-    const p: THREE.BufferGeometry[] = [];
-    add(
-        p,
-        new THREE.OctahedronGeometry(1, 0),
-        new THREE.Matrix4().compose(new THREE.Vector3(0, y, 0), new THREE.Quaternion(), new THREE.Vector3(sx, sy, sx)),
-        c,
-        sy,
-        true,
-        false
-    );
-    return done(p);
-};
-export const rockSlabTiny = () => tinyRock(new THREE.Color(CurrentPalette.rockWarmAlt), 0.12, 1.1, 0.22);
-export const frostRockTiny = () => tinyRock(new THREE.Color(CurrentPalette.rockCool), 0.45, 0.85, 0.75);
+export const rockSlabTiny = () => tiny(new THREE.Color(CurrentPalette.rockWarmAlt), 0.12, 1.1, 0.22, false);
+export const frostRockTiny = () => tiny(new THREE.Color(CurrentPalette.rockCool), 0.45, 0.85, 0.75, false);
 
-export const rockTiny = () => tinyRock(new THREE.Color(CurrentPalette.rockWarm), 0.3, 1, 0.8);
+export const rockTiny = () => tiny(new THREE.Color(CurrentPalette.rockWarm), 0.3, 1, 0.8, false);
 
 // ---- extra rock types (reuse the palette rock colours; per-instance hue/size comes from the catalog `look` in plants.ts)
 const ico = (
@@ -192,7 +179,7 @@ export function torLow() {
     );
     return done(p);
 }
-export const torTiny = () => tinyRock(new THREE.Color(CurrentPalette.rockWarm), 1.0, 0.9, 1.1);
+export const torTiny = () => tiny(new THREE.Color(CurrentPalette.rockWarm), 1.0, 0.9, 1.1, false);
 
 // Scree: angular shards strewn across steep high slopes
 export function screeGeo(n = 7) {
@@ -217,7 +204,7 @@ export function screeGeo(n = 7) {
     return done(p);
 }
 export const screeLow = () => screeGeo(3);
-export const screeTiny = () => tinyRock(new THREE.Color(CurrentPalette.rockCool), 0.1, 1.2, 0.25);
+export const screeTiny = () => tiny(new THREE.Color(CurrentPalette.rockCool), 0.1, 1.2, 0.25, false);
 
 // Basalt columns: clustered hexagonal prisms of mixed height (dry volcanic mid/high ground)
 export function basaltGeo(n = 7) {

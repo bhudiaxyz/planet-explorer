@@ -23,10 +23,21 @@ import {
     sedgeGeo,
     sedgeLow,
     sedgeTiny,
+} from "./plantgeo";
+import {
     crystalGeo,
     crystalLow,
     crystalTiny,
-} from "./plantgeo";
+    geodeGeo,
+    geodeLow,
+    geodeTiny,
+    iceCrystalGeo,
+    iceCrystalLow,
+    iceCrystalTiny,
+    emberGeo,
+    emberLow,
+    emberTiny,
+} from "./crystalgeo";
 import {
     rockGeo,
     rockLow,
@@ -174,7 +185,13 @@ export const PLANTS: PlantSpec[] = [
         look: `
       sc = vec3(.55 + h2 * .8, .55 + h1 * 1.1, .55 + h2 * .8);
       sc *= 1. + step(.88, h3) * .6;
+      // vColor exists only in the visible pass; the shadow-depth pass (collidable kinds, high tier) runs this
+      // same code without vertex colours, so the glow mask falls back to 1 there (tint is unused in depth)
+#ifdef USE_COLOR
       float hm = step(.4, min(vColor.r, min(vColor.g, vColor.b)));
+#else
+      float hm = 1.;
+#endif
       int pk = int(h3 * 9.);
       vec3 fcol = pk == 0 ? vec3(.9,  .9,  .88)
         : pk == 1 ? vec3(.9,  .62, .05)
@@ -370,7 +387,13 @@ export const PLANTS: PlantSpec[] = [
         look: `
       sc = vec3(.45 + h2 * .8, .55 + h1 * 1.1, .45 + h2 * .8);
       sc *= 1. + h3 * 2. * step(.7, h3);
+      // vColor exists only in the visible pass; the shadow-depth pass (collidable kinds, high tier) runs this
+      // same code without vertex colours, so the glow mask falls back to 1 there (tint is unused in depth)
+#ifdef USE_COLOR
       float hm2 = step(.4, min(vColor.r, min(vColor.g, vColor.b)));
+#else
+      float hm2 = 1.;
+#endif
       vec3 mcol = h7 < .18 ? vec3(.5,  .05, .04)
                 : h7 < .36 ? vec3(.25, .12, .06)
                 : h7 < .52 ? vec3(.5,  .2,  .04)
@@ -580,6 +603,92 @@ export const PLANTS: PlantSpec[] = [
       sc = vec3(.6 + h1);
       tint = (h7 < .4 ? vec3(.5, .52, .56) : h7 < .75 ? vec3(.4, .4, .42) : vec3(.36, .3, .26))
         * 3.4 * (.75 + h2 * .4);
+    `,
+    }),
+    // ---- crystal variety by climate: geodes (dry mid altitude) · ice crystals (near the snowline) · ember shards (hot,
+    // dry lowlands). Glow: the tint multiplies only bright (glowing) vertices — rock shells and charred casings keep their
+    // own dark colour (min channel < .4, the same mask the flowers use). Same LOD bands as the original crystals.
+    plant({
+        name: "crystal geodes",
+        kind: 19,
+        wind: 0,
+        hardy: true,
+        collide: true,
+        lean: 0.06,
+        tiers: [
+            tier(geodeGeo, 4.25, RAD.rock, LOD.rock),
+            tier(geodeLow, 8.5, RAD.rockMid, LOD.rockMid),
+            tier(geodeTiny, 17, RAD.far, LOD.far),
+        ],
+        pre: "cf = clusterField(d, 19.);",
+        gate: "if (e < .16 || e >= .45 || m >= .2 || h6 <= 1. - (.0012 + sm_(.16, .35, e) * .004) * PMUL * (.1 + cf * 1.6)) REJECT;",
+        look: `
+      float s = .8 + h1 * 1.4;
+      sc = vec3(s * (.9 + h2 * .3), s * (.75 + h7 * .5), s * (.9 + h2 * .3));
+      // vColor exists only in the visible pass; the shadow-depth pass (collidable kinds, high tier) runs this
+      // same code without vertex colours, so the glow mask falls back to 1 there (tint is unused in depth)
+#ifdef USE_COLOR
+      float gm = step(.4, min(vColor.r, min(vColor.g, vColor.b)));
+#else
+      float gm = 1.;
+#endif
+      vec3 gc = h7 < .4 ? vec3(.62, .18, 1.)    // amethyst
+              : h7 < .75 ? vec3(1., .72, .12)   // citrine
+              :            vec3(.15, 1., .45);  // emerald
+      tint = mix(vec3(1.), gc * (2.6 + h1 * 1.2), gm);
+    `,
+    }),
+    plant({
+        name: "ice crystals",
+        kind: 20,
+        wind: 0,
+        hardy: true,
+        lean: 0.04,
+        tiers: [
+            tier(iceCrystalGeo, 3.4, RAD.rock, LOD.rock),
+            tier(iceCrystalLow, 8.5, RAD.rockMid, LOD.rockMid),
+            tier(iceCrystalTiny, 17, RAD.far, LOD.far),
+        ],
+        pre: "cf = clusterField(d, 20.);",
+        // near and just below the snowline (tt is the climate value the snow test uses), on gentle ground
+        gate: "if (e < .3 || tt > uSnow + .22 || sl >= .7 || h6 <= 1. - (.003 + sm_(uSnow + .22, uSnow + .02, tt) * .009) * PMUL * (.15 + cf * 1.8)) REJECT;",
+        look: `
+      float s = .5 + h1 * .9;
+      sc = vec3(s * (.8 + h2 * .4), s * (.8 + h7 * .8), s * (.8 + h2 * .4));
+      tint = (h7 < .45 ? vec3(.55, .9, 1.)    // pale cyan
+            : h7 < .85 ? vec3(.82, .92, 1.)   // white-blue
+            :            vec3(.78, .7, 1.))   // faint violet
+        * (1.8 + h1 * .9);
+    `,
+    }),
+    plant({
+        name: "ember shards",
+        kind: 21,
+        wind: 0,
+        hardy: true,
+        lean: 0.3,
+        tiers: [
+            tier(emberGeo, 3.4, RAD.rock, LOD.rock),
+            tier(emberLow, 8.5, RAD.rockMid, LOD.rockMid),
+            tier(emberTiny, 17, RAD.far, LOD.far),
+        ],
+        pre: "cf = clusterField(d, 21.);",
+        // hot (low tt-adjusted latitude band), dry lowlands: deserts and volcanic plains
+        gate: "if (e < .04 || e >= .3 || m >= -.05 || tt < .62 || h6 <= 1. - (.0035 + sm_(-.05, -.3, m) * .008) * PMUL * (.12 + cf * 2.)) REJECT;",
+        look: `
+      float s = .6 + h1 * 1.1;
+      sc = vec3(s);
+      // vColor exists only in the visible pass; the shadow-depth pass (collidable kinds, high tier) runs this
+      // same code without vertex colours, so the glow mask falls back to 1 there (tint is unused in depth)
+#ifdef USE_COLOR
+      float gm = step(.4, min(vColor.r, min(vColor.g, vColor.b)));
+#else
+      float gm = 1.;
+#endif
+      vec3 gc = h7 < .45 ? vec3(1., .38, .06)   // orange
+              : h7 < .8  ? vec3(1., .14, .05)   // red
+              :            vec3(1., .7, .15);   // gold
+      tint = mix(vec3(1.), gc * (2.4 + h1 * 1.4), gm);
     `,
     }),
 ];
