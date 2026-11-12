@@ -51,6 +51,19 @@ uniform mat4      uInvPV;
 uniform vec2      uTexel;
 varying vec2      vUv;
 float linZ(float d) { return uNear * uFar / (uFar - d * (uFar - uNear)); }
+#ifdef MIST
+// GRADE: golden hour (sun just above the horizon) warms and slightly lifts mid-tones; blue hour (just below) cools and
+// deepens. Scaled by how close the sun is to the horizon, so midday and deep night are untouched.
+vec3 grade(vec3 c) {
+  float sh  = dot(normalize(uCam), uSun);                          // sun height seen from the player
+  float gold = (1. - smoothstep(.0, .3, sh)) * smoothstep(-.05, .05, sh);
+  float blue = (1. - smoothstep(-.2, .0, sh)) * smoothstep(-.35, -.15, sh);
+  float l = dot(c, vec3(.299, .587, .114));
+  c = mix(c, c * vec3(1.12, 1., .82) + vec3(.012, .006, 0.) * (1. - l), gold * .7);
+  c = mix(c, c * vec3(.82, .9, 1.15), blue * .6);
+  return c;
+}
+#endif
 void main() {
   vec4 col = texture2D(tDiffuse, vUv);
   float d  = texture2D(tDepth, vUv).r;
@@ -77,6 +90,9 @@ void main() {
 #ifdef SHAFTS
     col.rgb += shaft * .5;
 #endif
+#ifdef MIST
+    col.rgb = grade(col.rgb);
+#endif
     gl_FragColor = col;
     return;
   }
@@ -102,6 +118,16 @@ void main() {
   vec3  haze  = mix(vec3(0.05, 0.06, 0.12), day, uDayF);
   vec3  outc  = mix(col.rgb, haze, fog * 0.55);
 #ifdef MIST
+  // SUN HAZE: looking toward the sun, distant haze brightens and warms (forward scattering), strongest near the horizon
+  {
+    vec4  vd4 = uInvPV * vec4(vUv * 2. - 1., 1., 1.);
+    vec3  vdir = normalize(vd4.xyz / vd4.w - uCam);
+    float fwd  = pow(clamp(dot(vdir, uSun), 0., 1.), 6.);
+    float lowS = 1. - smoothstep(.1, .6, dot(normalize(uCam), uSun));
+    outc += vec3(1., .72, .42) * fwd * fog * (.25 + .5 * lowS) * uDayF;
+  }
+#endif
+#ifdef MIST
   // Valley mist at dawn / dusk: reconstruct the pixel's world position and pool fog in low ground (≤ ~18 % of the
   // terrain amplitude above sea level). Strongest when the sun is just above/below the horizon, gone by mid-morning.
   {
@@ -120,6 +146,9 @@ void main() {
 #endif
 #ifdef SHAFTS
   outc += shaft;
+#endif
+#ifdef MIST
+  outc = grade(outc);
 #endif
   gl_FragColor = vec4(outc, col.a);
 }`,

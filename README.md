@@ -13,10 +13,12 @@ Inspired by **Beyond Fable** and **threejs-procedural-planets**.
 - **Whole planet from one seed.** Terrain, biomes, plants, sky, weather, water and rivers, all generated on the GPU.
 - **13 Solar System palettes.** From Earth to Mercury and out to Pluto and Haumea, each palette gives the world its own look.
 - **Rivers, streams and lakes.** They follow valleys from high ground to the sea, branch into tributaries, meander, and pool into lakes.
-- **Rich ground cover.** 19 kinds of plants and rocks, from shore cobbles and upland tors to basalt columns and scree fields, each growing where the altitude and climate suit it.
+- **Rich ground cover.** 22 kinds of plants, rocks and crystals, from shore cobbles and upland tors to basalt columns and scree fields, each growing where the altitude and climate suit it.
+- **Glowing crystals.** Crystal spikes, cracked-open geodes, frosty ice spires near the snowline and smouldering ember shards in hot deserts.
 - **Forests that change with altitude.** 14 tree species, from mangroves and kapok giants on tropical coasts to spruce, wind-bent juniper and bare snags at the treeline. Up close, broadleaf crowns are covered in polygonal leaves.
 - **A world that moves in the wind.** Tree crowns and shrubs sway and rustle, leaves flutter and palm fronds bob, more strongly as the wind picks up.
-- **Weather you can see on the ground.** Rain leaves the ground glossy and dark until it dries, snow settles on rocks near the snowline, and mist pools in valleys at dawn and dusk.
+- **Weather you can see on the ground.** Rain leaves the ground glossy and dark and fills puddles that mirror the sky, snow spreads further down the mountains while it falls, gusts sweep across the meadows, and mist pools in valleys at dawn and dusk.
+- **Light that changes through the day.** Warm golden hours and cool blue hours, haze that glows toward the sun, dust motes drifting in sunlight, caustics rippling over the shallows, and moonlight glittering on the sea at night.
 - **Extra polish on capable PCs.** Contact shadows (ambient occlusion), sun shafts through trees and around peaks, and longer-range shadows.
 - **Living sky.** Day/night cycle, clouds, rain and snow, aurora at the poles, fireflies, glowing coastlines and a galactic band at night.
 - **Wind-driven ocean.** Waves grow and shrink with the weather, and the water takes its colour from the planet's palette: deep warm blues on Earth, the planet's own tones elsewhere. The map matches.

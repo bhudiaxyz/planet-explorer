@@ -310,6 +310,10 @@ const scene = new THREE.Scene(),
         // ground wetness: soaks in over ~10 s of rain, dries over ~1 min (snow doesn't wet the ground)
         const raining = sky.snow ? 0 : sky.precipitationAmount;
         U.uWet.value += (raining - U.uWet.value) * Math.min(1, dt * (raining > U.uWet.value ? 0.1 : 0.016));
+        // snow cover below the snowline: builds over ~40 s of snowfall, melts over ~2 min
+        const snowing = sky.snow ? sky.precipitationAmount : 0;
+        U.uSnowFall.value +=
+            (snowing - U.uSnowFall.value) * Math.min(1, dt * (snowing > U.uSnowFall.value ? 0.025 : 0.008));
         planet.clouds.update(camera.position, sky);
         skyDome.update(camera.position, player.up, sky, dt);
         planet.atmosphere.visible = planet.atmosphere.uniforms.fade.value > 0.01;
@@ -328,7 +332,8 @@ const scene = new THREE.Scene(),
             U.uTime.value,
             camera.position,
             night * (1 - smoothstep(20, 40, player.alt)) * (1 - sky.precipitationAmount),
-            sky.dayF
+            sky.dayF,
+            (1 - sky.precipitationAmount) * (1 - smoothstep(20, 40, player.alt)) // daytime dust motes
         );
         biolumi.update(dt, camera.position);
         camera.getWorldDirection(camForward);

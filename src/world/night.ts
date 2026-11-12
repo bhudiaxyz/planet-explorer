@@ -102,12 +102,13 @@ export class Fireflies {
                 uT: { value: 0 },
                 uAmt: { value: 0 },
                 uDay: { value: 0 },
+                uDust: { value: 1 }, // 0 in rain / snow (set by update)
                 uPx: { value: 140 },
                 uCam: { value: new THREE.Vector3() },
             },
             vertexShader: `
 attribute vec4 sd;
-uniform float uT, uAmt, uDay, uPx;
+uniform float uT, uAmt, uDay, uPx, uDust;
 uniform vec3 uCam;
 varying float vA, vDayness;
 ${TERRAIN_GLSL}
@@ -118,7 +119,8 @@ void main() {
   // P9: fine=false saves 3 noise evaluations per firefly per frame; <1 m height difference, imperceptible.
   vec3  w  = d * (uR + e3(d, false) * uAmp + .4 + sd.w * 2.4 + sin(uT * .6 + sd.w * 40.) * .4);
   float ph = .5 + .5 * sin(uT * 2. + sd.w * 6.283);
-  float amt = max(uAmt, uDay * .07);
+  // daytime: sunlit dust motes drifting in the air (was a faint .07 hint); fades out in rain via uAmt's caller
+  float amt = max(uAmt, uDay * uDust * .22);
   vA = ph * amt * (1. - smoothstep(25., 40., distance(w, uCam)));
   vDayness = clamp(uDay * 8., 0., 1.);
   vec4 mv = modelViewMatrix * vec4(w, 1.);
@@ -129,15 +131,17 @@ void main() {
 varying float vA, vDayness;
 void main() {
   float d = length(gl_PointCoord - .5);
-  vec3 col = mix(vec3(.8, 1., .4), vec3(.95, .88, .72), vDayness);
-  gl_FragColor = vec4(col, smoothstep(.5, 0., d) * vA * 3.);
+  vec3 col = mix(vec3(.8, 1., .4), vec3(1., .92, .76), vDayness);
+  // motes are softer and smaller-looking than fireflies: wider falloff, dimmer core
+  gl_FragColor = vec4(col, smoothstep(.5, 0., d) * mix(smoothstep(.5, .0, d), 1., 1. - vDayness) * vA * 3.);
 }`,
         });
         this.pts = new THREE.Points(g, this.mat);
         this.pts.frustumCulled = false;
         scene.add(this.pts);
     }
-    update(_deltaTime: number, time: number, cameraPosition: THREE.Vector3, intensity: number, dayF = 0) {
+    update(_deltaTime: number, time: number, cameraPosition: THREE.Vector3, intensity: number, dayF = 0, dust = 1) {
+        this.mat.uniforms.uDust.value = dust;
         this.mat.uniforms.uT.value = time;
         this.mat.uniforms.uAmt.value = intensity;
         this.mat.uniforms.uDay.value = dayF;

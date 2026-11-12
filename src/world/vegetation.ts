@@ -17,7 +17,7 @@ import { PLANTS, type PlantSpec, type Tier, decideGLSL, lookGLSL } from "./plant
 const DECIDE = decideGLSL();
 const BEGIN = `
 bool kill = dot(aCell, aCell) > uK * uK;
-float snV = 0.;
+float snV = 0., gust = 0.;
 vec3  gP   = vec3(0.), gN = vec3(0., 1., 0.), tint = vec3(1.);
 vOuterF = 1.;
 vInnerF = 1.;
@@ -57,6 +57,11 @@ ${lookGLSL()}
     vec2  wDir = normalize(uSun.xz + vec2(0.001));
     float wave = sin(uTime * 1.8 + dot(vec2(ax.x, az.x) * 4.0, wDir) + ph * .5)
                * uWind * WK * y * y * 0.7 * uSway;
+    // GUSTS (all tiers): broad bands of stronger wind sweep across the ground along the wind direction; plants inside
+    // a band lean further (gust is shared with the grass look snippet, which brightens them as their blades tilt to the sun)
+    float gustP = dot(vec2(dot(d, t1), dot(d, t2)), wDir) * uR * .055 - uTime * 1.4;
+    gust = smoothstep(.55, 1., sin(gustP) * .5 + .5 + (hs(floor(gustP / 6.283), F, 3.) - .5) * .6) * min(uWind, 2.);
+    wave += gust * WK * y * y * .9 * uSway;
 #if RUSTLE
     // medium/large plants (shrubs, scrub): foliage churns a little per vertex on top of the whole-plant sway, growing
     // toward the top. One sin per vertex; only kinds with RUSTLE (wind > 0, not grass/reeds, which already wave).
@@ -82,7 +87,7 @@ ${lookGLSL()}
 #endif
     // snow caps near the snowline on hardy kinds (rocks, scrub, cactus…): same climate test as terrain and trees,
     // upward-facing surfaces only. Applied after the vertex colour below, as a blend toward the palette snow colour.
-    snV = (1. - smoothstep(uSnow - .02, uSnow + .16, 1. - 1.1 * d.y * d.y - 1.2 * max(D / uAmp, 0.)))
+    snV = (1. - smoothstep(uSnow + uSnowFall * .28 - .02, uSnow + uSnowFall * .28 + .16, 1. - 1.1 * d.y * d.y - 1.2 * max(D / uAmp, 0.)))
         * smoothstep(.35, .8, dot(gN, d)) * TSNOW * .85;
   }
 }
@@ -204,6 +209,7 @@ class Layer {
                 uWind: U.uWind,
                 uSway: U.uSway,
                 uVeg: U.uVeg,
+                uSnowFall: U.uSnowFall,
                 uPl: U.uPl,
                 uSun: U.uSun,
                 uDayF: U.uDayF,
@@ -215,7 +221,7 @@ class Layer {
             shaderParams.vertexShader = shaderParams.vertexShader
                 .replace(
                     "#include <common>",
-                    `#include <common>\nattribute vec2 aCell;uniform vec3 uSC,uPl,uSun;uniform float uK,uTime,uWind,uSway,uVeg,CELLSZ,WK,TO_FULL,TO_GONE,TI_GONE,TI_FULL,SCW,SCH,LEAN,TSNOW,uAmp,uSnow;uniform sampler2D uP;varying float vOuterF,vInnerF;\n${HELPERS_GLSL}`
+                    `#include <common>\nattribute vec2 aCell;uniform vec3 uSC,uPl,uSun;uniform float uK,uTime,uWind,uSway,uVeg,CELLSZ,WK,TO_FULL,TO_GONE,TI_GONE,TI_FULL,SCW,SCH,LEAN,TSNOW,uAmp,uSnow,uSnowFall;uniform sampler2D uP;varying float vOuterF,vInnerF;\n${HELPERS_GLSL}`
                 )
                 .replace("#include <beginnormal_vertex>", BEGIN)
                 .replace("#include <begin_vertex>", "vec3 transformed=gP;")
@@ -255,6 +261,7 @@ class Layer {
                     uWind: U.uWind,
                     uSway: U.uSway,
                     uVeg: U.uVeg,
+                    uSnowFall: U.uSnowFall,
                     uPl: U.uPl,
                     uSun: U.uSun,
                     uSC: this.uSC,
@@ -267,7 +274,7 @@ class Layer {
                 s.vertexShader = s.vertexShader
                     .replace(
                         "#include <common>",
-                        `#include <common>\nattribute vec2 aCell;uniform vec3 uSC,uPl,uSun;uniform float uK,uTime,uWind,uSway,uVeg,CELLSZ,WK,TO_FULL,TO_GONE,TI_GONE,TI_FULL,SCW,SCH,LEAN,TSNOW,uAmp,uSnow;uniform sampler2D uP;float vOuterF,vInnerF;\n${HELPERS_GLSL}`
+                        `#include <common>\nattribute vec2 aCell;uniform vec3 uSC,uPl,uSun;uniform float uK,uTime,uWind,uSway,uVeg,CELLSZ,WK,TO_FULL,TO_GONE,TI_GONE,TI_FULL,SCW,SCH,LEAN,TSNOW,uAmp,uSnow,uSnowFall;uniform sampler2D uP;float vOuterF,vInnerF;\n${HELPERS_GLSL}`
                     )
                     .replace(
                         "#include <begin_vertex>",

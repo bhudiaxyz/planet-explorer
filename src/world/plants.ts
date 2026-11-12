@@ -172,6 +172,13 @@ export const PLANTS: PlantSpec[] = [
         * mix(vec3(1.), vec3(1.28, 1.05, .62), sm_(.15, .6, Dv.y) * .75)
         * mix(vec3(1.), vec3(1.4, 1.15, .5), step(.85, h7) * .8);
       if (h3 > .92) tint = (h2 < .4 ? vec3(.55, .62, .68) : h2 < .7 ? vec3(.48, .28, .12) : vec3(.18, .48, .52)) * (.9 + h1 * .3);
+      // gust sheen: blades bent by a passing gust catch more light (same band as the gust lean in vegetation.ts)
+      {
+        vec3  gt1 = normalize(cross(d, abs(d.y) < .99 ? vec3(0., 1., 0.) : vec3(1., 0., 0.)));
+        vec2  gw  = normalize(uSun.xz + vec2(.001));
+        float gp  = dot(vec2(dot(d, gt1), dot(d, cross(d, gt1))), gw) * uR * .055 - uTime * 1.4;
+        tint *= 1. + .22 * smoothstep(.55, 1., sin(gp) * .5 + .5 + (hs(floor(gp / 6.283), F, 3.) - .5) * .6) * min(uWind, 2.);
+      }
     `,
     }),
     plant({

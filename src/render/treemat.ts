@@ -39,6 +39,7 @@ if (vLd < uLod.z - 20. || dot(normalize(wpL), cameraPosition / crL) < length(wpL
         s.uniforms.uSun = U.uSun;
         s.uniforms.uDayF = U.uDayF;
         s.uniforms.uSnow = TU.uSnow;
+        s.uniforms.uSnowFall = U.uSnowFall;
         s.uniforms.uAmp = TU.uAmp;
         s.uniforms.uR = TU.uR;
         s.uniforms.uCw = TU.uCw;
@@ -59,7 +60,7 @@ if (vLd < uLod.z - 20. || dot(normalize(wpL), cameraPosition / crL) < length(wpL
         s.fragmentShader = s.fragmentShader
             .replace(
                 "#include <common>",
-                "#include <common>\nvarying float vLd;varying vec3 vWt;uniform vec4 uLod;uniform vec3 uSun,uCw;uniform float uDayF,uSnow,uAmp,uR;" +
+                "#include <common>\nvarying float vLd;varying vec3 vWt;uniform vec4 uLod;uniform vec3 uSun,uCw;uniform float uDayF,uSnow,uSnowFall,uAmp,uR;" +
                     IGN
             )
             .replace(
@@ -76,7 +77,7 @@ if (vLd < uLod.z - 20. || dot(normalize(wpL), cameraPosition / crL) < length(wpL
   totalEmissiveRadiance += diffuseColor.rgb * tr * .55;
   vec3  nw  = normalize(vWt);
   float tt  = 1. - 1.1 * nw.y * nw.y - 1.2 * max((length(vWt) - uR) / uAmp, 0.);
-  float sn  = 1. - smoothstep(uSnow - .02, uSnow + .16, tt);
+  float sn  = 1. - smoothstep(uSnow + uSnowFall * .28 - .02, uSnow + uSnowFall * .28 + .16, tt);
   float upf = smoothstep(.15, .7, dot(normal, (viewMatrix * vec4(nw, 0.)).xyz));
   diffuseColor.rgb = mix(diffuseColor.rgb, uCw * .95, sn * upf * .85);
 }

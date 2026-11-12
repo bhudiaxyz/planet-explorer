@@ -39,8 +39,9 @@ src/
 │   ├── treeutil.ts       ← tree geometry helpers
 │   ├── geoutil.ts        ← shared procedural-geometry builders
 │   ├── vegetation.ts     ← GPU instanced scatter (reads bake textures)
-│   ├── plants.ts         ← 19-kind plant & rock catalog with per-kind GLSL gates
+│   ├── plants.ts         ← 22-kind plant, rock & crystal catalog with per-kind GLSL gates
 │   ├── plantgeo.ts       ← foliage geometry (grass, flowers, shrubs, …)
+│   ├── crystalgeo.ts     ← glowing crystal geometry (spikes, geodes, ice crystals, ember shards)
 │   ├── rockgeo.ts        ← rock geometry (rocks, slabs, frost rocks, cobbles, tors, scree, basalt)
 │   ├── landmarks.ts      ← 8 procedural landmark types
 │   ├── footprints.ts     ← snow footprint trail
@@ -67,7 +68,7 @@ src/
 | Ambient life | `world/life.ts` | Bird flocks, shooting stars, lightning, waterfall mist, butterflies & falling leaves. |
 | Rivers & lakes | `world/river.ts` | Valley-tracing paths, meanders, tributaries, lakes; single animated water shader. |
 | Trees | `world/forest.ts`, `world/trees.ts`, `world/treeutil.ts`, `world/geoutil.ts` | 14 species picked by altitude/climate; clustered placement, three LOD levels, per-tree hue and shape variation. |
-| Ground cover | `world/plants.ts`, `world/vegetation.ts`, `world/plantgeo.ts`, `world/rockgeo.ts` | 19 plant and rock kinds with biome/altitude-specific placement gates. |
+| Ground cover | `world/plants.ts`, `world/vegetation.ts`, `world/plantgeo.ts`, `world/rockgeo.ts`, `world/crystalgeo.ts` | 22 plant, rock and crystal kinds with biome/altitude-specific placement gates. |
 | Landmarks | `world/landmarks.ts` | 24 landmarks across 8 procedural types, placed at build time. |
 | Player | `player/player.ts`, `player/touch.ts`, `world/collision.ts`, `world/footprints.ts` | Walk / drone / fly controller; collision; snow footprints; virtual joystick. |
 | Locations | `world/spots.ts` | Terrain beauty-spot scanner; results populate the Locations panel and map. |
@@ -108,7 +109,7 @@ main.ts (async IIFE):
 
 - **Shader compile dominates a Windows cold start.** Chrome/Edge on Windows translate WebGL through ANGLE to D3D11, whose HLSL compiler (`fxc`) fully inlines and unrolls the terrain noise: each bake program that evaluates `e3()` takes 2–20 s to compile, against well under a second on GL, Metal or Vulkan. Four measures keep this off the critical path:
   - `precompileBakes()` (`render/bake.ts`) builds a throwaway scene holding every bake material and calls `compileAsync` on it at the start of step 1, with a float render target bound. Three keys programs on the target's colour space, so compiling against the canvas would warm the wrong variants. With `KHR_parallel_shader_compile` the driver compiles them all concurrently while the CPU setup runs.
-  - The plant placement bake is a single program for all 19 kinds (runtime `uKind` branch), not one per kind (§6).
+  - The plant placement bake is a single program for all 22 kinds (runtime `uKind` branch), not one per kind (§6).
   - The visible plant vertex shader includes only `HELPERS_GLSL`, not the whole terrain library it never calls (§6).
   - `renderer.debug.checkShaderErrors` is on only in dev builds. In production it would read each program's info log right after linking, forcing a synchronous wait per program.
 
@@ -213,6 +214,9 @@ Touch = unknown mobile → conservative `low`. Desktop → `medium`, not `high`:
 | Lightning, cascade mist (max falls) | off | on (4) | on (8) | on (8) |
 | Butterflies & leaves, sand ripples | off | off | on | on |
 | Wet ground after rain, valley mist | off | on | on | on |
+| Puddles, shallow caustics, sun haze, golden / blue hour | off | on | on | on |
+| Grass gusts, snow settling while it snows, daytime dust motes | on | on | on | on |
+| Moonlight glitter on water | off | off | on | on |
 | Ambient occlusion, sun shafts | off | off | off | on |
 | Snow caps on rocks / hardy plants | on | on | on | on |
 | Shadow Hz | 20 | 30 | 30 | 30 |
@@ -366,7 +370,7 @@ River and lake colour comes from the palette and is shared with the ocean (§9).
 
 ### Plant catalog pattern
 
-Each of 19 plant and rock kinds is one `plant({...})` call declaring:
+Each of 22 plant, rock and crystal kinds is one `plant({...})` call declaring:
 - `tiers`: array of `tier(geoFn, cellSize, radius, lodBand, …)` — one per LOD level.
 - `gate`: GLSL snippet that returns `REJECT` to veto an instance (e.g. wrong biome).
 - `look`: GLSL snippet for per-instance colour/scale variation.
@@ -376,7 +380,7 @@ Adding a new plant kind requires only this one entry — nothing else changes.
 
 ### Shader program count
 
-Only structural `#if` flags (`KIND`, `DISP`, `PUSH`, `MOSS`) are compiled as `#define` values. All numeric tier parameters (`PMUL`, `CELLSZ`, `WK`, `TSN`, `TO_FULL`, `TO_GONE`, `TI_GONE`, `TI_FULL`, `SCW`, `SCH`, `LEAN`) are passed as uniforms. This means tiers of the same plant kind with the same structural flags share one compiled shader program — unique programs drop from ~55 (19 kinds × up to 3 tiers) to ~19 on high tier.
+Only structural `#if` flags (`KIND`, `DISP`, `PUSH`, `MOSS`) are compiled as `#define` values. All numeric tier parameters (`PMUL`, `CELLSZ`, `WK`, `TSN`, `TO_FULL`, `TO_GONE`, `TI_GONE`, `TI_FULL`, `SCW`, `SCH`, `LEAN`) are passed as uniforms. This means tiers of the same plant kind with the same structural flags share one compiled shader program — unique programs drop from ~64 (22 kinds × up to 3 tiers) to ~22 on high tier.
 
 The visible vertex shader reads placement from the baked texel and never evaluates terrain, so it includes only `HELPERS_GLSL` (`sm_`, `hs`, `basis` and the biome colour uniforms) instead of `TERRAIN_GLSL`. `look` snippets may use only those.
 
@@ -394,7 +398,7 @@ Each tier is `[full-size until, gone beyond, inner gone below, inner full above]
 | `flower` | flowers (single tier) | `[65,90,0,0.5]` | 90 |
 | `mush` | mushrooms (single tier) | `[30,50,0,0.5]` | 48 |
 | `shrub` / `shrubMid` | shrubs, alpine scrub, cactus, dead scrub, cobbles (no far tier) | `[75,110,0,0.5]` / `[70,152,5,22]` | 110 / 160 |
-| `rock` / `rockMid` | rocks, rock slabs, frost rocks, boulders, crystals, tors, basalt columns, scree | `[80,140,0,0.5]` / `[70,195,5,22]` | 140 / 210 |
+| `rock` / `rockMid` | rocks, rock slabs, frost rocks, boulders, tors, basalt columns, scree, crystals, geodes, ice crystals, ember shards | `[80,140,0,0.5]` / `[70,195,5,22]` | 140 / 210 |
 | `far` | third tier of every multi-tier kind | `[90,200,12,36]` | 204 |
 
 Far tiers draw on high tier only; mid tiers on medium and above.
@@ -421,9 +425,23 @@ Rocks share the plant pipeline: each type is a catalog entry with `wind: 0`, `ha
 | boulders | 13 | > 0.28 | slope-weighted | 1.6–4.8 m | rock (8.5 m cell) / rockMid / far |
 | scree | 18 | > 0.3, ramps to 0.5 | density rises with slope (0.2→0.8) | shard fields 0.1–0.5 m | rock / rockMid / far |
 | frost rocks | 9 | > 0.38 | — | 0.3–1.6 m angular | rock / rockMid / far |
-| crystals | 14 | > 0.22 | `m` < 0.35 | thin spires | rock / rockMid / far |
 
 Large kinds (tors, basalt, boulders) use a doubled 8.5 m cell so the instance lattice stays small for rare placements. Cobbles and scree are not collidable (they're stepped over). Plant collision is currently disabled globally (see `Scatter` in `vegetation.ts`), so `collide` only controls shadow casting.
+
+### Glowing crystals (`world/crystalgeo.ts`)
+
+Four kinds, all `hardy`, `wind: 0`, on the `rock` / `rockMid` / `far` LOD bands like the other mineral kinds:
+
+| Kind | # | Where | Shape | Glow colours |
+|---|---|---|---|---|
+| crystals | 14 | `e` > 0.22, `m` < 0.35 | 3–5 elongated spikes | cyan, violet, orange, green |
+| crystal geodes | 19 | `e` 0.16–0.45, dry (`m` < 0.2), rare | half-buried split rock dome, crystals ringing the opening | amethyst, citrine, emerald |
+| ice crystals | 20 | `e` > 0.3, climate `tt` within 0.22 of the snowline, slope < 0.7 | tall six-sided spires with side shoots | pale cyan, white-blue, faint violet |
+| ember shards | 21 | `e` 0.04–0.3, hot (`tt` ≥ 0.62), dry (`m` < −0.05) | broken, tilted charred shards with a hot core | orange, red, gold |
+
+**Partial glow.** The `look` tint multiplies the whole instance, so geodes and embers mask it by base shade, the same way the flowers do. Glowing parts are foliage-flagged with AO 0, so their shade is 1.0. Rock shells and charred casings keep their own dark colour, below 0.4 on every channel. `gm = step(.4, min(vColor))` then picks tint or plain colour per vertex. Collidable geodes cast shadows on high tier, and the depth pass runs the same `look` code without vertex colours. Every `vColor` mask in the catalog is therefore wrapped in `#ifdef USE_COLOR`, falling back to 1. Without the guard the depth program fails to compile.
+
+**Cost.** Each new kind adds one compiled program per tier variant (§6, about 0.5–2 s of shader compile per program on Windows/ANGLE). Near-tier triangles per instance: geode 216, ice 108, ember 80, against 24 for the original spikes; mid tiers 24–64; far tiers 8–28.
 
 ### Plant shadows
 
@@ -601,6 +619,25 @@ The map is an equirectangular 1024×512 image baked from the planet cube maps on
 
 ---
 
+## 9a. Weather on the ground, atmosphere and light
+
+Each item is behind a define (or a uniform that is 0 when inactive) on the tiers listed, so other tiers compile the same programs as before. None adds textures, render targets or geometry.
+
+| Effect | Tiers | Where | How |
+|---|---|---|---|
+| Grass gusts | all | `vegetation.ts` (wave), `plants.ts` (grass `look`) | Bands of stronger wind sweep along the wind direction (`gustP = pos·wDir·R·0.055 − 1.4·t`, randomised per band by `hs`). Plants inside a band lean further, and grass blades in it brighten by up to 22 % as they tilt toward the light. The look and wave stages each compute the band, because `look` runs first. |
+| Snow settling while it snows | all | `U.uSnowFall`, terrain / tree / rock shaders | `main.ts` raises `uSnowFall` over ~40 s of snowfall and melts it over ~2 min. Drawing only, the snowline test becomes `uSnow + 0.28·uSnowFall`; placement keeps plain `uSnow`, so ground cover never re-bakes or pops. Terrain biome colour is baked at build time, so the terrain cover is a live overlay before `snowF`, which lets the existing snow sparkle, glow and footprints pick it up. Up-facing ground only. |
+| Shallow caustics | medium, high | terrain fragment (`WET`) | Two drifting noise layers, sharpened and *multiplied* so only their crossings glint (`min()` traced long, continuous white bands). Seabed 0.4–5 m deep, within 70 m, sky-tinted, daytime only. |
+| Puddles | medium, high | terrain fragment (`WET`) | After rain (`uWet`), flat (`n·up` > 0.93), noise-chosen low dips above sea level hold water. They are darkened, mirror the sky colour and go to roughness 0.06; snow-white pixels are excluded. |
+| Sun haze | medium, high | `aerialfx.ts` (`MIST`) | Looking toward the sun, distant haze brightens and warms (`dot(view, sun)⁶ × fog`), more strongly when the sun is low. |
+| Golden / blue hour | medium, high | `aerialfx.ts` (`MIST`, `grade()`) | Golden hour, with the sun just above the horizon, warms and lifts mid-tones. Blue hour, just below, cools. Sky and scene are both graded; midday and deep night are untouched. |
+| Dust motes | all | `night.ts` (firefly points' day mode) | By day the firefly points become sunlit motes: up to 22 % brightness, warm, softer falloff. They fade in rain and above ~40 m (`dust` argument). |
+| Moon glitter | high | water `GLITTER` | The moon sits opposite the sun (`sky.ts`), so the sun-glitter highlight is repeated on `−uSun`: cooler, dimmer, at night only. |
+
+**Normals in the terrain fragment.** Snowfall and puddles need to know which ground faces up. They use a geometric normal from screen-space derivatives of `vWp`: `geoN = normalize(cross(dFdx(vWp), dFdy(vWp)))`, flipped outward. `vNormal` is not declared for this material, and using it broke the terrain program on every tier.
+
+---
+
 ## 10. Rendering pipeline (`render/postfx.ts`, `render/aerialfx.ts`, `render/shadows.ts`)
 
 ### EffectComposer chain
@@ -707,7 +744,7 @@ World seed is a pronounceable word (e.g. `KaliSeron`) stored in the URL as `?see
 
 ## 13. Adding a plant kind
 
-1. Add a geometry builder to `world/plantgeo.ts` (foliage) or `world/rockgeo.ts` (rocks).
+1. Add a geometry builder to `world/plantgeo.ts` (foliage), `world/rockgeo.ts` (rocks) or `world/crystalgeo.ts` (crystals). The shared far-tier helper `tiny()` lives in `world/geoutil.ts`. If `look` reads `vColor`, wrap it in `#ifdef USE_COLOR`, because collidable kinds also run `look` in the shadow-depth pass.
 2. Add one `plant({name, kind, tiers, gate, look})` entry to `world/plants.ts` with an unused `kind` number (also the `clusterField` index). Nothing else needs editing.
 
 ## 13a. Adding a tree species

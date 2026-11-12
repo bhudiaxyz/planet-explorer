@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
+
 // Shared procedural-geometry helpers: every plant/tree part is baked into one merged, vertex-coloured, non-indexed geometry.
 // Foliage parts carry aLeaf = 1 and a neutral height-AO shade (hue is supplied per tree / per plant); other parts keep their own colour.
 export const UP = new THREE.Vector3(0, 1, 0),

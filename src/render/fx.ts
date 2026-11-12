@@ -39,6 +39,9 @@ export const U = {
     uOn: { value: 0 },
     uNight: { value: 0 },
     uWet: { value: 0 }, // 0 dry … 1 soaked: rises with rain, dries over ~1 min (main.ts)
+    // 0 … 1 while it snows (main.ts): extra snow cover spreading below the snowline. Drawing only — placement keeps
+    // using uSnow, so ground cover never re-bakes or pops as snow builds up.
+    uSnowFall: { value: 0 },
     // palette water colour (shallow-water shade). Planet points this at the ocean material's own .color, so palette
     // swaps and the GUI picker update ocean, rivers and map together. Deep water = uWater × WATER_DEEP (shader).
     uWater: { value: new THREE.Color(0x1a3d78) },
@@ -187,7 +190,7 @@ attribute float aE,aM;
             .replace(
                 "#include <common>",
                 `#include <common>
-varying vec3 vWp,vC;float swashWet = 0.;uniform float uTime,uWind,uOn,uR,uFade,uWet;uniform vec4 uRect,uFoot[48];uniform vec3 uN,uU,uV,uPl,uSun;uniform float uDayF,uCloudR,uAtOn;uniform samplerCube uCubeN,uCubeC;
+varying vec3 vWp,vC;float swashWet = 0.,puddle = 0.;uniform vec3 uSky,uCw;uniform float uTime,uWind,uOn,uR,uFade,uWet,uSnowFall,uSnow,uAmp;uniform vec4 uRect,uFoot[48];uniform vec3 uN,uU,uV,uPl,uSun;uniform float uDayF,uCloudR,uAtOn;uniform samplerCube uCubeN,uCubeC;
 #ifdef DUNES
 uniform vec3 uCs;
 #endif
@@ -201,6 +204,7 @@ roughnessFactor=mix(roughnessFactor,.22,smoothstep(.12,.25,vC.b-vC.r));
 // rain-soaked ground: glossier and darker; snow-white pixels keep their own look. Swash-wet sand (shore) is glossy too.
 float wetF = max(uWet * (1. - smoothstep(.72, .85, min(vC.r, min(vC.g, vC.b)))), swashWet * .9);
 roughnessFactor = mix(roughnessFactor, .38, wetF * .8);
+roughnessFactor = mix(roughnessFactor, .06, puddle);
 diffuseColor.rgb *= 1. - wetF * .28;
 #endif`
             ) // glazed ice is glossy
@@ -234,6 +238,21 @@ ${
 }`
         : ""
 }
+// world-space geometric normal from screen derivatives of vWp, oriented away from the planet centre (used by snowfall
+// and puddles to find up-facing / flat ground). Needs only vWp, which this shader declares itself.
+vec3 geoN = normalize(cross(dFdx(vWp), dFdy(vWp)));
+if (dot(geoN, vWp) < 0.) geoN = -geoN;
+// SNOWFALL (all tiers): while it snows, a white cover spreads below the snowline on upward-facing ground. The biome
+// colour is baked at build time, so this is a live overlay; applied before snowF, so the existing snow sparkle, glow
+// and footprints pick it up automatically.
+if (uSnowFall > .01) {
+  vec3  sfD = normalize(vWp);
+  float sfT = 1. - 1.1 * sfD.y * sfD.y - 1.2 * max((length(vWp) - uR) / uAmp, 0.);
+  float sfC = (1. - smoothstep(uSnow + uSnowFall * .28 - .04, uSnow + uSnowFall * .28 + .06, sfT))
+            * smoothstep(.55, .85, dot(geoN, sfD))
+            * uSnowFall * (.75 + .25 * vn(vWp * .35));
+  diffuseColor.rgb = mix(diffuseColor.rgb, uCw, clamp(sfC, 0., 1.));
+}
 float snowF = smoothstep(.72, .88, min(diffuseColor.r, min(diffuseColor.g, diffuseColor.b)));
 float dd = length(vViewPosition), gn;
 {
@@ -245,6 +264,32 @@ float dd = length(vViewPosition), gn;
      + .2 * mix(.5, w3 > 0. ? vn(vWp * 11.) : .5, w3);
   gn = mix(gn, .5, max(snowF * .85, smoothstep(.12, .25, vC.b - vC.r) * .7));
 }
+#ifdef WET
+// CAUSTICS (medium/high): sunlight focused by surface ripples dances on the shallow seabed (0.4–5 m deep), seen
+// through the part-transparent shallows. Two drifting cell-noise layers; their min sharpens into bright webs.
+{
+  float cdep = uR - length(vWp);
+  if (cdep > .4 && cdep < 5. && uDayF > .05) {
+    // finer cells, and the two layers multiplied (not min'd) so only their crossings glint: min() traced long,
+    // near-continuous white bands across whole sandbanks
+    vec3  cq  = vWp * 1.1;
+    float c1  = 1. - clamp(abs(vn(cq + vec3(uTime * .35, 0., uTime * .21)) - .5) * 7., 0., 1.);
+    float c2  = 1. - clamp(abs(vn(cq * 1.37 + vec3(-uTime * .27, 1.7, uTime * .31)) - .5) * 7., 0., 1.);
+    float web = pow(c1 * c2, 3.);
+    float fall = smoothstep(.4, 1., cdep) * (1. - smoothstep(2.5, 5., cdep)) * (1. - smoothstep(30., 70., length(vViewPosition)));
+    diffuseColor.rgb += uSky * web * fall * uDayF * .22; // sky-lit (follows time of day), faint
+  }
+}
+// PUDDLES (medium/high): after rain, flat low dips (noise-shaped, gentle slopes, not sand / snow) hold water that
+// mirrors the sky. Darkens and smooths here; the roughness and normal blocks below make them glossy and flat.
+{
+  float pFlat = smoothstep(.93, .985, dot(geoN, normalize(vWp)));
+  float pDip  = smoothstep(.56, .66, vn(vWp * .16) * .7 + vn(vWp * .41 + vec3(2.3, 0., 5.1)) * .3);
+  puddle = uWet * pFlat * pDip * (1. - smoothstep(.68, .8, min(vC.r, min(vC.g, vC.b))))
+         * step(.4, length(vWp) - uR) * (1. - smoothstep(60., 140., length(vViewPosition)));
+  diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * .45 + uSky * .35 * (.4 + .6 * uDayF), puddle * .85);
+}
+#endif
 float dune = 0.;
 #ifdef DUNES
 // High tier: wind ripples on sand. (uCs = palette sand colour, from T.) Pixels close to the palette's sand colour, within 120 m, get long parallel ridges
@@ -554,6 +599,13 @@ transformed += normalize(position) * ripple;
   float sp = pow(max(dot(normal, hv), 0.), 900.);
   float up = smoothstep(-.02, .12, dot(normalize(vWp), uSun));
   totalEmissiveRadiance += vec3(1., .93, .8) * sp * 14. * up * uDayF * (1. - smoothstep(80., 400., length(vViewPosition)));
+  // MOON GLITTER: the moon sits opposite the sun here (sky.ts), so its glint is the same highlight on -uSun, cool and
+  // dimmer, at night only
+  vec3  mv = -sv;
+  vec3  hm = normalize(mv + normalize(vViewPosition));
+  float mp = pow(max(dot(normal, hm), 0.), 700.);
+  float mu = smoothstep(-.02, .12, dot(normalize(vWp), -uSun));
+  totalEmissiveRadiance += vec3(.72, .8, 1.) * mp * 4.5 * mu * (1. - uDayF) * (1. - smoothstep(80., 400., length(vViewPosition)));
 }
 #endif
 #ifdef WAVE_SSS
