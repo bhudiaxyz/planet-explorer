@@ -539,6 +539,18 @@ Four kinds, all `hardy`, `wind: 0`, on the `rock` / `rockMid` / `far` LOD bands 
 
 **Cost.** Each new kind adds one compiled program per tier variant (§6, about 0.5–2 s of shader compile per program on Windows/ANGLE). Near-tier triangles per instance: geode 216, ice 108, ember 80, against 24 for the original spikes; mid tiers 24–64; far tiers 8–28.
 
+### Shade variety (`STONE` define)
+
+Each ground-cover kind sets `shade` in its catalog entry: 0 none, 1 rock / mineral, 2 foliage. That compiles a per-vertex variation block (`STONE`) after `look` and moss, multiplying the kind's tint. Patterns use the model-space position `pp`, so they ride with the instance, and are seeded by `h1` / `h2`, so neighbours sharing one mesh still differ. Sum-of-sines, no texture.
+
+| `shade` | Kinds | Variation |
+|---|---|---|
+| 1 rock | rocks, rock slabs, frost rocks, boulders, cobbles, tors, basalt columns, scree | Mineral banding layered along local height plus mottled patches, warmer ↔ cooler and ×0.8–1.12 lightness. Up-facing tops bleach (×1.1), the base darkens (soil and damp). |
+| 2 foliage | grass, shrubs, alpine scrub, reeds, ferns, cactus, dead scrub, tall sedge | Gentle yellow-green ↔ blue-green patches, lighter tops, darker shaded base. |
+| 0 | flowers, mushrooms, all crystals | None. Their `look` separates petals, caps and glow from stems by base brightness (`min(vColor) ≥ 0.4`), which the variation could disturb. |
+
+The block reads only `pp`, `normal`, `h1` and `h2`, which are all present in the shadow-depth pass, so collidable kinds still compile there.
+
 ### Plant shadows
 
 On high tier, the near tier of collidable kinds (rocks, slabs, frost rocks, boulders, tors, basalt columns, shrubs, cactus) casts shadows through a `customDepthMaterial`. It runs the same placement block as the visible shader, injected at `begin_vertex`, because the depth shader includes `beginnormal_vertex` only under `USE_DISPLACEMENTMAP`. Without it, Three's shared depth material draws every instance untransformed, piled at the planet centre: wasted vertex work and no visible shadow. Grass used to be in exactly that state, so it no longer casts at all; thin blades would cost thousands of instances for a barely visible stipple.
@@ -582,6 +594,11 @@ Both the outer fade (plant appearing at range limit) and inner fade (plant disap
 - **Shader bands follow the tier:** `Forest` writes its tier-scaled `[H0, H1, M0, M1]` into `U.uLod`, so the shader cross-fade and the CPU-filled detailed/medium sets cover the same distances. With the unscaled defaults in the shader, low/medium left a dithered gap where trees thinned out at mid range.
 - **Altitude near-mode:** detailed/medium sets are enabled below 380 m and dropped above 420 m (hysteresis), and their strength fades in/out over ~0.4 s (`nearFadeSpeed`).
 - Per-tree hue and shape seeded from instance world position for variety.
+- **Canopy shade variety** (`treemat.ts`, `color_vertex`, all tiers, foliage only). One `instanceColor` per tree read as a flat, solid crown, so foliage vertices (`aLeaf > 0.5`) are varied across the crown. The variation multiplies the per-tree hue, so autumn, blossom and drought colours still come through. It is seeded by the instance position (`instanceMatrix[3]`), so neighbours differ, and uses model-space position and normal, so the pattern doesn't depend on how the tree is planted.
+  - *Patches:* sum-of-sines (no texture, no noise library in this shader) shift parts of the crown between yellow-green and blue-green, ×0.86–1.08 lightness.
+  - *Sunlit top and shaded core:* up-facing foliage is lighter and warmer; foliage near the trunk axis is up to 22 % darker, which reads as crown depth.
+  - *Fresh growth:* outer, upper tips get a lighter, slightly yellower green.
+  The shadow pass uses Three's default depth material, so it never runs this code.
 - **Polygonal leaves (detailed tier, broadleaf species).** Oak, birch, acacia, willow, mangrove, kapok and baobab get small leaf blades over their canopy blobs, on tier 0 only.
   - *Shape:* a diamond folded slightly along the midrib, 4 triangles, with front and back faces built in. The tree material is single-sided, and making it double-sided would cost every tree.
   - *Placement:* `treeGeos` builds these species through `withLeaves()`. While `logCanopies()` is set, `blob()` records each canopy ellipsoid; `leaves()` then scatters blades over them, shared out by surface area.
@@ -767,9 +784,12 @@ The deep shade is `uWater × WATER_DEEP`, with `WATER_DEEP = (.36, .2, .36)` exp
 | Depth | Atlas alpha gives depth below sea level: `mix(uWater, uWater·WATER_DEEP, smoothstep(2, 45 m))`, blended 90 % over the base. |
 | Variation | Large-scale noise darkens patches by up to 18 % in the same hue (no hue shift). |
 | Opacity | Material 0.9. Open sea rises to 0.95; shallows under 7 m drop to 0.62, so a little seabed shows. Lower values let the sand turn the blue teal. |
+| Lit compensation | The sea's surface takes `wc × 0.78`. The sun (intensity 3) and the ACES tone curve brighten and desaturate the paint colour, so the lit sea lands on the palette blue as seen. The map draws `uWater` unlit, so it doesn't need this. |
 | Shore | Breaking-wave foam bands on medium and high (see Waves and shoreline); the evenly spaced foam ripple within about 1 m of depth on low. |
 | Polar ice | From about 50° latitude, blends toward a pale version of `uWater` (not a fixed cyan). |
 | Sky reflection | Fresnel `pow(1 − n·v, 4)` × 0.35 toward `uSky`, tinted 60 % by the normalised `uWater` hue so a pale sky can't wash the sea out. |
+
+**Surface lighting, and why the colour alone can't fix paleness.** What shows on screen is the *lit* colour. On the ocean material (`CFG.ocean`), roughness 0.2 turned much of the sea into a broad white specular sheen under the strong sun, and the ACES curve desaturated what remained, so darkening the paint colour barely helped. Roughness is now 0.35, which keeps a highlight but lets the blue through; the sharp sun glitter is a separate, high-tier term and unaffected. Metalness is 0, because water isn't metallic and 0.1 greyed the reflections. To tune how dark or saturated the sea looks, adjust these and the 0.78 lit compensation before the palette colour.
 
 **Rivers and lakes** (`RIVER_FRAG`) use the same `uWater` / `WATER_DEEP` pair for shallow and deep, so rivers meet the sea without a colour step. Their Fresnel sheen and subsurface glow are lightened `uWater`. On low tier the river `MeshBasicMaterial` shares the same colour object, so it follows palette swaps too.
 
@@ -780,6 +800,7 @@ The map is an equirectangular 1024×512 image baked from the planet cube maps on
 - **Land:** the atlas biome colour, gamma-corrected, hill-shaded from a fixed sun with the atlas AO, then saturation-boosted ×1.4.
 - **Sea:** the atlas stores *seabed* colour underwater (alpha = elevation < 0), so the sea is painted instead with the same `uWater → uWater·WATER_DEEP` mix as the ocean, plus a lighter same-hue band at the coastline. Sea pixels get no hill shading or saturation boost, so the map shows the true palette water hue.
 - **Rivers:** drawn on a 2-D canvas as four glow strokes, lightened in steps from the palette water colour toward white. Labels use the same tone.
+- **Text:** river names 11.7 px, landmark / location names 12.6 px, compass N 12.6 px, the "Map building" message 16.2 px. The emoji icons stay 22 px, and labels sit at a fixed offset under them (`py + 21`), so scaling text leaves them aligned.
 - **Refresh:** reset on every rebuild (palette swaps included) and when the Biomes water picker is released.
 
 ---
