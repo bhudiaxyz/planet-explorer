@@ -15,7 +15,7 @@ import { findSpots } from "./world/spots";
 import { setRenderer, precompileBakes } from "./render/bake";
 import { U } from "./render/fx";
 import { smoothstep } from "./core/utilgeo";
-import { S, currentSeedWord, pushSeedUrl, WATER_DEBUG } from "./core/config";
+import { S, currentSeedWord, pushSeedUrl } from "./core/config";
 import { isTouchDevice, setupTouch, setGuiToggle, setMapToggle, lockPointer } from "./player/touch";
 import { MapOverlay } from "./ui/map";
 import { detectGpuTier, setGpuTier, gpuTier } from "./render/gputier";
@@ -83,7 +83,7 @@ if (gpuTier === "low") {
 }
 renderer.setPixelRatio(Math.min(devicePixelRatio, S.renderScale));
 renderer.setSize(innerWidth, innerHeight);
-renderer.toneMapping = WATER_DEBUG === 6 ? THREE.NoToneMapping : THREE.ACESFilmicToneMapping; // 6: water debug
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
 document.body.appendChild(renderer.domElement);
 const scene = new THREE.Scene(),
     camera = new THREE.PerspectiveCamera(

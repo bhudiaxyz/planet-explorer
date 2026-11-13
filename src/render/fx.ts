@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { gpuTier, chunkFade } from "./gputier";
 import { T, TERRAIN_GLSL, BIOME_GLSL } from "./terrain";
-import { CFG, WATER_DEBUG } from "../core/config";
+import { CFG } from "../core/config";
 import { CurrentPalette } from "../core/palette";
 
 const CELL = CFG.chunk.cell.toFixed(2),
@@ -456,9 +456,7 @@ export function waterFx(m: THREE.MeshStandardMaterial) {
     // GLITTER + WAVE_SSS: high · SURF (sharp crests, breaking shore waves): medium and high · low: unchanged shader
     (m as any).defines = {
         ...(gpuTier === "high" ? { GLITTER: "", WAVE_SSS: "" } : {}),
-        ...(gpuTier !== "low" ? { SURF: "" } : {}),
-        ...(WATER_DEBUG ? { WATER_DEBUG: String(WATER_DEBUG) } : {}),
-    };
+        ...(gpuTier !== "low" ? { SURF: "" } : {}),    };
     m.onBeforeCompile = (s) => {
         bind(s, ["uTime", "uWind", "uSky", "uSun", "uDayF", "uCubeC", "uAtOn", "uN3", "uWater"]);
         s.uniforms.uAmp = T.uAmp;
@@ -496,7 +494,7 @@ transformed += normalize(position) * ripple;
         s.fragmentShader = s.fragmentShader
             .replace(
                 "#include <common>",
-                "#include <common>\nvarying vec3 vWp;uniform float uTime,uWind,uDayF,uAtOn,uAmp;uniform vec3 uSky,uSun,uWater;uniform samplerCube uCubeC;float waterKeep = 0.;vec3 dbgSurface = vec3(0.);\n" +
+                "#include <common>\nvarying vec3 vWp;uniform float uTime,uWind,uDayF,uAtOn,uAmp;uniform vec3 uSky,uSun,uWater;uniform samplerCube uCubeC;float waterKeep = 0.;\n" +
                     NOISE +
                     SURF_GLSL +
                     WATER_GRADE_GLSL
@@ -608,7 +606,6 @@ transformed += normalize(position) * ripple;
   // sky reflection at grazing angles, tinted by the water's own hue so a pale sky doesn't wash the sea out
   vec3 tintW = uWater / max(max(uWater.r, uWater.g), max(uWater.b, 1e-3)); // palette hue, normalised to max 1
   diffuseColor.rgb = mix(diffuseColor.rgb, uSky * mix(vec3(1.), tintW, .6) * (.45 + .4 * uDayF), fr * .35);
-  dbgSurface = diffuseColor.rgb;
 }`
             )
             .replace(
@@ -623,16 +620,7 @@ transformed += normalize(position) * ripple;
 #endif
 // the scene renders into PostFX's linear, non-tone-mapped target (Three tone-maps / converts only when drawing to the
 // screen), so this colour is linear: grade against linear uWater. A display-space target greyed it further.
-gl_FragColor.rgb = waterGrade(gl_FragColor.rgb, uWater, waterKeep);
-#if defined(WATER_DEBUG) && WATER_DEBUG == 1
-gl_FragColor = vec4(1., 0., 1., 1.);
-#elif defined(WATER_DEBUG) && WATER_DEBUG == 2
-gl_FragColor.a = 1.;
-#elif defined(WATER_DEBUG) && WATER_DEBUG == 3
-gl_FragColor = vec4(dbgSurface, 1.);
-#elif defined(WATER_DEBUG) && WATER_DEBUG == 5
-gl_FragColor = vec4(uAtOn > .5 ? vec3(0., 1., 0.) : vec3(1., 0., 0.), 1.);
-#endif`
+gl_FragColor.rgb = waterGrade(gl_FragColor.rgb, uWater, waterKeep);`
             )
             .replace(
                 "#include <emissivemap_fragment>",

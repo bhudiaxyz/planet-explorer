@@ -2,7 +2,6 @@ import * as THREE from "three";
 import type { Planet } from "./planet";
 import { S, CFG } from "../core/config";
 import { U, WATER_DEEP, WATER_GRADE_GLSL } from "../render/fx";
-import { WATER_DEBUG } from "../core/config";
 import { gpuTier } from "../render/gputier";
 import { rng } from "../core/noise";
 import { RIVER_NAMES } from "../core/names";
@@ -218,11 +217,6 @@ void main() {
   // This ShaderMaterial writes linear colour (Three tone-maps / converts after main), so grade against linear uWater.
   baseColor = waterGrade(baseColor, uWater, clamp(max(foam * 0.6, white), 0.0, 1.0));
   gl_FragColor = vec4(baseColor, clamp(alpha * endFade, 0.0, 0.96));
-#if defined(WATER_DEBUG) && WATER_DEBUG == 1
-  gl_FragColor = vec4(0.0, 1.0, 1.0, 1.0);
-#elif defined(WATER_DEBUG) && WATER_DEBUG == 2
-  gl_FragColor.a = 1.0;
-#endif
 }`;
 
 export class RiverSystem {
@@ -683,7 +677,6 @@ export class RiverSystem {
         const highDetail = gpuTier === "high" ? 1.0 : 0.0;
 
         return new THREE.ShaderMaterial({
-            defines: WATER_DEBUG ? { WATER_DEBUG: String(WATER_DEBUG) } : {},
             transparent: true,
             depthWrite: false,
             side: THREE.DoubleSide,
