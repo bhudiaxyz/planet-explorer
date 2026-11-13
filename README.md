@@ -39,9 +39,9 @@ Pushes to `main` deploy automatically to GitHub Pages.
 
 ## Controls
 
-**Desktop / laptop:** click to capture the mouse · WASD move · Shift sprint · Space jump / ascend · C descend · F cycle walk → drone → fly · L land · Q/E roll (fly) · M map · G toggle panels · Esc release mouse / close map
+**Desktop / laptop:** click to capture the mouse · WASD move · Shift sprint · Space jump / ascend · C descend · F cycle walk → drone → fly · L land · Q/E roll (fly) · [ ] step time of day · M map · G toggle panels · Esc release mouse / close map
 
-**Mobile / tablet:** left thumb joystick · right-side drag to look · ↑ ascend · ↓ descend · ⟲⟳ roll (fly only) · ⚡ sprint · ✈ cycle walk → drone → fly · 🛬 land · 🗺️ map · ☰ toggle panels
+**Mobile / tablet:** left thumb joystick · right-side drag to look · ↑ ascend · ↓ descend · ⟲⟳ roll (fly only) · ⚡ sprint · ✈ cycle walk → drone → fly · 🛬 land · 🗺️ map · ◀ ▶ step time of day · ☰ toggle panels
 
 ## Further reading
 

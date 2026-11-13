@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import type { Planet } from "./planet";
 import { S, CFG } from "../core/config";
-import { U, WATER_DEEP } from "../render/fx";
+import { U, WATER_DEEP, WATER_GRADE_GLSL } from "../render/fx";
 import { gpuTier } from "../render/gputier";
 import { rng } from "../core/noise";
 import { RIVER_NAMES } from "../core/names";
@@ -141,6 +141,7 @@ uniform float uTime;
 uniform float uHighDetail;
 uniform vec3 uSun;
 uniform vec3 uWater; // palette water colour, shared with the ocean
+${WATER_GRADE_GLSL}
 
 varying vec2 vUv;
 varying vec3 vWorldNormal;
@@ -212,6 +213,9 @@ void main() {
   float endFade = isLake
     ? (1.0 - smoothstep(0.75, 1.0, vUv.x)) * (1.0 - smoothstep(500.0, 700.0, lakeDist))
     : smoothstep(0.0, 0.04, vUv.y) * smoothstep(1.0, 0.88, vUv.y);
+  // same final grade as the ocean (render/fx.ts waterGrade): rich palette-hued blue, foam and rapids stay white.
+  // This ShaderMaterial writes linear colour (Three tone-maps / converts after main), so grade against linear uWater.
+  baseColor = waterGrade(baseColor, uWater, clamp(max(foam * 0.6, white), 0.0, 1.0));
   gl_FragColor = vec4(baseColor, clamp(alpha * endFade, 0.0, 0.96));
 }`;
 

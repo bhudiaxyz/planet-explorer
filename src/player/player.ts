@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { Planet } from "../world/planet";
-import { S } from "../core/config";
+import { S, stepTime } from "../core/config";
 import { rng } from "../core/noise";
 import { tangentForward } from "../core/utilgeo";
 import type { Collider } from "../world/collision";
@@ -53,6 +53,10 @@ export class Player {
             this.keys.add(e.code);
             if (e.code === "KeyF" && !e.repeat) this.toggle();
             if (e.code === "KeyL" && !e.repeat && this.mode !== "walk") this.land();
+            // [ ] step the time of day; skipped while typing in a settings field (e.g. the seed box)
+            const typing = (e.target as HTMLElement | null)?.closest?.("input, textarea, select");
+            if (!typing && !e.repeat && (e.code === "BracketLeft" || e.code === "BracketRight"))
+                stepTime(e.code === "BracketLeft" ? -1 : 1);
             if (e.code === "Space") e.preventDefault();
         });
         addEventListener("keyup", (e) => this.keys.delete(e.code));

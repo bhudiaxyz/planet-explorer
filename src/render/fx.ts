@@ -45,6 +45,8 @@ export const U = {
     // palette water colour (shallow-water shade). Planet points this at the ocean material's own .color, so palette
     // swaps and the GUI picker update ocean, rivers and map together. Deep water = uWater × WATER_DEEP (shader).
     uWater: { value: new THREE.Color(0x1a3d78) },
+    // display-space (sRGB) copy of uWater, for the post-fog water grade; refreshed each frame (main.ts)
+    uWaterD: { value: new THREE.Color(0x1a3d78) },
     uN3: { value: tex3 },
     uAtOn: { value: 0 },
     uCubeN: { value: null as THREE.Texture | null },
@@ -67,6 +69,22 @@ export const WATER_DEEP = "vec3(.36, .2, .36)";
 export const SURF_GLSL = `
 float surfPhase(vec3 w, float depth, float t) {
   return depth * 1.6 + t * 1.3 + (vn(w * .045) * .7 + vn(w * .11 + vec3(4.1, 0., 2.7)) * .3) * 9.;
+}
+`;
+/** Final water grade, applied after fog in display space (the colour actually shown). Keeps water a rich,
+ *  palette-hued blue whatever lightened it: sky reflection, sun sheen, the ACES curve, haze or weather fog.
+ *  keep = 1 where water should stay white (foam, crests, ice, glitter). target = palette water colour in display space. */
+export const WATER_GRADE_GLSL = `
+vec3 waterGrade(vec3 c, vec3 target, float keep) {
+  vec3  W    = vec3(.299, .587, .114);
+  float l    = dot(c, W);
+  // hue: re-tint to the palette water hue at this pixel's own brightness (lighter / darker detail survives)
+  vec3  hued = target * (l / max(dot(target, W), 1e-3));
+  // richness: cap the brightness water may reach, so a grey wash can't lift it to pale
+  hued = min(hued, target * 1.9 + .04);
+  // saturation: push away from grey
+  hued = mix(vec3(dot(hued, W)), hued, 1.25);
+  return mix(c, clamp(hued, 0., 1.), .62 * (1. - keep));
 }
 `;
 export const NOISE = `
@@ -443,7 +461,7 @@ export function waterFx(m: THREE.MeshStandardMaterial) {
         ...(gpuTier !== "low" ? { SURF: "" } : {}),
     };
     m.onBeforeCompile = (s) => {
-        bind(s, ["uTime", "uWind", "uSky", "uSun", "uDayF", "uCubeC", "uAtOn", "uN3", "uWater"]);
+        bind(s, ["uTime", "uWind", "uSky", "uSun", "uDayF", "uCubeC", "uAtOn", "uN3", "uWater", "uWaterD"]);
         s.uniforms.uAmp = T.uAmp;
         s.uniforms.uPl = U.uPl;
         VW(s);
@@ -479,9 +497,10 @@ transformed += normalize(position) * ripple;
         s.fragmentShader = s.fragmentShader
             .replace(
                 "#include <common>",
-                "#include <common>\nvarying vec3 vWp;uniform float uTime,uWind,uDayF,uAtOn,uAmp;uniform vec3 uSky,uSun,uWater;uniform samplerCube uCubeC;\n" +
+                "#include <common>\nvarying vec3 vWp;uniform float uTime,uWind,uDayF,uAtOn,uAmp;uniform vec3 uSky,uSun,uWater,uWaterD;uniform samplerCube uCubeC;float waterKeep = 0.;\n" +
                     NOISE +
-                    SURF_GLSL
+                    SURF_GLSL +
+                    WATER_GRADE_GLSL
             )
             .replace(
                 "#include <normal_fragment_maps>",
@@ -537,6 +556,7 @@ transformed += normalize(position) * ripple;
               + vn(w * 1.37 + t * .15 + vec3(5.7, 0., 2.3)) * .17) - .1)
               * smoothstep(.2, 1., uWind);
   diffuseColor.rgb = mix(diffuseColor.rgb, vec3(.92, .96, 1.), crest * .8);
+  waterKeep = max(waterKeep, crest);
   diffuseColor.a   = mix(diffuseColor.a,   1.,                 crest);
 
   // depth-based water colour and shore foam (needs atlas depth channel)
@@ -573,6 +593,7 @@ transformed += normalize(position) * ripple;
                   0., 1.);
 #endif
     diffuseColor.rgb = mix(diffuseColor.rgb, vec3(.95, .98, 1.), shore * .6);
+    waterKeep = max(waterKeep, shore);
     diffuseColor.a   = mix(diffuseColor.a,   .9,                 shore * .6);
   }
 
@@ -580,6 +601,7 @@ transformed += normalize(position) * ripple;
   float icy = smoothstep(0.75, 0.92, abs(nW.y));
   // ice: a pale version of the palette water colour (was a fixed cyan, which ignored the palette and read teal)
   diffuseColor.rgb = mix(diffuseColor.rgb, mix(uWater, vec3(.85), .7), icy * .65);
+  waterKeep = max(waterKeep, icy);
   diffuseColor.a   = mix(diffuseColor.a,   .9,                   icy * .55);
 
   // sky Fresnel
@@ -588,6 +610,18 @@ transformed += normalize(position) * ripple;
   vec3 tintW = uWater / max(max(uWater.r, uWater.g), max(uWater.b, 1e-3)); // palette hue, normalised to max 1
   diffuseColor.rgb = mix(diffuseColor.rgb, uSky * mix(vec3(1.), tintW, .6) * (.45 + .4 * uDayF), fr * .35);
 }`
+            )
+            .replace(
+                "#include <fog_fragment>",
+                `#ifdef USE_FOG
+  {
+    // water takes half the scene fog: a dark sea loses its colour in mist far faster than lighter land
+    float fd = fogDensity * .5;
+    float fogFactor = 1.0 - exp(- fd * fd * vFogDepth * vFogDepth);
+    gl_FragColor.rgb = mix(gl_FragColor.rgb, fogColor, fogFactor);
+  }
+#endif
+gl_FragColor.rgb = waterGrade(gl_FragColor.rgb, uWaterD, waterKeep);`
             )
             .replace(
                 "#include <emissivemap_fragment>",
@@ -601,6 +635,7 @@ transformed += normalize(position) * ripple;
   float sp = pow(max(dot(normal, hv), 0.), 900.);
   float up = smoothstep(-.02, .12, dot(normalize(vWp), uSun));
   totalEmissiveRadiance += vec3(1., .93, .8) * sp * 14. * up * uDayF * (1. - smoothstep(80., 400., length(vViewPosition)));
+  waterKeep = max(waterKeep, clamp(sp * 6., 0., 1.)); // glitter sparkles stay white
   // MOON GLITTER: the moon sits opposite the sun here (sky.ts), so its glint is the same highlight on -uSun, cool and
   // dimmer, at night only
   vec3  mv = -sv;

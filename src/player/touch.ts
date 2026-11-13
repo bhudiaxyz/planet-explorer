@@ -1,6 +1,6 @@
 import nipplejs from "nipplejs";
 import type { Player } from "./player";
-import { S } from "../core/config";
+import { S, stepTime } from "../core/config";
 import { isTouchDevice } from "../render/gputier";
 
 export { isTouchDevice };
@@ -56,6 +56,21 @@ const STYLE = `
   -webkit-tap-highlight-color: transparent;
   user-select: none; display: none; z-index: 10;
 }
+/* time-of-day step: ◀ ▶ pair under the ☰ button, clear of the joystick and the action column */
+#touch-time {
+  position: fixed; left: 20px; top: 80px;
+  display: flex; gap: 8px;
+  pointer-events: auto; z-index: 10;
+}
+#touch-time button {
+  width: 44px; height: 44px; border-radius: 12px;
+  border: 2px solid rgba(255,255,255,0.32);
+  background: rgba(0,0,0,0.45); color: #fff;
+  font-size: 16px; line-height: 1; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none; touch-action: none;
+}
+#touch-time button:active { background: rgba(255,255,255,0.28); }
 /* nipplejs zone covers left half */
 #joy-zone {
   position: fixed; left: 0; top: 0;
@@ -106,6 +121,14 @@ export function setupTouch(player: Player, dom: HTMLElement): void {
     btnGui.setAttribute("aria-label", "Settings");
     btnGui.style.display = "block";
     document.body.appendChild(btnGui);
+
+    // Time-of-day step buttons (same as the [ ] keys)
+    const timeBtns = document.createElement("div");
+    timeBtns.id = "touch-time";
+    timeBtns.innerHTML = `
+    <button id="btn-time-back"    aria-label="Step time back">◀</button>
+    <button id="btn-time-forward" aria-label="Step time forward">▶</button>`;
+    document.body.appendChild(timeBtns);
 
     // ---- nipplejs joystick -------------------------------------------------------
     const manager = nipplejs.create({
@@ -209,6 +232,16 @@ export function setupTouch(player: Player, dom: HTMLElement): void {
             { passive: true }
         );
     };
+    btn(
+        "btn-time-back",
+        () => stepTime(-1),
+        () => {}
+    );
+    btn(
+        "btn-time-forward",
+        () => stepTime(1),
+        () => {}
+    );
     btn(
         "btn-jump",
         () => {

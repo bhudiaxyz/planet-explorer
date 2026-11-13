@@ -178,6 +178,11 @@ export const S: Settings = {
     cloudiness: 0.45,
 };
 
+/** Step the time of day by an eighth of a day (3 hours), wrapping round midnight: [ ] keys and the ◀ ▶ touch buttons. */
+export function stepTime(dir: 1 | -1) {
+    S.timeOfDay = (S.timeOfDay + dir * 0.125 + 1) % 1;
+}
+
 // word-based seed: the URL stores the word, S.seed holds its hash for the noise
 export let currentSeedWord = new URLSearchParams(location.search).get("seed") || genSeedWord();
 S.seed = hashSeedWord(currentSeedWord);
