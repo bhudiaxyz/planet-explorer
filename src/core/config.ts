@@ -183,6 +183,13 @@ export function stepTime(dir: 1 | -1) {
     S.timeOfDay = (S.timeOfDay + dir * 0.125 + 1) % 1;
 }
 
+/** DEV-only water diagnostics: ?waterdebug=N. 0 normal · 1 ocean magenta / rivers+lakes cyan · 2 fully opaque ·
+ *  3 unlit surface colour · 4 haze/AO + bloom off · 5 depth-colour branch (green on / red off) · 6 tone mapping off.
+ *  Ignored in production builds. */
+export const WATER_DEBUG = import.meta.env.DEV
+    ? Number(new URLSearchParams(location.search).get("waterdebug") ?? 0)
+    : 0;
+
 // word-based seed: the URL stores the word, S.seed holds its hash for the noise
 export let currentSeedWord = new URLSearchParams(location.search).get("seed") || genSeedWord();
 S.seed = hashSeedWord(currentSeedWord);

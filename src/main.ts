@@ -15,7 +15,7 @@ import { findSpots } from "./world/spots";
 import { setRenderer, precompileBakes } from "./render/bake";
 import { U } from "./render/fx";
 import { smoothstep } from "./core/utilgeo";
-import { S, currentSeedWord, pushSeedUrl } from "./core/config";
+import { S, currentSeedWord, pushSeedUrl, WATER_DEBUG } from "./core/config";
 import { isTouchDevice, setupTouch, setGuiToggle, setMapToggle, lockPointer } from "./player/touch";
 import { MapOverlay } from "./ui/map";
 import { detectGpuTier, setGpuTier, gpuTier } from "./render/gputier";
@@ -83,7 +83,7 @@ if (gpuTier === "low") {
 }
 renderer.setPixelRatio(Math.min(devicePixelRatio, S.renderScale));
 renderer.setSize(innerWidth, innerHeight);
-renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMapping = WATER_DEBUG === 6 ? THREE.NoToneMapping : THREE.ACESFilmicToneMapping; // 6: water debug
 document.body.appendChild(renderer.domElement);
 const scene = new THREE.Scene(),
     camera = new THREE.PerspectiveCamera(
@@ -243,8 +243,8 @@ const scene = new THREE.Scene(),
 
     const enterLabel = isTouchDevice ? "Tap to enter" : "Click to enter";
     splashControls.textContent = isTouchDevice
-        ? "Left joystick · move   ↑ · ascend   ↓ · descend   ⚡ · sprint   ✈ · fly toggle   ◀ ▶ · time of day   Swipe right · look"
-        : "WASD · move   Shift · sprint   Space · jump/ascend   C · descend   F · walk↔fly   Q/E · roll   [ ] · time of day   G · panel   Esc · release mouse";
+        ? "Left joystick · move  |  ↑ · ascend  |  ↓ · descend  |  ⚡ · sprint  |  ✈ · fly toggle  |  ◀ ▶ · time of day  |  Swipe right · look"
+        : "WASD · move  |  Shift · sprint  |  Space · jump/ascend  |  C · descend  |  F · walk↔fly  |  Q/E · roll  |  [ ] · time of day  |  G · panel  |  Esc · release mouse";
 
     // Pre-compile all shaders so the first visible frame is instant.
     // compileAsync is synchronous on browsers without KHR_parallel_shader_compile (iOS Safari, many
@@ -307,7 +307,6 @@ const scene = new THREE.Scene(),
         U.uSky.value.copy(sky.bg);
         U.uCov.value = Math.min(1, S.cloudiness * 0.75 + sky.cloud * 0.55);
         U.uCT.value += dt * (0.6 + S.wind * 0.5);
-        U.uWaterD.value.copy(U.uWater.value).convertLinearToSRGB(); // post-fog water grade works in display space
         // ground wetness: soaks in over ~10 s of rain, dries over ~1 min (snow doesn't wet the ground)
         const raining = sky.snow ? 0 : sky.precipitationAmount;
         U.uWet.value += (raining - U.uWet.value) * Math.min(1, dt * (raining > U.uWet.value ? 0.1 : 0.016));

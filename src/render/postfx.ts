@@ -5,6 +5,7 @@ import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import { Pass, FullScreenQuad } from "three/addons/postprocessing/Pass.js";
 import { S } from "../core/config";
 import { gpuTier, isTouchDevice } from "./gputier";
+import { WATER_DEBUG } from "../core/config";
 import { AerialPass } from "./aerialfx";
 
 /**
@@ -110,9 +111,9 @@ void main() {
         this.composer.addPass(new ScenePass(scene, camera, rt, clean));
         // P2: aerial haze pass skipped on low tier — full-screen depth read + exp() wastes fill-rate
         // on Mali/Adreno 3xx for ~8% max haze that's barely visible at low resolution.
-        if (gpuTier !== "low") this.composer.addPass(this.aerial.pass);
+        if (gpuTier !== "low" && WATER_DEBUG !== 4) this.composer.addPass(this.aerial.pass);
         // P1: bloom pass only added when it will be used; avoids allocating its 5 HalfFloat RTs on low tier.
-        if (gpuTier !== "low") this.composer.addPass(this.bloom);
+        if (gpuTier !== "low" && WATER_DEBUG !== 4) this.composer.addPass(this.bloom);
         this.composer.addPass(new OutputPass());
         this.pixelRatio = this.pendingPixelRatio = pr;
         this.devicePixelRatio = devicePixelRatio;
