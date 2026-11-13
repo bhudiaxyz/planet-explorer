@@ -90,8 +90,11 @@ export const CFG = {
     },
     ocean: {
         opacity: 0.9, // was 0.74: the seabed showing through turned the blue teal
-        roughness: 0.2,
-        metalness: 0.1,
+        // Lit colour, not paint colour, is what reads as pale: with the sun at intensity 3, roughness 0.2 turned much of the
+        // sea into a broad white specular sheen, and ACES tone mapping desaturated what was left. 0.35 keeps a highlight but
+        // lets the blue through; the sharp sun glitter is a separate (high-tier) term. Water is not metallic: 0.1 greyed it.
+        roughness: 0.35,
+        metalness: 0,
     },
     river: {
         count: 4, // main rivers per planet

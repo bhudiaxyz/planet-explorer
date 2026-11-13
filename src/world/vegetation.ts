@@ -85,6 +85,28 @@ ${lookGLSL()}
 #if MOSS
     tint = mix(tint, vec3(.32, .77, .25), smoothstep(.6, .95, clamp(dot(gN, d), 0., 1.)) * step(.55, h1) * .7);
 #endif
+#if STONE > 0
+    {
+      // per-vertex shade variety on top of the kind's tint. Model-space position (pp) so the pattern rides with the
+      // instance; h1 / h2 seed it per instance, so neighbours sharing a mesh still differ. Sum-of-sines patches: no
+      // texture and no noise library in this shader.
+      vec3  sq = pp * 1.7 + vec3(h1 * 37., h2 * 23., h1 * 11. + h2 * 7.);
+      float sa = sin(sq.x * 1.3 + sin(sq.y * 1.9 + sq.z)) * sin(sq.z * 1.1 + sin(sq.x * .8));
+      float sb = sin(sq.y * 2.3 + sq.x * .7) * .5 + .5;
+      float up = clamp(normal.y * .5 + .5, 0., 1.);
+#if STONE == 1
+      // rocks: mineral banding (layered along local height) and mottled patches, warmer ↔ cooler, lighter ↔ darker;
+      // up-facing tops bleached by sun and rain, the base darkened by soil and damp
+      float band = sin(pp.y * 7. + sa * 1.6 + h2 * 6.283) * .5 + .5;
+      tint *= mix(vec3(1.08, 1.02, .9), vec3(.9, .96, 1.08), sb) * (.8 + .32 * band) * (.88 + .18 * (sa * .5 + .5));
+      tint *= mix(.82, 1.1, up) * (.78 + .22 * smoothstep(-.05, .45, pp.y));
+#else
+      // shrubs / small plants: gentle yellow-green ↔ blue-green patches, lighter tops, darker shaded base
+      tint *= mix(vec3(1.06, 1.04, .88), vec3(.92, 1., 1.08), sb) * (.88 + .2 * (sa * .5 + .5));
+      tint *= mix(.86, 1.08, up) * (.8 + .2 * smoothstep(0., .6, pp.y));
+#endif
+    }
+#endif
     // snow caps near the snowline on hardy kinds (rocks, scrub, cactus…): same climate test as terrain and trees,
     // upward-facing surfaces only. Applied after the vertex colour below, as a blend toward the palette snow colour.
     snV = (1. - smoothstep(uSnow + uSnowFall * .28 - .02, uSnow + uSnowFall * .28 + .16, 1. - 1.1 * d.y * d.y - 1.2 * max(D / uAmp, 0.)))
@@ -173,6 +195,7 @@ class Layer {
             PUSH: spec.push ? 1 : 0,
             MOSS: spec.moss ? 1 : 0,
             RUSTLE: spec.rustle ? 1 : 0,
+            STONE: spec.shade,
         };
         const numUniforms = {
             PMUL: { value: tier.pmul },

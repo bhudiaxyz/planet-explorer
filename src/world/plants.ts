@@ -95,6 +95,8 @@ export interface PlantSpec {
     moss: boolean;
     /** per-vertex foliage rustle on top of the whole-plant sway (medium/large leafy plants) */
     rustle: boolean;
+    /** per-vertex shade variety: 0 none (flowers, mushrooms, crystals) · 1 rock / mineral · 2 foliage */
+    shade: 0 | 1 | 2;
     pre: string;
     gate: string;
     result: string;
@@ -133,6 +135,7 @@ const plant = (p: Def): PlantSpec => ({
     push: false,
     moss: false,
     rustle: false,
+    shade: 0,
     pre: "",
     result: "return vec4(e*uAmp,h1,h2,h3);",
     ...p,
@@ -145,6 +148,7 @@ const plant = (p: Def): PlantSpec => ({
 export const PLANTS: PlantSpec[] = [
     plant({
         name: "grass",
+        shade: 2,
         kind: 0,
         wind: 0.35,
         dbl: true,
@@ -214,6 +218,7 @@ export const PLANTS: PlantSpec[] = [
     }),
     plant({
         name: "shrubs",
+        shade: 2,
         kind: 2,
         wind: 0.12,
         rustle: true,
@@ -243,6 +248,7 @@ export const PLANTS: PlantSpec[] = [
     }),
     plant({
         name: "rocks",
+        shade: 1,
         kind: 3,
         wind: 0,
         hardy: true,
@@ -270,6 +276,7 @@ export const PLANTS: PlantSpec[] = [
     }),
     plant({
         name: "alpine scrub",
+        shade: 2,
         kind: 4,
         wind: 0.15,
         rustle: true,
@@ -294,6 +301,7 @@ export const PLANTS: PlantSpec[] = [
     }),
     plant({
         name: "reeds",
+        shade: 2,
         kind: 5,
         wind: 0.5,
         push: true, // reed beds along shores
@@ -312,6 +320,7 @@ export const PLANTS: PlantSpec[] = [
     }),
     plant({
         name: "ferns",
+        shade: 2,
         kind: 6,
         wind: 0.3,
         push: true, // forest understory: follows the tree density field
@@ -334,6 +343,7 @@ export const PLANTS: PlantSpec[] = [
     }),
     plant({
         name: "rock slabs",
+        shade: 1,
         kind: 8,
         wind: 0,
         hardy: true,
@@ -360,6 +370,7 @@ export const PLANTS: PlantSpec[] = [
     }),
     plant({
         name: "frost rocks",
+        shade: 1,
         kind: 9,
         wind: 0,
         hardy: true,
@@ -413,6 +424,7 @@ export const PLANTS: PlantSpec[] = [
     }),
     plant({
         name: "cactus",
+        shade: 2,
         kind: 10,
         wind: 0,
         hardy: true,
@@ -437,6 +449,7 @@ export const PLANTS: PlantSpec[] = [
     }),
     plant({
         name: "dead scrub",
+        shade: 2,
         kind: 11,
         wind: 0.08,
         rustle: true,
@@ -461,6 +474,7 @@ export const PLANTS: PlantSpec[] = [
     }),
     plant({
         name: "tall sedge",
+        shade: 2,
         kind: 12,
         wind: 0.45,
         push: true,
@@ -484,6 +498,7 @@ export const PLANTS: PlantSpec[] = [
     }),
     plant({
         name: "boulders",
+        shade: 1,
         kind: 13,
         wind: 0,
         hardy: true,
@@ -534,6 +549,7 @@ export const PLANTS: PlantSpec[] = [
     // ---- rock variety by altitude: cobbles (shore) → tors (uplands) → basalt columns (dry mid/high) → scree (steep high slopes)
     plant({
         name: "cobbles",
+        shade: 1,
         kind: 15,
         wind: 0,
         hardy: true,
@@ -552,6 +568,7 @@ export const PLANTS: PlantSpec[] = [
     }),
     plant({
         name: "tors",
+        shade: 1,
         kind: 16,
         wind: 0,
         hardy: true,
@@ -575,6 +592,7 @@ export const PLANTS: PlantSpec[] = [
     }),
     plant({
         name: "basalt columns",
+        shade: 1,
         kind: 17,
         wind: 0,
         hardy: true,
@@ -595,6 +613,7 @@ export const PLANTS: PlantSpec[] = [
     }),
     plant({
         name: "scree",
+        shade: 1,
         kind: 18,
         wind: 0,
         hardy: true,

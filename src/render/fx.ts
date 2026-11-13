@@ -549,7 +549,9 @@ transformed += normalize(position) * ripple;
     vec3  wc  = mix(uWater, uWater * ${WATER_DEEP}, dp);
     // gentle large-scale variation: patches a little darker / richer, in the water's own hue (no hue shift)
     wc *= mix(1., .82, vn(vWp * .018) * .6 + vn(vWp * .031 + vec3(3.3, 0., 1.7)) * .4);
-    diffuseColor.rgb = mix(diffuseColor.rgb, wc,  .9);
+    // lit compensation: the sun (intensity 3) and the ACES curve brighten and desaturate the paint colour, so the sea's
+    // surface takes ~78 % of it to land on the palette blue as seen. Ocean only: the map draws uWater unlit and is unchanged.
+    diffuseColor.rgb = mix(diffuseColor.rgb, wc * .78,  .9);
     // shallows let a little seabed through (was 28 % opaque: sand under blue read as pale teal); open sea is opaque
     diffuseColor.a   = mix(mix(diffuseColor.a, .95, dp), .62, sh * (1. - crest));
 #ifdef SURF
