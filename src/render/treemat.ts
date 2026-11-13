@@ -50,7 +50,28 @@ if (vLd < uLod.z - 20. || dot(normalize(wpL), cameraPosition / crL) < length(wpL
             )
             .replace(
                 "#include <color_vertex>",
-                "#include <color_vertex>\nvColor.rgb=color*mix(vec3(1.),instanceColor,min(aLeaf,1.));"
+                `#include <color_vertex>
+vColor.rgb=color*mix(vec3(1.),instanceColor,min(aLeaf,1.));
+// Canopy shade variety (foliage only, all tiers): one tree colour per crown read as a flat solid, so vary it across the
+// crown. Per-tree seed from the instance position, so neighbours differ. Multiplies the per-tree hue (autumn, blossom,
+// drought still come through). Model-space position / normal: same pattern whichever way the tree is planted.
+if (aLeaf > .5) {
+  vec3  ip  = instanceMatrix[3].xyz * .37;
+  vec3  q   = position * .55 + ip;
+  // smooth 3-D patches (sum of sines: no texture, no noise library in this shader)
+  float pa  = sin(q.x * 1.3 + sin(q.y * 1.7 + ip.z)) * sin(q.z * 1.1 + sin(q.x * .9 + ip.y));
+  float pb  = sin(q.y * 2.1 + q.z * .8 + ip.x) * .5 + .5;
+  // 1) hue / lightness patches: yellow-green ↔ blue-green, lighter ↔ darker
+  vec3  tint = mix(vec3(1.06, 1.04, .86), vec3(.9, 1., 1.1), pb);
+  vColor.rgb *= tint * (.86 + .22 * (pa * .5 + .5));
+  // 2) sunlit top, shaded core: up-facing foliage lighter + warmer; foliage near the trunk axis darker (crown depth)
+  float up   = clamp(normal.y * .5 + .5, 0., 1.);
+  float core = 1. - smoothstep(.4, 2.2, length(position.xz));
+  vColor.rgb *= mix(vec3(.8, .84, .86), vec3(1.08, 1.06, .96), up) * (1. - core * .22);
+  // 3) fresh growth on the outer, upper tips: a lighter, slightly yellower green
+  float tip  = smoothstep(.55, .95, up) * smoothstep(1.2, 3., length(position.xz)) * (pa * .5 + .5);
+  vColor.rgb  = mix(vColor.rgb, vColor.rgb * vec3(1.14, 1.16, .92), tip * .6);
+}`
             )
             .replace(
                 "#include <project_vertex>",
