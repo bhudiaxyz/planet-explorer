@@ -205,6 +205,15 @@ export class MapOverlay {
         bc.width = W;
         bc.height = H;
         const bctx = bc.getContext("2d")!;
+        // map label: black outline under the fill so text reads on any terrain
+        const label = (text: string, x: number, y: number, fill: string) => {
+            bctx.lineWidth = 3;
+            bctx.lineJoin = "round";
+            bctx.strokeStyle = "rgba(0,0,0,0.85)";
+            bctx.strokeText(text, x, y);
+            bctx.fillStyle = fill;
+            bctx.fillText(text, x, y);
+        };
         bctx.putImageData(imgData, 0, 0);
         // Draw rivers — 3-pass glow + bright centre + name labels at midpoint
         const rivers = this.planet.riverSystem?.paths;
@@ -274,10 +283,7 @@ export class MapOverlay {
                     const px = (lon / (Math.PI * 2) + 0.5) * W;
                     const py = (0.5 - lat / Math.PI) * H;
                     const name = rNames[ri] ?? "";
-                    bctx.shadowColor = "rgba(0,20,60,0.9)";
-                    bctx.shadowBlur = 5;
-                    bctx.fillStyle = tone(0.7, 0.9);
-                    bctx.fillText(name, px, py - 5);
+                    label(name, px, py - 5, tone(0.7, 1));
                 }
                 bctx.restore();
             }
@@ -296,10 +302,7 @@ export class MapOverlay {
             bctx.fillStyle = "#fff";
             bctx.fillText(icon, px, py + 5);
             bctx.font = "12.6px sans-serif"; // 90 %
-            bctx.fillStyle = "rgba(0,0,0,0.65)";
-            bctx.fillText(lm.label, px + 1, py + 21);
-            bctx.fillStyle = "#e8e4d0";
-            bctx.fillText(lm.label, px, py + 20);
+            label(lm.label, px, py + 20, "#e8e4d0");
             bctx.font = "22px sans-serif";
         }
         for (const sp of this.ungroupedSpots) {
@@ -312,10 +315,7 @@ export class MapOverlay {
             bctx.fillStyle = "#fff";
             bctx.fillText(sp.icon, px, py + 5);
             bctx.font = "12.6px sans-serif"; // 90 %
-            bctx.fillStyle = "rgba(0,0,0,0.65)";
-            bctx.fillText(sp.name, px + 1, py + 21);
-            bctx.fillStyle = "#e8e4d0";
-            bctx.fillText(sp.name, px, py + 20);
+            label(sp.name, px, py + 20, "#e8e4d0");
             bctx.font = "22px sans-serif";
         }
         this.baseCanvas = bc;
@@ -376,6 +376,10 @@ export class MapOverlay {
             cy = 46,
             r = 28;
         ctx.save();
+        // compass scale about its centre (arrows, letters and spacing together)
+        ctx.translate(cx, cy);
+        ctx.scale(0.8, 0.8);
+        ctx.translate(-cx, -cy);
         ctx.shadowColor = "rgba(0,0,0,0.8)";
         ctx.shadowBlur = 6;
         // N arrow (points to top of map = north pole)
@@ -396,12 +400,20 @@ export class MapOverlay {
         ctx.lineTo(cx - 8, cy);
         ctx.closePath();
         ctx.fill();
-        // N label
-        ctx.shadowBlur = 3;
-        ctx.fillStyle = "#ffffff";
+        // cardinal labels, outlined like the map labels
+        ctx.shadowBlur = 0;
         ctx.font = "12.6px sans-serif"; // 90 %
         ctx.textAlign = "center";
-        ctx.fillText("N", cx, cy - r - 5);
+        ctx.textBaseline = "middle";
+        ctx.lineWidth = 3;
+        ctx.lineJoin = "round";
+        ctx.strokeStyle = "rgba(0,0,0,0.85)";
+        const d = r + 9;
+        for (const [t, x, y] of [["N", cx, cy - d], ["E", cx + d, cy], ["S", cx, cy + d], ["W", cx - d, cy]] as const) {
+            ctx.strokeText(t, x, y);
+            ctx.fillStyle = t === "N" ? "#ffffff" : "#cccccc";
+            ctx.fillText(t, x, y);
+        }
         ctx.restore();
     }
 
