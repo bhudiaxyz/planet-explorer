@@ -159,20 +159,28 @@ export class Forest {
         temperature: number,
         moisture: number,
         elevation: number,
-        rand: () => number
+        rand: () => number,
+        stand: number,
+        density: number,
+        slope: number
     ): Omit<Tree, "candidateIndex" | "speciesIndex"> {
         const sp = SPECIES[speciesIndex],
             c = this.scratchColor.copy(this.leafColors[speciesIndex]);
-        c.offsetHSL((rand() - 0.5) * 0.05, (rand() - 0.5) * 0.12, (rand() - 0.5) * 0.1);
+        // whole stands share a tint (smooth stand noise), so groves differ from each other rather than tree-to-tree
+        c.offsetHSL(stand * 0.06, stand * 0.05, stand * 0.04);
+        c.offsetHSL((rand() - 0.5) * 0.03, (rand() - 0.5) * 0.08, (rand() - 0.5) * 0.06);
         const a = rand(),
             decid = sp.decid;
         if (decid && temperature < 0.6 && a < 0.35) c.setHSL(0.03 + 0.12 * rand(), 0.75, 0.28 + 0.1 * rand());
         else if (decid && a > 0.94) c.setHSL(0.93 + 0.04 * rand(), 0.5, 0.55);
         else if (a > 0.88) c.offsetHSL(0.04, 0.1, 0.1);
         if (moisture < -0.15) c.offsetHSL(-0.03, -0.15, 0.02);
-        const lean = sp.lean;
+        // steep ground: trees lean further (up to 2.5×), flat ground stays near upright
+        const lean = sp.lean * (1 + smoothstep(0.1, 0.5, slope) * 1.5);
+        // forest cores hold the tall trees, sparse edges fill with saplings
+        const age = 0.72 + 0.45 * smoothstep(0.08, 0.6, density);
         return {
-            scale: (0.55 + rand() * 1.1) * (1 - smoothstep(0.3, 0.55, elevation) * 0.35),
+            scale: (0.55 + rand() * 1.1) * age * (1 - smoothstep(0.3, 0.55, elevation) * 0.35),
             yaw: rand() * 6.28,
             widthScale: (0.65 + 0.7 * rand()) * sp.width,
             heightScale: (0.65 + 0.8 * rand()) * sp.height,
@@ -260,7 +268,13 @@ export class Forest {
                 y = dy * planetRadius,
                 z = dirs[k * 3 + 2] * planetRadius;
             if (!free(x, y, z)) continue;
-            const speciesIdx = pickSpecies(e, tp, m, stand[k * 4]),
+            // jitter the climate inputs per tree so species bands blend over tens of metres instead of a hard line
+            const speciesIdx = pickSpecies(
+                    e + (rand() - 0.5) * 0.04,
+                    tp + (rand() - 0.5) * 0.06,
+                    m + (rand() - 0.5) * 0.08,
+                    stand[k * 4]
+                ),
                 id = acceptedTrees.length,
                 kk = key(cell(x), cell(y), cell(z));
             px.push(x);
@@ -272,7 +286,7 @@ export class Forest {
             acceptedTrees.push({
                 candidateIndex: k,
                 speciesIndex: speciesIdx,
-                ...this.style(speciesIdx, tp, m, e, rand),
+                ...this.style(speciesIdx, tp, m, e, rand, stand[k * 4], dens, sampleData[k * 4 + 3]),
             });
         }
         const acceptedDirs = new Float32Array(acceptedTrees.length * 3);

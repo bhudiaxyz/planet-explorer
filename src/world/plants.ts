@@ -20,6 +20,9 @@ import {
     deadScrubGeo,
     deadScrubLow,
     deadScrubTiny,
+    logGeo,
+    logLow,
+    logTiny,
     sedgeGeo,
     sedgeLow,
     sedgeTiny,
@@ -470,6 +473,32 @@ export const PLANTS: PlantSpec[] = [
             : h7 < .88 ? vec3(.28, .20, .12)
             :             vec3(.16, .13, .10))
         * (.7 + h2 * .6);
+    `,
+    }),
+    plant({
+        // fallen logs + stumps: only inside dense forest (tree density field), sparse, on gentle ground
+        name: "deadwood",
+        shade: 1,
+        kind: 22,
+        wind: 0,
+        hardy: true,
+        lean: 0.12,
+        tiers: [
+            tier(logGeo, 6.8, RAD.shrub, LOD.shrub),
+            tier(logLow, 13.6, RAD.shrubMid, LOD.shrubMid),
+            tier(logTiny, 27.2, RAD.far, LOD.far),
+        ],
+        pre: "m0 = pn(d * uFreq * 2.2 + vec3(30., 0., 0.), 1); fo = treeDensity(d, m0); if (h6 >= .006 * PMUL * sm_(.25, .7, fo)) REJECT;",
+        gate: "if (e < .04 || e >= .44 || sl >= .45) REJECT;",
+        look: `
+      float s = .7 + h1 * .8;
+      sc = vec3(s, s * (.8 + h2 * .4), s);
+      // weathered greys / browns, the odd mossy green log
+      tint = (h7 < .35 ? vec3(.30, .22, .14)
+            : h7 < .65 ? vec3(.22, .17, .12)
+            : h7 < .85 ? vec3(.34, .30, .26)
+            :             vec3(.16, .22, .10))
+        * 1.6 * (.75 + h2 * .5);
     `,
     }),
     plant({

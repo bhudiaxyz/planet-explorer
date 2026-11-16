@@ -289,5 +289,18 @@ export function reedGeo(blades = 8) {
         );
     return done(p);
 }
+// forest-floor deadwood: a fallen log (+ broken branch stub) beside a cut stump. Bark is neutral grey so the per-instance tint picks the wood shade.
+export function logGeo(seg = 7) {
+    const p: THREE.BufferGeometry[] = [],
+        bark = new THREE.Color(0.55, 0.55, 0.55),
+        cut = new THREE.Color(0.95, 0.9, 0.8);
+    cyl(p, new THREE.Vector3(-0.9, 0.13, 0), new THREE.Vector3(0.9, 0.11, 0.08), 0.15, 0.12, bark, seg);
+    if (seg > 4) cyl(p, new THREE.Vector3(0.2, 0.18, 0.05), new THREE.Vector3(0.38, 0.42, 0.22), 0.04, 0.02, bark, 4);
+    cyl(p, new THREE.Vector3(0.45, 0, -0.6), new THREE.Vector3(0.45, 0.32, -0.6), 0.2, 0.17, bark, seg);
+    cyl(p, new THREE.Vector3(0.45, 0.32, -0.6), new THREE.Vector3(0.45, 0.33, -0.6), 0.17, 0.16, cut, seg); // pale cut face
+    return done(p);
+}
+export const logLow = () => logGeo(4);
+export const logTiny = () => tiny(new THREE.Color(0.22, 0.17, 0.12), 0.12, 0.9, 0.15, false);
 export const shrubTiny = () => tiny(N0, 0.4, 0.75, 0.55, true);
 export const alpineTiny = () => tiny(N0, 0.25, 0.5, 0.3, true);
