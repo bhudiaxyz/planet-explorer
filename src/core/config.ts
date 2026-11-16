@@ -41,7 +41,7 @@ export const CFG = {
         rock: 140,
         rockMid: 210,
     },
-    forest: { count: 14000, minSpacing: 2.4, tries: 12 },
+    forest: { count: 15400, minSpacing: 2.4, tries: 12 },
     shadow: { size: 1024, half: 120, hz: 30 },
 
     // tree instance management

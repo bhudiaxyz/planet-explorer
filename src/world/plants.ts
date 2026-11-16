@@ -262,7 +262,7 @@ export const PLANTS: PlantSpec[] = [
             tier(rockTiny, 17, RAD.far, LOD.far),
         ],
         pre: "cf = clusterField(d, 3.);",
-        gate: "if (h6 <= 1. - (.0016 + sl * .012 + sm_(.4, .6, e) * .009) * PMUL * (.15 + cf * 1.8)) REJECT;",
+        gate: "if (h6 <= 1. - (.0016 + sl * .012 + sm_(.4, .6, e) * .009) * PMUL * .85 * (.15 + cf * 1.8)) REJECT;",
         look: `
       float s = .3 + h1 * 1.6;
       sc = vec3(s * (.8 + h2 * .6), s * (.45 + h7 * .5), s * (.7 + h1 * .5));
@@ -356,7 +356,7 @@ export const PLANTS: PlantSpec[] = [
             tier(rockSlabTiny, 17, RAD.far, LOD.far),
         ],
         pre: "cf = clusterField(d, 8.);",
-        gate: "if (h6 <= 1. - (.002 + sl * .014 + sm_(.25, .5, e) * .010) * PMUL * (.10 + cf * 1.6)) REJECT;",
+        gate: "if (h6 <= 1. - (.002 + sl * .014 + sm_(.25, .5, e) * .010) * PMUL * .85 * (.10 + cf * 1.6)) REJECT;",
         look: `
       float s = .2 + h1 * 1.2;
       sc = vec3(s * (1. + h2 * .4), s * (.12 + h7 * .2), s * (.9 + h1 * .3));
@@ -383,7 +383,7 @@ export const PLANTS: PlantSpec[] = [
             tier(frostRockTiny, 17, RAD.far, LOD.far),
         ],
         pre: "cf = clusterField(d, 9.);",
-        gate: "if (e < .38 || h6 <= 1. - (.003 + sl * .010 + sm_(.38, .58, e) * .011) * PMUL * (.20 + cf * 1.4)) REJECT;",
+        gate: "if (e < .38 || h6 <= 1. - (.003 + sl * .010 + sm_(.38, .58, e) * .011) * PMUL * .85 * (.20 + cf * 1.4)) REJECT;",
         look: `
       float s = .3 + h1 * 1.3;
       sc = vec3(s * (.8 + h2 * .5), s * (.55 + h7 * .6), s * (.75 + h1 * .4));
@@ -512,7 +512,7 @@ export const PLANTS: PlantSpec[] = [
             tier(rockTiny, 34, RAD.far, LOD.far),
         ],
         pre: "cf = clusterField(d, 13.);",
-        gate: "if (e < .28 || h6 <= 1. - (.0012 + sl * .010 + sm_(.28, .55, e) * .010) * PMUL * (.16 + cf * 1.1)) REJECT;",
+        gate: "if (e < .28 || h6 <= 1. - (.0012 + sl * .010 + sm_(.28, .55, e) * .010) * PMUL * .85 * (.16 + cf * 1.1)) REJECT;",
         look: `
       float s = 1.6 + h1 * 3.2;
       sc = vec3(s * (.75 + h2 * .5), s * (.4 + h7 * .45), s * (.65 + h1 * .4));
@@ -558,7 +558,7 @@ export const PLANTS: PlantSpec[] = [
         moss: true, // shore and riverbed pebble beds; too small to read from far away, so no far tier
         tiers: [tier(cobbleGeo, 3.4, RAD.shrub, LOD.shrub), tier(cobbleLow, 6.8, RAD.shrubMid, LOD.shrubMid)],
         pre: "cf = clusterField(d, 15.);",
-        gate: "if (e >= .12 || sl >= .5 || h6 <= 1. - (.006 + (1. - sm_(.02, .1, e)) * .02) * PMUL * (.1 + cf * 2.5)) REJECT;",
+        gate: "if (e >= .12 || sl >= .5 || h6 <= 1. - (.006 + (1. - sm_(.02, .1, e)) * .02) * PMUL * .85 * (.1 + cf * 2.5)) REJECT;",
         look: `
       float s = .6 + h1 * .9;
       sc = vec3(s, s * (.7 + h7 * .5), s);
@@ -582,7 +582,7 @@ export const PLANTS: PlantSpec[] = [
             tier(torTiny, 34, RAD.far, LOD.far),
         ],
         pre: "cf = clusterField(d, 16.);",
-        gate: "if (e < .14 || e >= .42 || sl >= .7 || h6 <= 1. - (.0008 + sm_(.14, .3, e) * .004) * PMUL * (.1 + cf * 1.4)) REJECT;",
+        gate: "if (e < .14 || e >= .42 || sl >= .7 || h6 <= 1. - (.0008 + sm_(.14, .3, e) * .004) * PMUL * .85 * (.1 + cf * 1.4)) REJECT;",
         look: `
       float s = 1. + h1 * 1.8;
       sc = vec3(s * (.8 + h2 * .4), s * (.6 + h7 * 1.1), s * (.8 + h2 * .4));
@@ -604,7 +604,7 @@ export const PLANTS: PlantSpec[] = [
             tier(basaltTiny, 34, RAD.far, LOD.far),
         ],
         pre: "cf = clusterField(d, 17.);",
-        gate: "if (e < .2 || e >= .52 || m >= .25 || h6 <= 1. - .003 * PMUL * cf * cf * 3.) REJECT;",
+        gate: "if (e < .2 || e >= .52 || m >= .25 || h6 <= 1. - .003 * PMUL * .85 * cf * cf * 3.) REJECT;",
         look: `
       float s = .8 + h1 * 1.2;
       sc = vec3(s, s * (.6 + h7 * 1.6), s);
@@ -624,7 +624,7 @@ export const PLANTS: PlantSpec[] = [
             tier(screeTiny, 17, RAD.far, LOD.far, 1.6, 1),
         ],
         pre: "cf = clusterField(d, 18.);",
-        gate: "if (e < .3 || h6 <= 1. - (.002 + sm_(.2, .8, sl) * .03) * sm_(.3, .5, e) * PMUL * (.3 + cf * 1.2)) REJECT;",
+        gate: "if (e < .3 || h6 <= 1. - (.002 + sm_(.2, .8, sl) * .03) * sm_(.3, .5, e) * PMUL * .85 * (.3 + cf * 1.2)) REJECT;",
         look: `
       sc = vec3(.6 + h1);
       tint = (h7 < .4 ? vec3(.5, .52, .56) : h7 < .75 ? vec3(.4, .4, .42) : vec3(.36, .3, .26))
