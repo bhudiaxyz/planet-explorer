@@ -105,7 +105,13 @@ void main() {
         // mist: medium+ (one extra matrix multiply, only at dawn/dusk). AO + sun shafts: high desktop only (8 + 12 depth taps
         // per pixel — fine on a discrete GPU, too much fill-rate for a phone or tablet).
         const highDesk = gpuTier === "high" && !isTouchDevice;
-        this.aerial = new AerialPass(rt.depthTexture!, { mist: gpuTier !== "low", ao: highDesk, shafts: highDesk });
+        // depth grade: a few ALU ops in the same pass, so every high device incl. tablets
+        this.aerial = new AerialPass(rt.depthTexture!, {
+            mist: gpuTier !== "low",
+            ao: highDesk,
+            shafts: highDesk,
+            grade: gpuTier === "high",
+        });
         this.camera = camera;
         this.composer.addPass(new ScenePass(scene, camera, rt, clean));
         // P2: aerial haze pass skipped on low tier — full-screen depth read + exp() wastes fill-rate

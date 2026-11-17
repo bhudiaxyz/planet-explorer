@@ -278,6 +278,11 @@ float dd = length(vViewPosition), gn;
   gn = .5 * mix(.5, w1 > 0. ? vn(vWp *  .7) : .5, w1)
      + .3 * mix(.5, w2 > 0. ? vn(vWp * 2.9) : .5, w2)
      + .2 * mix(.5, w3 > 0. ? vn(vWp * 11.) : .5, w3);
+#ifdef DUNES
+  // high tier: a 4th, foot-scale octave within 30 m so the ground near the player doesn't read as smooth plastic
+  float w4 = 1. - smoothstep(8., 30., dd);
+  if (w4 > 0.) gn += .12 * w4 * (vn(vWp * 37.) - .5);
+#endif
   gn = mix(gn, .5, max(snowF * .85, smoothstep(.12, .25, vC.b - vC.r) * .7));
 }
 #ifdef WET
@@ -330,6 +335,14 @@ if (uCov > .05 && dd < 500. && uDayF > .02 && sd0 > 0.) {
 if (snowF > .5 && dd < 40. && uDayF > .1)
   diffuseColor.rgb += step(.992, h3(floor(vWp * 45.))) * .9 * uDayF * smoothstep(0., .2, sd0);
 float hh = length(vWp) - uR;
+#ifdef DUNES
+// high tier: damp band 0–2.5 m above the sea, darker and glossier beyond the moving swash line (feeds the roughness block)
+{
+  float damp = (1. - smoothstep(.8, 2.6, hh)) * smoothstep(-.2, .2, hh) * (1. - snowF);
+  diffuseColor.rgb *= 1. - damp * .18;
+  swashWet = max(swashWet, damp * .6);
+}
+#endif
 if (abs(hh) < 1.3) {
 #ifdef WET
   // swash: each breaking wave (same surfPhase as the water) runs up the beach and drains back. The wet sand behind
@@ -338,7 +351,7 @@ if (abs(hh) < 1.3) {
   float run   = .25 + .35 * (.5 + .5 * sin(sp)) * (.7 + .3 * min(uWind, 1.5)); // how far up (m) this wave reaches
   float wetB  = (1. - smoothstep(run - .08, run + .12, hh)) * smoothstep(-.6, -.1, hh);
   diffuseColor.rgb *= 1. - wetB * .32;
-  swashWet = wetB;
+  swashWet = max(swashWet, wetB);
   float fo = smoothstep(.09, 0., abs(hh - run)) * smoothstep(-.2, .05, hh)
            * (.55 + .45 * vn(vWp * 3.4 + uTime * .3));
 #else

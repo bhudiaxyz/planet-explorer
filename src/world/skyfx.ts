@@ -1,10 +1,12 @@
 import * as THREE from "three";
 import { U, NOISE, CLOUD_GLSL } from "../render/fx";
 import type { Sky } from "./sky";
+import { gpuTier } from "../render/gputier";
 // Drifting clouds: a planet-anchored shell above the peaks. Density is 3-octave noise advected by wind; self-shadowing comes from a second
 // sample toward the sun; sunset tint from the cloud's own sun elevation; distance haze when inside the atmosphere. One cheap fragment shader.
 export class CloudShell {
     mat = new THREE.ShaderMaterial({
+        defines: gpuTier === "high" ? { HI: "" } : {},
         transparent: true,
         depthWrite: false,
         side: THREE.DoubleSide,
@@ -40,6 +42,11 @@ void main() {
   vec3 sunC = mix(vec3(1., .5, .28), vec3(1.05, 1.02, .98), smoothstep(-.02, .4, su));
   vec3 col  = mix(vec3(.16, .19, .26) * (.25 + .75 * uDay), sunC * lit, smoothstep(-.12, .18, su));
   col += sunC * (1. - smoothstep(0., .4, c)) * .35 * smoothstep(-.1, .3, su);
+#ifdef HI
+  // silver lining: thin cloud edges near the sun glow with forward-scattered light (camera → cloud → sun alignment)
+  float fwd = pow(max(dot(normalize(vP - uCam), uSun), 0.), 6.);
+  col += sunC * fwd * (1. - smoothstep(0., .5, c)) * .6 * uDay;
+#endif
   float k = smoothstep(140., 520., length(vP - uCam)) * (1. - uSpace);
   col = mix(col, uFog, k);
   gl_FragColor = vec4(col, c * (1. - k));

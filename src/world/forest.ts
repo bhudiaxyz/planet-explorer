@@ -365,7 +365,7 @@ export class Forest {
                 this.place(lists, j, coarseRadii[a * 4] - 0.15, lists.far, j * 16);
             });
             const makeInstancedMesh = (geo: THREE.BufferGeometry, tier: number) => {
-                const mesh = new THREE.InstancedMesh(geo, treeMats[tier], cap);
+                const mesh = new THREE.InstancedMesh(geo, treeMats()[tier], cap);
                 mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(cap * 3), 3);
                 mesh.count = 0;
                 mesh.frustumCulled = false;

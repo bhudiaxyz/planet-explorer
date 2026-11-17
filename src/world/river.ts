@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import type { Planet } from "./planet";
 import { S, CFG } from "../core/config";
-import { U, WATER_DEEP, WATER_GRADE_GLSL } from "../render/fx";
+import { U, WATER_DEEP, WATER_GRADE_GLSL, NOISE } from "../render/fx";
 import { gpuTier } from "../render/gputier";
 import { rng } from "../core/noise";
 import { RIVER_NAMES } from "../core/names";
@@ -142,6 +142,9 @@ uniform float uHighDetail;
 uniform vec3 uSun;
 uniform vec3 uWater; // palette water colour, shared with the ocean
 ${WATER_GRADE_GLSL}
+#ifdef HI
+${NOISE}
+#endif
 
 varying vec2 vUv;
 varying vec3 vWorldNormal;
@@ -194,7 +197,17 @@ void main() {
     float r2 = sin(v * 5.5 - uTime * 1.6 + vUv.x * 3.5) * 0.5 + 0.5;
     baseColor += vec3(0.06, 0.14, 0.20) * (shimmer * r2) * 0.18;
     foam = smoothstep(0.76, 0.92, vUv.x) + smoothstep(0.24, 0.08, vUv.x);
-    baseColor = mix(baseColor, vec3(0.90, 0.96, 0.99), foam * 0.60);
+#ifdef HI
+    if (!isLake) {
+      // flow-aligned noise: bank foam breaks into drifting clumps, and long streaks trail down the centre
+      float fn = vn(vec3(vUv.x * 6.0, vUv.y * 40.0 - uTime * flowSpeed * 1.5, uTime * 0.1));
+      foam *= 0.45 + 0.9 * fn;
+      foam += smoothstep(0.72, 0.9, fn) * (1.0 - edgeMask * 0.6) * 0.35;
+      // shallow margins show a lighter, warmer bed through the water
+      baseColor = mix(baseColor, baseColor * vec3(1.18, 1.12, 0.95), (1.0 - edgeMask) * 0.35);
+    }
+#endif
+    baseColor = mix(baseColor, vec3(0.90, 0.96, 0.99), clamp(foam, 0.0, 1.0) * 0.60);
   }
 
   // Cascades: on steep reaches the whole width churns white — fast streaks stretched along the flow, broken up
@@ -685,7 +698,9 @@ export class RiverSystem {
                 uHighDetail: { value: highDetail },
                 uSun: U.uSun,
                 uWater: U.uWater,
+                uN3: U.uN3,
             },
+            defines: gpuTier === "high" ? { HI: "" } : {},
             vertexShader: RIVER_VERT,
             fragmentShader: RIVER_FRAG,
         });

@@ -64,6 +64,16 @@ export class Shadows {
         // PCF in three r18x is a fixed 5-tap rotated Vogel disk; radius only widens it (same cost). Widen on high, where the
         // finer map would otherwise give hard, aliased edges. Low/medium keep 1 (their texels are already coarse).
         light.shadow.radius = gpuTier === "high" ? 2.5 : 1;
+        // High desktop: distance-scaled PCF softness — crisp contact shadows at the feet (0.7×), soft far shadows (2×)
+        // that stop shimmering. Same 5 taps, so no extra cost. Patched into three's shared chunk before any lit
+        // material compiles (Shadows is built in startup step 2; the scene compiles in step 4). Low/medium: stock chunk.
+        if (highDesk) {
+            const chunk = THREE.ShaderChunk.shadowmap_pars_fragment,
+                from = "float radius = shadowRadius * texelSize.x;",
+                to = "float radius = shadowRadius * texelSize.x * mix(.7, 2., smoothstep(8., 120., 1. / gl_FragCoord.w));";
+            if (chunk.includes(from)) THREE.ShaderChunk.shadowmap_pars_fragment = chunk.replace(from, to);
+            else console.warn("[shadows] PCF chunk changed in this three version; distance-scaled softness skipped");
+        }
         // per-light update flags: each depth pass runs only when its light is visible (no castShadow toggling → no recompiles).
         // needsUpdate = true here so the first render (the startup warm-up) draws every light once: three only allocates a
         // light's shadow map when it renders it, and a missing map leaves lit draws with an empty sampler2DShadow.

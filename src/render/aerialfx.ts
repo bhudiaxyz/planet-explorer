@@ -12,7 +12,10 @@ import { T } from "./terrain";
 export class AerialPass {
     pass: ShaderPass;
     readonly uniforms: Record<string, { value: any }>;
-    constructor(depthTexture: THREE.DepthTexture, opts: { mist: boolean; ao: boolean; shafts: boolean }) {
+    constructor(
+        depthTexture: THREE.DepthTexture,
+        opts: { mist: boolean; ao: boolean; shafts: boolean; grade: boolean }
+    ) {
         this.uniforms = {
             tDiffuse: { value: null },
             tDepth: { value: depthTexture },
@@ -31,6 +34,7 @@ export class AerialPass {
         if (opts.mist) defines.MIST = "";
         if (opts.ao) defines.AO = "";
         if (opts.shafts) defines.SHAFTS = "";
+        if (opts.grade) defines.DEPTHGRADE = "";
         const material = new THREE.ShaderMaterial({
             defines,
             uniforms: this.uniforms,
@@ -104,7 +108,8 @@ void main() {
     float rad = clamp(18. / z, 1.5, 14.);
     float occ = 0.;
     for (int i = 0; i < 8; i++) {
-      float a = float(i) * .785 + fract(sin(dot(vUv, vec2(12.9898, 78.233))) * 43758.5) * .785;
+      // interleaved gradient noise rotation: low-discrepancy, reads as a fine even stipple instead of sin-hash grain
+      float a = float(i) * .785 + fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(.06711056, .00583715)))) * .785;
       vec2  o = vec2(cos(a), sin(a)) * rad * (float(i % 2) * .5 + .5) * uTexel;
       float dz = z - linZ(texture2D(tDepth, vUv + o).r);
       occ += smoothstep(.05, .5, dz) * (1. - smoothstep(1.5, 4., dz)); // closer by 5 cm–1.5 m; ignore big depth jumps
@@ -146,6 +151,13 @@ void main() {
 #endif
 #ifdef SHAFTS
   outc += shaft;
+#endif
+#ifdef DEPTHGRADE
+  // depth separation: distant land desaturates and cools slightly, the foreground keeps its colour (fog alone only lightens)
+  {
+    float lum = dot(outc, vec3(.299, .587, .114));
+    outc = mix(outc, mix(vec3(lum), outc, .55) * vec3(.95, .98, 1.05), smoothstep(.02, .35, z / uFar) * .35);
+  }
 #endif
 #ifdef MIST
   outc = grade(outc);

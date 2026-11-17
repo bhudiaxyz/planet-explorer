@@ -1,5 +1,6 @@
 import * as THREE from "three";
-import { wind, U, IGN, TINT_GLSL } from "./fx";
+import { wind, U, IGN, TINT_GLSL, NOISE, CLOUD_GLSL } from "./fx";
+import { gpuTier } from "./gputier";
 import { S, CFG } from "../core/config";
 import { T as TU } from "./terrain";
 
@@ -19,6 +20,10 @@ function treeMat(tier: number) {
     // Canopy rustle: detailed and medium. The low-poly far tier has no wind at all (never close enough to see sway).
     if (tier === 0) (m as any).defines = { LEAF_FLUTTER: "", FROND_SWAY: "", CANOPY_SWAY: "" };
     else if (tier === 1) (m as any).defines = { FROND_SWAY: "", CANOPY_SWAY: "" };
+    // high tier, near tiers: cloud shadows (terrain already has them, so trees no longer stay lit under a cloud) and a
+    // saturated warm leaf transmission. One define, one extra program variant per tier; low/medium compile as before.
+    const hi = gpuTier === "high" && tier < 2;
+    if (hi) (m as any).defines = { ...((m as any).defines ?? {}), HI: "" };
     const keep =
         tier === 0
             ? "if(lodN<lodA)discard;"
@@ -32,9 +37,10 @@ float crL = length(cameraPosition);
 if (vLd < uLod.z - 20. || dot(normalize(wpL), cameraPosition / crL) < length(wpL) / crL - .06)
   gl_Position = vec4(2., 2., 2., 1.);`
             : "";
-    m.customProgramCacheKey = () => "tree" + tier;
+    m.customProgramCacheKey = () => "tree" + tier + (hi ? "h" : "");
     m.onBeforeCompile = (s: any, r: any) => {
         if (base) base(s, r);
+        if (hi) Object.assign(s.uniforms, { uN3: U.uN3, uCov: U.uCov, uCT: U.uCT, uCloudR: U.uCloudR });
         s.uniforms.uLod = U.uLod;
         s.uniforms.uSun = U.uSun;
         s.uniforms.uDayF = U.uDayF;
@@ -82,7 +88,8 @@ if (aLeaf > .5) {
             .replace(
                 "#include <common>",
                 "#include <common>\nvarying float vLd;varying vec3 vWt;uniform vec4 uLod;uniform vec3 uSun,uCw;uniform float uDayF,uSnow,uSnowFall,uAmp,uR;" +
-                    IGN
+                    IGN +
+                    (hi ? `\n${NOISE}${CLOUD_GLSL}\nuniform float uCloudR;` : "")
             )
             .replace(
                 "#include <color_fragment>",
@@ -95,8 +102,19 @@ if (aLeaf > .5) {
   vec3  sv  = normalize((viewMatrix * vec4(uSun, 0.)).xyz);
   float tr  = pow(clamp(dot(-normalize(vViewPosition), sv), 0., 1.), 3.)
             * (1. - clamp(dot(normal, sv), 0., 1.)) * uDayF;
-  totalEmissiveRadiance += diffuseColor.rgb * tr * .55;
   vec3  nw  = normalize(vWt);
+#ifdef HI
+  // backlit leaves glow saturated yellow-green (albedo squared, warm-weighted) instead of a scaled copy of the albedo
+  totalEmissiveRadiance += diffuseColor.rgb * diffuseColor.rgb * vec3(1.3, 1.25, .7) * tr * 1.6;
+  // cloud shadow: the same sun-ray-through-cloud-shell test as the terrain (fx.ts), so shadows slide over forests too
+  float sd0 = dot(nw, uSun);
+  if (uCov > .05 && vLd < 500. && uDayF > .02 && sd0 > 0.) {
+    vec3 sp = normalize(vWt + uSun * ((uCloudR - length(vWt)) / max(sd0, .15)));
+    diffuseColor.rgb *= 1. - .4 * cdens(sp, 2) * uDayF * smoothstep(0., .3, sd0);
+  }
+#else
+  totalEmissiveRadiance += diffuseColor.rgb * tr * .55;
+#endif
   float tt  = 1. - 1.1 * nw.y * nw.y - 1.2 * max((length(vWt) - uR) / uAmp, 0.);
   float sn  = 1. - smoothstep(uSnow + uSnowFall * .28 - .02, uSnow + uSnowFall * .28 + .16, tt);
   float upf = smoothstep(.15, .7, dot(normal, (viewMatrix * vec4(nw, 0.)).xyz));
@@ -107,4 +125,6 @@ if (aLeaf > .5) {
     };
     return m;
 }
-export const treeMats = [0, 1, 2].map(treeMat);
+// created on first use: the tier-dependent HI define must see the detected gpuTier, which main.ts sets after module import
+let _treeMats: THREE.Material[] | null = null;
+export const treeMats = () => (_treeMats ??= [0, 1, 2].map(treeMat));
