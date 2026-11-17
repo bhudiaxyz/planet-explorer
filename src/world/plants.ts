@@ -173,13 +173,18 @@ export const PLANTS: PlantSpec[] = [
       gp = clamp(gp * (.85 + .2 * sm_(-.3, .3, pt)), 0., .85);
       if (sl >= .9 || h4 >= gp) REJECT;
     `,
-        result: "return vec4(e * uAmp, pt, m, h3);",
+        // .w: blended elevation for the alpine-turf colour (h3 is recomputed in the vertex shader, so .w was unused)
+        result: "return vec4(e * uAmp, pt, m, ez);",
         look: `
       sc = vec3(.7 + h1 * h2 * 1.2);
       sc.y *= (1. + step(.9, h7) * .9) * (.75 + .7 * sm_(-.2, .35, Dv.z));
       tint = uCg * (.85 + h1 * .3)
         * mix(vec3(1.), vec3(1.28, 1.05, .62), sm_(.15, .6, Dv.y) * .75)
         * mix(vec3(1.), vec3(1.4, 1.15, .5), step(.85, h7) * .8);
+      // altitude: lush lowland green → shorter, tawny-olive alpine turf above ~.3
+      float alp = sm_(.22, .42, Dv.w);
+      tint *= mix(vec3(1.), vec3(1.25, 1.05, .62), alp * .7);
+      sc.y *= 1. - alp * .4;
       if (h3 > .92) tint = (h2 < .4 ? vec3(.55, .62, .68) : h2 < .7 ? vec3(.48, .28, .12) : vec3(.18, .48, .52)) * (.9 + h1 * .3);
       // gust sheen: blades bent by a passing gust catch more light (same band as the gust lean in vegetation.ts)
       {
@@ -197,10 +202,14 @@ export const PLANTS: PlantSpec[] = [
         push: true, // meadow patches in clearings
         tiers: [tier(flowerGeo, 3.4, RAD.flower, LOD.flower)],
         pre: "cf = clusterField(d, 1.); if (h5 >= .04 * PMUL * cf * 5.) REJECT;",
-        gate: "if (e >= .38 || sl >= .5 || m < -.2 || forestMask(d, m) > .6) REJECT;",
+        // up to .46 now: alpine meadows above the treeline belt, thinning with height
+        gate: "if (e >= .46 || sl >= .5 || m < -.2 || forestMask(d, m) > .6 || h4 < sm_(.36, .46, e)) REJECT;",
+        result: "return vec4(e * uAmp, h1, h2, ez);", // .w = blended elevation for the alpine look
         look: `
       sc = vec3(.55 + h2 * .8, .55 + h1 * 1.1, .55 + h2 * .8);
       sc *= 1. + step(.88, h3) * .6;
+      float alpF = sm_(.26, .38, Dv.w); // alpine flowers: low cushions, saturated blues / purples / yellows
+      sc.y *= 1. - alpF * .45;
       // vColor exists only in the visible pass; the shadow-depth pass (collidable kinds, high tier) runs this
       // same code without vertex colours, so the glow mask falls back to 1 there (tint is unused in depth)
 #ifdef USE_COLOR
@@ -211,6 +220,8 @@ export const PLANTS: PlantSpec[] = [
       // drifts: each ~25 m meadow patch favours one or two colours (from a coarse lattice hash), with a few strays mixed in
       float drift = hs(floor(I * CELLSZ / 25.), floor(J * CELLSZ / 25.), F + 41.);
       int pk = int((h3 < .78 ? fract(drift + step(.5, h2) * .37) : h3) * 9.);
+      // up high, remap toward the alpine palette: white, purple, blue, gold (0, 2, 5, 6)
+      if (alpF > h7) pk = pk < 2 ? 0 : pk < 4 ? 2 : pk < 7 ? 5 : 6;
       vec3 fcol = pk == 0 ? vec3(.9,  .9,  .88)
         : pk == 1 ? vec3(.9,  .62, .05)
         : pk == 2 ? vec3(.28, .12, .55)
@@ -273,7 +284,8 @@ export const PLANTS: PlantSpec[] = [
             tier(rockTiny, 17, RAD.far, LOD.far),
         ],
         pre: "cf = clusterField(d, 3.);",
-        gate: "if (h6 <= 1. - (.0016 + sl * .012 + sm_(.4, .6, e) * .009) * PMUL * .85 * (.15 + cf * 1.8)) REJECT;",
+        // ALT: altitude curve — sparse in lush lowlands (×.45), building through the uplands to ×1.6 on high ground
+        gate: "if (h6 <= 1. - (.0016 + sl * .012 + sm_(.4, .6, e) * .009) * PMUL * .85 * (.15 + cf * 1.8) * ALT) REJECT;",
         look: `
       float s = .3 + h1 * 1.6;
       sc = vec3(s * (.8 + h2 * .6), s * (.45 + h7 * .5), s * (.7 + h1 * .5));
@@ -301,7 +313,8 @@ export const PLANTS: PlantSpec[] = [
             tier(alpineTiny, 17, RAD.far, LOD.far, 1.8, 1.8),
         ],
         pre: "cf = clusterField(d, 4.); if (h6 >= .024 * PMUL * cf * 3.5) REJECT;",
-        gate: "if (e < .26 || sl >= .8) REJECT;",
+        // ramps in over .2–.32 (a few low outliers in the subalpine fringe) instead of switching on at one contour
+        gate: "if (e < .2 || sl >= .8 || h4 >= sm_(.2, .32, e)) REJECT;",
         look: `
       sc = vec3(.38 + h2 * 1.0, .38 + h1 * 1.2, .38 + h2 * 1.0);
       tint = (h7 < .3  ? vec3(.1,  .13, .07)
@@ -371,7 +384,7 @@ export const PLANTS: PlantSpec[] = [
             tier(rockSlabTiny, 17, RAD.far, LOD.far),
         ],
         pre: "cf = clusterField(d, 8.);",
-        gate: "if (h6 <= 1. - (.002 + sl * .014 + sm_(.25, .5, e) * .010) * PMUL * .85 * (.10 + cf * 1.6)) REJECT;",
+        gate: "if (h6 <= 1. - (.002 + sl * .014 + sm_(.25, .5, e) * .010) * PMUL * .85 * (.10 + cf * 1.6) * ALT) REJECT;",
         look: `
       float s = .2 + h1 * 1.2;
       sc = vec3(s * (1. + h2 * .4), s * (.12 + h7 * .2), s * (.9 + h1 * .3));
@@ -558,7 +571,7 @@ export const PLANTS: PlantSpec[] = [
             tier(rockTiny, 34, RAD.far, LOD.far),
         ],
         pre: "cf = clusterField(d, 13.);",
-        gate: "if (e < .28 || h6 <= 1. - (.0012 + sl * .010 + sm_(.28, .55, e) * .010) * PMUL * .85 * (.16 + cf * 1.1)) REJECT;",
+        gate: "if (e < .18 || h6 <= 1. - (.0012 + sl * .010 + sm_(.18, .55, e) * .010) * PMUL * .85 * (.16 + cf * 1.1) * ALT) REJECT;",
         look: `
       float s = 1.6 + h1 * 3.2;
       sc = vec3(s * (.75 + h2 * .5), s * (.4 + h7 * .45), s * (.65 + h1 * .4));
@@ -628,7 +641,7 @@ export const PLANTS: PlantSpec[] = [
             tier(torTiny, 34, RAD.far, LOD.far),
         ],
         pre: "cf = clusterField(d, 16.);",
-        gate: "if (e < .14 || e >= .42 || sl >= .7 || h6 <= 1. - (.0008 + sm_(.14, .3, e) * .004) * PMUL * .85 * (.1 + cf * 1.4)) REJECT;",
+        gate: "if (e < .14 || e >= .42 || sl >= .7 || h6 <= 1. - (.0008 + sm_(.14, .3, e) * .004) * PMUL * .85 * (.1 + cf * 1.4) * ALT) REJECT;",
         look: `
       float s = 1. + h1 * 1.8;
       sc = vec3(s * (.8 + h2 * .4), s * (.6 + h7 * 1.1), s * (.8 + h2 * .4));
@@ -800,7 +813,7 @@ export const decideGLSL = () => `uniform float CELLSZ,PMUL,TSN;uniform int uKind
 #define REJECT rej = true
 vec4 decide(float I,float J,float F){float h1=hs(I,J,F),h2=hs(I,J,F+9.),h3=hs(I,J,F+17.),h4=hs(I,J,F+31.),h5=hs(I,J,F+53.),h6=hs(I,J,F+71.);
 vec3 nA,uu,vv;basis(F,nA,uu,vv);vec3 P=nA*uR+uu*(I+h1-.5)*CELLSZ+vv*(J+h2-.5)*CELLSZ,d=normalize(P);
-float cf=1.,fo=0.,m0=0.,pt=0.,e=0.,m=0.,tt=0.,sl=0.;bool rej=false;
+float cf=1.,fo=0.,m0=0.,pt=0.,e=0.,m=0.,tt=0.,sl=0.,ez=0.;bool rej=false;
 ${branch("pre")}
 if(!rej){
 e=e3(d,true);m=pn(d*uFreq*2.2+vec3(30.,0.,0.),1);tt=1.-1.1*d.y*d.y-1.2*max(e,0.);
@@ -808,6 +821,14 @@ if(e<(uKind==5?-.03:.015)||e>.6||tt<uSnow+TSN)REJECT;
 }
 if(!rej){
 sl=abs(uR+e3(normalize(P+uu*.8),true)*uAmp-(uR+e*uAmp))/.8;
+// Zone blending: gates see a jittered elevation so altitude bands wander instead of following one contour. Regional
+// shift uses the same stand noise as the trees (bake mode 5), so plant and tree zones move together. Near zero at the
+// shore (reeds / cobbles / sedge track the real waterline), growing into the uplands. One pn(), not an e3().
+ez=e+((hs(I,J,F+97.)-.5)*.05+pn(d*uFreq*11.+vec3(0.,0.,77.),1)*.07)*sm_(.06,.2,e);
+{float e=ez;
+// ALT: shared rock altitude curve (×.45 lowland → ×1 at e≈.2 → ×1.6 high ground)
+float ALT=.45+.55*sm_(.04,.2,e)+.6*sm_(.25,.5,e);
 ${branch("gate")}
+}
 }
 ${resultGLSL().replace(/^return /, "return rej ? vec4(-9999.,0.,0.,0.) : ")}}`;
