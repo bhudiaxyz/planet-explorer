@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import type { Planet } from "./planet";
 import { frame, smoothstep } from "../core/utilgeo";
-import { gpuTier, plantRadiusMul } from "../render/gputier";
+import { gpuTier, plantRadiusMul, isTouchDevice } from "../render/gputier";
 import { T, TERRAIN_GLSL, HELPERS_GLSL } from "../render/terrain";
 import { makeRT, draw, QUAD_VS, readRT } from "../render/bake";
 import { U, TINT_GLSL, IGN } from "../render/fx";
@@ -161,7 +161,21 @@ class Layer {
     constructor(spec: PlantSpec, tier: Tier) {
         this.kind = spec.kind;
         this.cell = tier.cell;
-        this.K = Math.ceil(tier.K * plantRadiusMul());
+        // High desktop draws detailed terrain to 320 m (chunkFade), but ground cover stopped at ~200 m: a bare band before
+        // the horizon and rocks "growing" into view. Stretch only the outer tiers there (cheap: far tiers are 8-face
+        // shapes on 17–34 m cells). Near tiers, and every other tier/device, are unchanged.
+        const highDesk = gpuTier === "high" && !isTouchDevice;
+        // far tiers 200 → 290 m · rock/boulder mid tier 195 → 263 m · flowers (single tier) 90 → 120 m
+        const reach = !highDesk
+            ? 1
+            : tier.far
+              ? 1.45
+              : tier.lod === CFG.plantLod.rockMid
+                ? 1.35
+                : tier.lod === CFG.plantLod.flower
+                  ? 1.33
+                  : 1;
+        this.K = Math.ceil(tier.K * plantRadiusMul() * reach);
         this.near = tier.near;
         const geo = tier.geo(),
             K = this.K,
@@ -186,7 +200,8 @@ class Layer {
         // Without this, a 0.8× disc on medium GPU ends at ~128 m while outerGone stays at 152 m,
         // creating a dead zone that causes a visible edge-pop.
         const lodMul = plantRadiusMul();
-        const [outerFull, outerGone, innerGone, innerFull] = tier.lod.map((v) => v * lodMul);
+        // reach stretches only the outer fade (full/gone); the inner hand-over from the finer tier stays where it was
+        const [outerFull, outerGone, innerGone, innerFull] = tier.lod.map((v, i) => v * lodMul * (i < 2 ? reach : 1));
         // Only structural (#if) flags stay as defines — uniform tiers of the same KIND/DISP/PUSH/MOSS
         // share one compiled shader program instead of one per tier (~45 → ~15 unique programs).
         const defines = {

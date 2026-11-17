@@ -411,7 +411,7 @@ export const PLANTS: PlantSpec[] = [
             tier(frostRockTiny, 17, RAD.far, LOD.far),
         ],
         pre: "cf = clusterField(d, 9.);",
-        gate: "if (e < .38 || h6 <= 1. - (.003 + sl * .010 + sm_(.38, .58, e) * .011) * PMUL * .85 * (.20 + cf * 1.4)) REJECT;",
+        gate: "if (e < .38 || h6 <= 1. - (.003 + sl * .010 + sm_(.38, .58, e) * .011) * PMUL * .85 * (.20 + cf * 1.4) * HIRK) REJECT;",
         look: `
       float s = .3 + h1 * 1.3;
       sc = vec3(s * (.8 + h2 * .5), s * (.55 + h7 * .6), s * (.75 + h1 * .4));
@@ -663,7 +663,7 @@ export const PLANTS: PlantSpec[] = [
             tier(basaltTiny, 34, RAD.far, LOD.far),
         ],
         pre: "cf = clusterField(d, 17.);",
-        gate: "if (e < .2 || e >= .52 || m >= .25 || h6 <= 1. - .003 * PMUL * .85 * cf * cf * 3.) REJECT;",
+        gate: "if (e < .2 || e >= .52 || m >= .25 || h6 <= 1. - .003 * PMUL * .85 * cf * cf * 3. * HIRK) REJECT;",
         look: `
       float s = .8 + h1 * 1.2;
       sc = vec3(s, s * (.6 + h7 * 1.6), s);
@@ -683,7 +683,7 @@ export const PLANTS: PlantSpec[] = [
             tier(screeTiny, 17, RAD.far, LOD.far, 1.6, 1),
         ],
         pre: "cf = clusterField(d, 18.);",
-        gate: "if (e < .3 || h6 <= 1. - (.002 + sm_(.2, .8, sl) * .03) * sm_(.3, .5, e) * PMUL * .85 * (.3 + cf * 1.2)) REJECT;",
+        gate: "if (e < .3 || h6 <= 1. - (.002 + sm_(.2, .8, sl) * .03) * sm_(.3, .5, e) * PMUL * .85 * (.3 + cf * 1.2) * HIRK) REJECT;",
         look: `
       sc = vec3(.6 + h1);
       tint = (h7 < .4 ? vec3(.5, .52, .56) : h7 < .75 ? vec3(.4, .4, .42) : vec3(.36, .3, .26))
@@ -827,7 +827,9 @@ sl=abs(uR+e3(normalize(P+uu*.8),true)*uAmp-(uR+e*uAmp))/.8;
 ez=e+((hs(I,J,F+97.)-.5)*.05+pn(d*uFreq*11.+vec3(0.,0.,77.),1)*.07)*sm_(.06,.2,e);
 {float e=ez;
 // ALT: shared rock altitude curve (×.45 lowland → ×1 at e≈.2 → ×1.6 high ground)
-float ALT=.45+.55*sm_(.04,.2,e)+.6*sm_(.25,.5,e);
+// HIRK: high-altitude rock thinning (×1 below e≈.25 → ×.8 above .4) — rock fields on peaks read too busy
+float HIRK=1.-.2*sm_(.25,.4,e);
+float ALT=(.45+.55*sm_(.04,.2,e)+.6*sm_(.25,.5,e))*HIRK;
 ${branch("gate")}
 }
 }
