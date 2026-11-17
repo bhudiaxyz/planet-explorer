@@ -55,8 +55,11 @@ export function detectGpuTier(gl: WebGLRenderingContext | WebGL2RenderingContext
     // strings can mention a real GPU vendor.
     if (/swiftshader|llvmpipe|softpipe|software|basic render/i.test(renderer)) return "low";
     // rx (4[78]|5[789])0: Polaris RX 470/480/570/580/590 (2016–2019, ≈ GTX 1060) — the 3-digit names missed the RDNA rule
+    // arc.{0,8}(pro.{0,4})?(1[34]0[tv]|b\d{3}): integrated Arc of Core Ultra 200H/V ("Arc 140T/140V/130T", "Arc Pro 140T",
+    // 2024+, ≈ GTX 1650) and discrete Battlemage B570/B580. Bare "Intel(R) Arc(TM) Graphics" (Meteor Lake, ~GTX 1050
+    // class but sold with 2-core U chips too) stays medium. "rtx" already covers "RTX PRO 2000 Blackwell" / RTX A-series.
     const HIGH =
-        /rtx|rx [5-9]\d{3}|rx (4[78]|5[789])0(?!\d)|vega [5-9]\d|radeon vii|gtx 1[0-9]{3}|gtx 9[5-9]\d|arc.{0,8}a[5-9]\d{2}|apple m\d+|adreno.{0,8}(6[4-9]\d|7\d{2}|8\d{2}|x\d)|xclipse/i;
+        /rtx|rx [5-9]\d{3}|rx (4[78]|5[789])0(?!\d)|vega [5-9]\d|radeon vii|gtx 1[0-9]{3}|gtx 9[5-9]\d|arc.{0,8}a[5-9]\d{2}|arc.{0,8}(pro.{0,4})?(1[34]0[tv]|b\d{3})|apple m\d+|adreno.{0,8}(6[4-9]\d|7\d{2}|8\d{2}|x\d)|xclipse/i;
     if (HIGH.test(renderer)) return "high";
 
     // Mali-G710/G715/G720 (Dimensity 9000+, high-end Oppo/Nothing/MediaTek) → medium

@@ -82,7 +82,7 @@ void main() {
     float acc = 0., w = 1.;
     for (int i = 0; i < 12; i++) {
       p += st;
-      float sd = texture2D(tDepth, clamp(p, 0., 1.)).r;
+      float sd = textureLod(tDepth, clamp(p, 0., 1.), 0.).r;
       acc += (sd >= .9999 ? 1. : 0.) * w;
       w *= .9;
     }
@@ -111,7 +111,7 @@ void main() {
       // interleaved gradient noise rotation: low-discrepancy, reads as a fine even stipple instead of sin-hash grain
       float a = float(i) * .785 + fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(.06711056, .00583715)))) * .785;
       vec2  o = vec2(cos(a), sin(a)) * rad * (float(i % 2) * .5 + .5) * uTexel;
-      float dz = z - linZ(texture2D(tDepth, vUv + o).r);
+      float dz = z - linZ(textureLod(tDepth, vUv + o, 0.).r);
       occ += smoothstep(.05, .5, dz) * (1. - smoothstep(1.5, 4., dz)); // closer by 5 cm–1.5 m; ignore big depth jumps
     }
     col.rgb *= 1. - (occ / 8.) * .45 * (1. - smoothstep(60., 120., z));
