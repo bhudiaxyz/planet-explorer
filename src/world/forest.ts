@@ -3,7 +3,7 @@ import type { Planet } from "./planet";
 import { smoothstep, randomDir } from "../core/utilgeo";
 import { rng } from "../core/noise";
 import { S, CFG } from "../core/config";
-import { treeGeos, lowGeos, treeMats, getLeafColors, SPECIES, SP } from "./trees";
+import { treeGeos, lowGeos, treeMats, getLeafColors, SPECIES, SP, VARIANT } from "./trees";
 import { canBake, bakePoints } from "../render/bake";
 import { gpuTier, isTouchDevice } from "../render/gputier";
 import { U } from "../render/fx";
@@ -60,6 +60,31 @@ function pickSpecies(elevation: number, temperature: number, moisture: number, s
     }
     return standNoise < -0.05 ? SP.cypress : SP.birch; // drier: cypress stands among birch
 }
+
+/** Mixed stands: a stand is mostly its main species, with a minority of a natural companion (birch saplings among oak,
+ *  fir among spruce…) and, in dense old forest, the odd dead snag. r is one uniform random draw. */
+const COMPANION: Partial<Record<number, number>> = {
+    [SP.oak]: SP.birch,
+    [SP.birch]: SP.pine,
+    [SP.pine]: SP.birch,
+    [SP.spruce]: SP.fir,
+    [SP.fir]: SP.spruce,
+    [SP.cypress]: SP.oak,
+    [SP.acacia]: SP.baobab,
+    [SP.kapok]: SP.palm,
+    [SP.willow]: SP.birch,
+};
+function mixStand(sp: number, r: number, elevation: number, density: number): number {
+    if (sp === SP.snag) return sp;
+    if (r < 0.025 * smoothstep(0.35, 0.8, density) && elevation > 0.12) return SP.snag; // old-growth deadfall
+    const c = COMPANION[sp];
+    return c !== undefined && r > 0.92 ? c : sp; // ~8% companions
+}
+/** Shape variants double the detailed meshes in view, so they are high tier only; elsewhere every tree keeps its base shape. */
+const vary = (sp: number, r: number) => {
+    const v = VARIANT[sp];
+    return gpuTier === "high" && v !== undefined && r < 0.5 ? v : sp;
+};
 
 /**
  * Three-tier tree LOD with clustered placement.
@@ -171,7 +196,10 @@ export class Forest {
         c.offsetHSL((rand() - 0.5) * 0.03, (rand() - 0.5) * 0.08, (rand() - 0.5) * 0.06);
         const a = rand(),
             decid = sp.decid;
-        if (decid && temperature < 0.6 && a < 0.35) c.setHSL(0.03 + 0.12 * rand(), 0.75, 0.28 + 0.1 * rand());
+        // autumn by region: whole cool hillsides turn together (stand noise + temperature), fading from summer green
+        // through a mixed band to full autumn, instead of a random 35% of trees each picking a colour on their own
+        const autumn = smoothstep(0.62, 0.5, temperature + stand * 0.12) * (0.25 + 0.75 * smoothstep(-0.1, 0.25, stand));
+        if (decid && a < autumn) c.setHSL(0.03 + 0.12 * rand(), 0.75, 0.28 + 0.1 * rand());
         else if (decid && a > 0.94) c.setHSL(0.93 + 0.04 * rand(), 0.5, 0.55);
         else if (a > 0.88) c.offsetHSL(0.04, 0.1, 0.1);
         if (moisture < -0.15) c.offsetHSL(-0.03, -0.15, 0.02);
@@ -180,7 +208,8 @@ export class Forest {
         // forest cores hold the tall trees, sparse edges fill with saplings
         const age = 0.72 + 0.45 * smoothstep(0.08, 0.6, density);
         return {
-            scale: (0.55 + rand() * 1.1) * age * (1 - smoothstep(0.3, 0.55, elevation) * 0.35),
+            scale:
+                (sp.size[0] + rand() * (sp.size[1] - sp.size[0])) * age * (1 - smoothstep(0.3, 0.55, elevation) * 0.35),
             yaw: rand() * 6.28,
             widthScale: (0.65 + 0.7 * rand()) * sp.width,
             heightScale: (0.65 + 0.8 * rand()) * sp.height,
@@ -255,26 +284,36 @@ export class Forest {
                 m = sampleData[k * 4 + 1],
                 dens = sampleData[k * 4 + 2],
                 dy = dirs[k * 3 + 1],
-                tp = 1 - 1.1 * dy * dy - 1.2 * Math.max(e, 0);
-            if (
-                e < 0.03 ||
-                e > 0.62 ||
-                tp < S.snowline + 0.02 ||
-                sampleData[k * 4 + 3] > 0.6 ||
-                rand() > (dens + 0.008) * (1 - smoothstep(0.08, 0.5, e))
-            )
-                continue;
+                tp = 1 - 1.1 * dy * dy - 1.2 * Math.max(e, 0),
+                st = stand[k * 4],
+                slope = sampleData[k * 4 + 3];
+            // Altitude zones: thin coastal fringe → full lowland forest → continuous montane conifer belt (glades filled in)
+            // → subalpine tree islands (only where stand noise is high) → wavy treeline that follows the same smooth noise.
+            // ez: elevation as the zones see it — per-tree jitter (±0.03) plus a slow regional shift from stand noise (±0.04),
+            // so zone edges wander over hillsides instead of following one contour line
+            const ez = e + (rand() - 0.5) * 0.06 + st * 0.08,
+                treeline = 0.52 + st * 0.12,
+                montane = smoothstep(0.14, 0.22, ez) * (1 - smoothstep(0.3, 0.38, ez)),
+                subalpine = smoothstep(0.3, 0.42, ez),
+                p =
+                    (Math.pow(dens, 1 - 0.45 * montane) + 0.008) *
+                    smoothstep(0.02, 0.07, e) *
+                    (1 - smoothstep(treeline - 0.3, treeline, ez)) *
+                    (1 - subalpine + subalpine * smoothstep(0, 0.3, st)) *
+                    (1 - smoothstep(0.35, 0.6, slope));
+            if (e < 0.02 || e > 0.62 || tp < S.snowline + 0.02 || slope > 0.6 || rand() > p) continue;
             const x = dirs[k * 3] * planetRadius,
                 y = dy * planetRadius,
                 z = dirs[k * 3 + 2] * planetRadius;
             if (!free(x, y, z)) continue;
             // jitter the climate inputs per tree so species bands blend over tens of metres instead of a hard line
-            const speciesIdx = pickSpecies(
+            const base = pickSpecies(
                     e + (rand() - 0.5) * 0.04,
                     tp + (rand() - 0.5) * 0.06,
                     m + (rand() - 0.5) * 0.08,
                     stand[k * 4]
                 ),
+                speciesIdx = vary(mixStand(base, rand(), e, dens), rand()),
                 id = acceptedTrees.length,
                 kk = key(cell(x), cell(y), cell(z));
             px.push(x);

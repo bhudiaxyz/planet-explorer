@@ -433,9 +433,12 @@ const EXTRA: [number, number, number, number][] = [
     [4, 0.05, -0.05, 0.02],
     [0, 0.04, -0.15, -0.03],
 ];
+// shape variants share their base species' foliage colour: pine2 ← pine, oak2 ← oak, birch2 ← birch, spruce2 ← spruce (row 12)
+const VARIANT_LEAF = [0, 1, 2, 12];
 export const getLeafColors = () => {
     const base = CurrentPalette.treeLeavesHSL.map(([h, s, l]) => new THREE.Color().setHSL(h, s, l));
-    return [...base, ...EXTRA.map(([i, dh, ds, dl]) => base[i].clone().offsetHSL(dh, ds, dl))];
+    const all = [...base, ...EXTRA.map(([i, dh, ds, dl]) => base[i].clone().offsetHSL(dh, ds, dl))];
+    return [...all, ...VARIANT_LEAF.map((i) => all[i].clone())];
 };
 
 // ---- low-poly distance tier (a few dozen triangles)
@@ -660,6 +663,11 @@ const SPECIES_NAMES = [
     "baobab",
     "spruce",
     "juniper",
+    // shape variants (high tier only, see VARIANT): same builder, different seed (the detailed seed is the row index)
+    "pine2",
+    "oak2",
+    "birch2",
+    "spruce2",
 ] as const;
 type Species = {
     name: (typeof SPECIES_NAMES)[number];
@@ -669,6 +677,8 @@ type Species = {
     lean: number;
     width: number;
     height: number;
+    /** per-species random size range [min, max] (× the global scale); gives tall spruce / kapok, squat juniper / acacia */
+    size: [number, number];
     decid: boolean;
     leafSize?: number;
 };
@@ -676,21 +686,27 @@ const blobOak = (r: () => number) => lowBlob(r, 4.5, 3.8),
     blobBirch = (r: () => number) => lowBlob(r, 8, 2.2);
 // prettier-ignore
 export const SPECIES: Species[] = [
-    { name: "pine",     build: pine,     low: lowPine,     trunk: 0.5,  lean: 0.14, width: 1,   height: 1,    decid: false },
-    { name: "oak",      build: oak,      low: blobOak,     trunk: 0.7,  lean: 0.14, width: 1,   height: 1,    decid: true,  leafSize: 0.7 },
-    { name: "birch",    build: birch,    low: blobBirch,   trunk: 0.28, lean: 0.14, width: 1,   height: 1,    decid: true,  leafSize: 0.5 },
-    { name: "palm",     build: palm,     low: lowPalm,     trunk: 0.5,  lean: 0.3,  width: 1,   height: 1,    decid: false },
-    { name: "fir",      build: fir,      low: lowFir,      trunk: 0.45, lean: 0.14, width: 1,   height: 1,    decid: false },
-    { name: "snag",     build: dead,     low: lowDead,     trunk: 0.45, lean: 0.14, width: 1,   height: 1,    decid: false },
-    { name: "acacia",   build: acacia,   low: lowAcacia,   trunk: 0.35, lean: 0.14, width: 1.2, height: 1,    decid: true,  leafSize: 0.75 },
-    { name: "cypress",  build: cypress,  low: lowCypress,  trunk: 0.35, lean: 0.14, width: 0.8, height: 1.15, decid: false },
-    { name: "willow",   build: willow,   low: lowWillow,   trunk: 0.5,  lean: 0.14, width: 1.2, height: 1,    decid: true,  leafSize: 0.45 },
-    { name: "mangrove", build: mangrove, low: lowMangrove, trunk: 0.3,  lean: 0.14, width: 1.2, height: 0.9,  decid: false, leafSize: 0.6 },
-    { name: "kapok",    build: kapok,    low: lowKapok,    trunk: 0.75, lean: 0.14, width: 1,   height: 1,    decid: true,  leafSize: 0.9 },
-    { name: "baobab",   build: baobab,   low: lowBaobab,   trunk: 1.5,  lean: 0.14, width: 1,   height: 1,    decid: true,  leafSize: 0.6 },
-    { name: "spruce",   build: spruce,   low: lowSpruce,   trunk: 0.4,  lean: 0.14, width: 0.8, height: 1,    decid: false },
-    { name: "juniper",  build: juniper,  low: lowJuniper,  trunk: 0.3,  lean: 0.3,  width: 1.3, height: 1,    decid: false },
+    { name: "pine",     build: pine,     low: lowPine,     trunk: 0.5,  lean: 0.14, width: 1,   height: 1,    size: [0.6, 1.6],  decid: false },
+    { name: "oak",      build: oak,      low: blobOak,     trunk: 0.7,  lean: 0.14, width: 1,   height: 1,    size: [0.65, 1.5], decid: true,  leafSize: 0.7 },
+    { name: "birch",    build: birch,    low: blobBirch,   trunk: 0.28, lean: 0.14, width: 1,   height: 1,    size: [0.5, 1.45], decid: true,  leafSize: 0.5 },
+    { name: "palm",     build: palm,     low: lowPalm,     trunk: 0.5,  lean: 0.3,  width: 1,   height: 1,    size: [0.6, 1.4],  decid: false },
+    { name: "fir",      build: fir,      low: lowFir,      trunk: 0.45, lean: 0.14, width: 1,   height: 1,    size: [0.6, 1.7],  decid: false },
+    { name: "snag",     build: dead,     low: lowDead,     trunk: 0.45, lean: 0.14, width: 1,   height: 1,    size: [0.45, 1.2], decid: false },
+    { name: "acacia",   build: acacia,   low: lowAcacia,   trunk: 0.35, lean: 0.14, width: 1.2, height: 1,    size: [0.55, 1.2], decid: true,  leafSize: 0.75 },
+    { name: "cypress",  build: cypress,  low: lowCypress,  trunk: 0.35, lean: 0.14, width: 0.8, height: 1.15, size: [0.6, 1.55], decid: false },
+    { name: "willow",   build: willow,   low: lowWillow,   trunk: 0.5,  lean: 0.14, width: 1.2, height: 1,    size: [0.6, 1.3],  decid: true,  leafSize: 0.45 },
+    { name: "mangrove", build: mangrove, low: lowMangrove, trunk: 0.3,  lean: 0.14, width: 1.2, height: 0.9,  size: [0.5, 1.2],  decid: false, leafSize: 0.6 },
+    { name: "kapok",    build: kapok,    low: lowKapok,    trunk: 0.75, lean: 0.14, width: 1,   height: 1,    size: [0.8, 1.9],  decid: true,  leafSize: 0.9 },
+    { name: "baobab",   build: baobab,   low: lowBaobab,   trunk: 1.5,  lean: 0.14, width: 1,   height: 1,    size: [0.7, 1.4],  decid: true,  leafSize: 0.6 },
+    { name: "spruce",   build: spruce,   low: lowSpruce,   trunk: 0.4,  lean: 0.14, width: 0.8, height: 1,    size: [0.65, 1.85], decid: false },
+    { name: "juniper",  build: juniper,  low: lowJuniper,  trunk: 0.3,  lean: 0.3,  width: 1.3, height: 1,    size: [0.4, 0.95], decid: false },
+    { name: "pine2",    build: pine,     low: lowPine,     trunk: 0.5,  lean: 0.14, width: 1,   height: 1,    size: [0.6, 1.6],  decid: false },
+    { name: "oak2",     build: oak,      low: blobOak,     trunk: 0.7,  lean: 0.14, width: 1,   height: 1,    size: [0.65, 1.5], decid: true,  leafSize: 0.7 },
+    { name: "birch2",   build: birch,    low: blobBirch,   trunk: 0.28, lean: 0.14, width: 1,   height: 1,    size: [0.5, 1.45], decid: true,  leafSize: 0.5 },
+    { name: "spruce2",  build: spruce,   low: lowSpruce,   trunk: 0.4,  lean: 0.14, width: 0.8, height: 1,    size: [0.65, 1.85], decid: false },
 ];
+/** base species index → its shape-variant row. Forest picks the variant for ~half the trees, high tier only. */
+export const VARIANT: Partial<Record<number, number>> = { 0: 14, 1: 15, 2: 16, 12: 17 };
 /** Species index by name (for pickSpecies). */
 type SpeciesName = (typeof SPECIES_NAMES)[number];
 // typed so a misspelt SP.xxx is a compile error (a plain Record<string, number> would silently give undefined)

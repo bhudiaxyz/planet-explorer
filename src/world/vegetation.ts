@@ -274,7 +274,7 @@ class Layer {
         // depth material draws every instance untransformed (all piled at the planet centre: pure waste, no
         // visible shadow). Only solid, near-tier kinds cast — on high tier, where the shadow map is big
         // enough for them to read. Grass stays off: thousands of thin blades for a barely-visible stipple.
-        this.mesh.castShadow = spec.collide && tier.near && gpuTier === "high";
+        this.mesh.castShadow = (spec.shadow ?? spec.collide) && tier.near && gpuTier === "high";
         if (this.mesh.castShadow) {
             const depth = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking });
             (depth as any).defines = defines;

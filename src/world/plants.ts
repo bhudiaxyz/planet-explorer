@@ -92,6 +92,8 @@ export interface PlantSpec {
     dbl: boolean;
     hardy: boolean;
     collide: boolean;
+    /** casts shadows from its near tier (high tier only). Defaults to `collide`; set for solid non-collidable kinds. */
+    shadow?: boolean;
     lean: number;
     disp: boolean;
     push: boolean;
@@ -206,7 +208,9 @@ export const PLANTS: PlantSpec[] = [
 #else
       float hm = 1.;
 #endif
-      int pk = int(h3 * 9.);
+      // drifts: each ~25 m meadow patch favours one or two colours (from a coarse lattice hash), with a few strays mixed in
+      float drift = hs(floor(I * CELLSZ / 25.), floor(J * CELLSZ / 25.), F + 41.);
+      int pk = int((h3 < .78 ? fract(drift + step(.5, h2) * .37) : h3) * 9.);
       vec3 fcol = pk == 0 ? vec3(.9,  .9,  .88)
         : pk == 1 ? vec3(.9,  .62, .05)
         : pk == 2 ? vec3(.28, .12, .55)
@@ -233,7 +237,8 @@ export const PLANTS: PlantSpec[] = [
             tier(shrubLow, 8.5, RAD.shrubMid, LOD.shrubMid),
             tier(shrubTiny, 17, RAD.far, LOD.far, 1.9, 1.9),
         ],
-        pre: "cf = clusterField(d, 2.); if (h6 >= .007 * PMUL * cf * 3.5) REJECT;",
+        // patches, plus a fringe where forest thins into open ground (treeDensity mid-band) so forests don't stop abruptly
+        pre: "m0 = pn(d * uFreq * 2.2 + vec3(30., 0., 0.), 1); fo = treeDensity(d, m0); cf = clusterField(d, 2.); if (h6 >= .007 * PMUL * (cf * 3.5 + sm_(.05, .2, fo) * (1. - sm_(.35, .6, fo)) * 2.5)) REJECT;",
         gate: "if (e >= .3 || sl >= .6 || m <= -.05) REJECT;",
         look: `
       float sw = .45 + h2 * 1.4;
@@ -247,6 +252,9 @@ export const PLANTS: PlantSpec[] = [
             : h7 < .94 ? vec3(.3,  .2,  .04)
             :             vec3(.45, .22, .3))
         * (.65 + h2 * .7);
+      // thicket-scale lush ↔ dry patches (~30 m lattice hash; shrubs are collidable so the texel .w is taken, and the
+      // visible plant shader deliberately carries no noise library — see HELPERS_GLSL)
+      tint *= mix(vec3(1.25, 1.08, .7), vec3(.88, 1.08, .95), hs(floor(I * CELLSZ / 30.), floor(J * CELLSZ / 30.), F + 59.));
     `,
     }),
     plant({
@@ -284,6 +292,7 @@ export const PLANTS: PlantSpec[] = [
         wind: 0.15,
         rustle: true,
         hardy: true,
+        shadow: true,
         lean: 0.35,
         disp: true,
         tiers: [
@@ -334,6 +343,7 @@ export const PLANTS: PlantSpec[] = [
         ],
         pre: "m0 = pn(d * uFreq * 2.2 + vec3(30., 0., 0.), 1); fo = treeDensity(d, m0); if (h6 >= .05 * PMUL * (.08 + fo * 2.4)) REJECT;",
         gate: "if (m <= 0. || e >= .44 || sl >= .7) REJECT;",
+        result: "return vec4(e * uAmp, h1, h2, m);", // .w = moisture for the lush/dry tint (not collidable, so .w is free)
         look: `
       sc = vec3(.6 + h2 * 1.1, .55 + h1 * 1.1, .6 + h2 * 1.1);
       sc *= 1. + step(.87, h1) * .5;
@@ -342,6 +352,8 @@ export const PLANTS: PlantSpec[] = [
             : h7 < .85 ? vec3(.03, .14, .1)
             :             vec3(.14, .2,  .04))
         * (.7 + h2 * .6);
+      // drier ground (m near 0): olive / yellowed fronds · wet ground: deep lush green
+      tint *= mix(vec3(1.35, 1.1, .6), vec3(.85, 1.08, .95), sm_(.02, .35, Dv.w));
     `,
     }),
     plant({
@@ -457,6 +469,7 @@ export const PLANTS: PlantSpec[] = [
         wind: 0.08,
         rustle: true,
         hardy: true,
+        shadow: true,
         lean: 0.25,
         tiers: [
             tier(deadScrubGeo, 3.4, RAD.shrub, LOD.shrub),
@@ -482,6 +495,7 @@ export const PLANTS: PlantSpec[] = [
         kind: 22,
         wind: 0,
         hardy: true,
+        shadow: true,
         lean: 0.12,
         tiers: [
             tier(logGeo, 6.8, RAD.shrub, LOD.shrub),
@@ -515,6 +529,7 @@ export const PLANTS: PlantSpec[] = [
         ],
         pre: "cf = clusterField(d, 12.); if (h6 >= .08 * PMUL * cf * 3.) REJECT;",
         gate: "if (e < .01 || e >= .06 || sl >= .4 || m < 0.) REJECT;",
+        result: "return vec4(e * uAmp, h1, h2, m);", // .w = moisture for the lush/dry tint
         look: `
       sc = vec3(.6 + h2 * .7, .65 + h1 * 1.1, .6 + h2 * .7);
       sc.y *= 1. + step(.85, h3) * .9;
@@ -523,6 +538,8 @@ export const PLANTS: PlantSpec[] = [
             : h7 < .88 ? vec3(.60, .52, .22)
             :             vec3(.42, .38, .14))
         * (.7 + h2 * .6);
+      // sedge marsh: wetter = greener, drier margins straw-coloured
+      tint *= mix(vec3(1.18, 1.0, .78), vec3(.82, 1.12, .9), sm_(0., .35, Dv.w));
     `,
     }),
     plant({
