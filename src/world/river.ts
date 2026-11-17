@@ -76,7 +76,7 @@ function addMeanders(pts: THREE.Vector3[], rand: () => number, ampMul = 1): THRE
     const freq1 = 0.08 + rand() * 0.07; // primary wave — controls bend spacing in metres
     const ratio = 1.4 + rand() * 0.6; // item 9: secondary ratio varies 1.4–2.0× per river
     const freq2 = freq1 * ratio + rand() * 0.04;
-    const amp = (5 + rand() * 6) * ampMul;
+    const amp = (5 + rand() * 6) * ampMul * 1.25; // ×1.25: deeper bends (same draws, so each river keeps its course)
 
     // item 7: precompute arc lengths so bend frequency is consistent regardless of step density
     const arcLen: number[] = [0];
@@ -116,7 +116,9 @@ const DIRS = [0, 1, 2, 3, 4, 5, 6, 7].map((i) => (i * Math.PI) / 4);
 
 const yieldFrame = () => new Promise<void>((r) => setTimeout(r));
 
-type LakeDef = { center: THREE.Vector3; radius: number; aspect: number };
+// center: unit-ish anchor at sea radius (for spacing tests) · radius: mesh extent (m) · level: water surface radius from the
+// planet centre (m), the basin's spill height · seed: per-lake shoreline noise phase
+type LakeDef = { center: THREE.Vector3; radius: number; level: number; seed: number };
 
 // ---- Shaders ------------------------------------------------------------------
 
@@ -159,7 +161,23 @@ void main() {
     lakeDist = length(cameraPosition - vWorldPos);
     if (lakeDist > 700.0) discard;
   }
-  float edgeMask = smoothstep(0.0, 0.25, vUv.x) * (1.0 - smoothstep(0.75, 1.0, vUv.x));
+  // Irregular banks (rivers): the water's edge wanders in and out by up to ~14 % of the width on each bank, with
+  // world-position phases so the two banks and neighbouring rivers differ. Cheap sines on every tier; high adds noise.
+  float bankL = 0.0, bankR = 1.0;
+  if (!isLake) {
+    vec3 bq = vWorldPos * 0.21;
+    float wob = sin(bq.x + sin(bq.z * 1.3)) * 0.5 + sin(bq.z * 2.1 + bq.y * 1.7) * 0.3;
+    float wob2 = sin(bq.z + sin(bq.x * 1.1 + 2.0)) * 0.5 + sin(bq.x * 1.9 - bq.y * 1.3) * 0.3;
+#ifdef HI
+    wob  += (vn(vWorldPos * 0.9) - 0.5) * 0.8;
+    wob2 += (vn(vWorldPos * 0.9 + vec3(7.1, 3.3, 1.9)) - 0.5) * 0.8;
+#endif
+    bankL = 0.07 + 0.07 * wob;
+    bankR = 0.93 - 0.07 * wob2;
+    if (vUv.x < bankL || vUv.x > bankR) discard;
+  }
+  float ux = isLake ? vUv.x : (vUv.x - bankL) / (bankR - bankL); // across-stream 0..1 inside the wandering banks
+  float edgeMask = smoothstep(0.0, 0.25, ux) * (1.0 - smoothstep(0.75, 1.0, ux));
   // item 12: centre flows faster than banks (natural hydraulics); lake speed unaffected
   float flowSpeed = mix(0.9, 0.2, clamp(vUv.y, 0.0, 1.0)) * (isLake ? 1.0 : 1.0 + edgeMask * 0.4);
   flowSpeed *= 1.0 + vSteep * 2.5; // steep reaches race
@@ -196,7 +214,8 @@ void main() {
   if (uHighDetail > 0.5 && (!isLake || lakeDist < 150.0)) {
     float r2 = sin(v * 5.5 - uTime * 1.6 + vUv.x * 3.5) * 0.5 + 0.5;
     baseColor += vec3(0.06, 0.14, 0.20) * (shimmer * r2) * 0.18;
-    foam = smoothstep(0.76, 0.92, vUv.x) + smoothstep(0.24, 0.08, vUv.x);
+    // bank foam follows the wandering edge (ux); lakes get none — a fixed-radius foam ring would redraw the disc outline
+    foam = isLake ? 0.0 : smoothstep(0.76, 0.92, ux) + smoothstep(0.24, 0.08, ux);
 #ifdef HI
     if (!isLake) {
       // flow-aligned noise: bank foam breaks into drifting clumps, and long streaks trail down the centre
@@ -223,9 +242,15 @@ void main() {
 
   float alpha = mix(0.68, 0.92, edgeMask) + fresnel * 0.07 + foam * 0.08 + white * 0.25;
   // Lake: shore fade (vUv.x) × distance fade (500–700 m). River: source/mouth end fades.
+  // Lake: the shoreline is where the terrain rises through the level sheet, so only the sheet's own overshoot edge
+  // (≥ 115 % of the basin radius, normally buried in the rim) fades, with a noisy fringe in case a rim gap exposes it.
+  // River: soft bank lip inside the wandering edge, plus source/mouth end fades.
+  float lip = isLake
+    ? 1.0 - smoothstep(0.9 + 0.04 * sin(atan(vWorldPos.z, vWorldPos.x) * 23.0), 1.0, vUv.x)
+    : smoothstep(0.0, 0.1, ux) * smoothstep(1.0, 0.9, ux);
   float endFade = isLake
-    ? (1.0 - smoothstep(0.75, 1.0, vUv.x)) * (1.0 - smoothstep(500.0, 700.0, lakeDist))
-    : smoothstep(0.0, 0.04, vUv.y) * smoothstep(1.0, 0.88, vUv.y);
+    ? lip * (1.0 - smoothstep(500.0, 700.0, lakeDist))
+    : lip * smoothstep(0.0, 0.04, vUv.y) * smoothstep(1.0, 0.88, vUv.y);
   // same final grade as the ocean (render/fx.ts waterGrade): rich palette-hued blue, foam and rapids stay white.
   // This ShaderMaterial writes linear colour (Three tone-maps / converts after main), so grade against linear uWater.
   baseColor = waterGrade(baseColor, uWater, clamp(max(foam * 0.6, white), 0.0, 1.0));
@@ -298,6 +323,37 @@ export class RiverSystem {
             if (sources.some((s) => s.dot(_scratch.src) > cosMin)) continue;
             sources.push(_scratch.src.clone());
         }
+        // Longer rivers, with variety: move each source a random 0–25 steps (≤ 250 m) uphill toward the ranges, so most
+        // rivers rise further from the coast; a random per-river step budget (0.85–1.6×) then lets some run on much
+        // further than others. Own random stream: the draws above (and so which sources exist) are unchanged.
+        const lenRand = rng(S.seed + 3131),
+            riverSteps = new Map<THREE.Vector3, number>();
+        for (const src of sources) {
+            const before = src.clone();
+            this._climb(src, planet, R, Math.floor(lenRand() * 26));
+            // keep the 40° source spacing: a climb that drifts toward another source is undone
+            if (sources.some((o) => o !== src && o.dot(src) > cosMin)) src.copy(before);
+            riverSteps.set(src, Math.ceil(tierMaxSteps * (0.85 + lenRand() * 0.75)));
+        }
+        // Mountain streams (medium/high): extra sources high in the ranges, so uplands get running water of their own,
+        // not just the top reaches of the 4 main rivers. Own random stream, so the main rivers keep their courses.
+        const mountainSources: THREE.Vector3[] = [];
+        if (gpuTier !== "low") {
+            const mrand = rng(S.seed + 4242),
+                cosMtn = Math.cos((18 * Math.PI) / 180); // closer spacing than main sources (40°): they are short
+            for (let tries = 0; mountainSources.length < 3 && tries < 600; tries++) {
+                await mayYield();
+                const u = mrand() * 2 - 1,
+                    phi = mrand() * Math.PI * 2,
+                    r = Math.sqrt(1 - u * u);
+                _scratch.src.set(r * Math.cos(phi), u, r * Math.sin(phi));
+                const elev = planet.elevationAt(_scratch.src.x, _scratch.src.y, _scratch.src.z, false);
+                if (elev < 0.3 || elev > 0.6) continue; // high ground, below the bare summits
+                if (planet.moistureAt(_scratch.src) < cfg.sourceMinMoisture - 0.1) continue;
+                if ([...sources, ...mountainSources].some((s) => s.dot(_scratch.src) > cosMtn)) continue;
+                mountainSources.push(_scratch.src.clone());
+            }
+        }
 
         // River archetypes: stream = narrow/gentle, river = normal, wide = broad/meandering
         const ARCHETYPES = ["stream", "river", "river", "river", "wide"] as const;
@@ -321,7 +377,7 @@ export class RiverSystem {
             const arch = ARCHETYPES[Math.floor(rand() * ARCHETYPES.length)];
             const ws = archW(arch),
                 ms = archM(arch);
-            const main = this._tracePath(src, planet, R, tierMaxSteps);
+            const main = this._tracePath(src, planet, R, riverSteps.get(src) ?? tierMaxSteps);
             if (main.length < 5) continue;
             mainPaths.push(main);
             mainScales.push(ws);
@@ -376,6 +432,19 @@ export class RiverSystem {
             }
         }
 
+        // Mountain streams join the tributary pool: the stricter overlap cull below drops any that just retrace an
+        // existing river, and they never displace a main river. Narrow "stream" look, ≤ 40 % of a main river's length
+        // (they spill into a larger river or a valley floor, not all the way to the sea).
+        for (const src of mountainSources) {
+            await mayYield();
+            const p = this._tracePath(src, planet, R, Math.ceil(tierMaxSteps * 0.4));
+            if (p.length < 6) continue;
+            tribPaths.push(p);
+            tribScales.push(archW("stream") * 1.1);
+            tribMeanders.push(archM("stream") * 1.4);
+            tribArchetypes.push("stream");
+        }
+
         // Drop paths whose waypoints fall too close to an already-accepted path.
         // Uses distanceToSquared (no sqrt) with early-exit on first close point.
         // 16 m threshold = just wider than max ribbon half-width (9 m / 2 + margin).
@@ -414,8 +483,28 @@ export class RiverSystem {
         const lakes: LakeDef[] = [];
         if (gpuTier !== "low") {
             const lakeThSq = 120 * 120;
+            // Terminal lakes: a river that ends on land stopped in a real basin (_tracePath gives up after 6 stuck
+            // steps), so pond the water there — the river then visibly flows into its lake instead of just stopping.
+            // Checked first, so they take priority over the random lowland lakes; no random draws (sources unchanged).
+            for (const p of accepted) {
+                const end = p[p.length - 1].clone().normalize();
+                if (planet.elevationAt(end.x, end.y, end.z, false) <= 0) continue; // reached the sea
+                const basin = this._findBasin(end, planet, R, 35 + ((p.length * 7) % 30));
+                if (!basin) continue;
+                if (lakes.some((l) => l.center.clone().normalize().angleTo(basin.dir) < 120 / R)) continue;
+                lakes.push({
+                    center: basin.dir.clone().multiplyScalar(R),
+                    radius: basin.radius,
+                    level: basin.level,
+                    seed: p.length * 13.7,
+                });
+                if (lakes.length >= 4) break;
+            }
             let pa = 0;
-            while (lakes.length < 2 && pa++ < 120) {
+            // basins are rarer than "any low moist spot": more tries (each is ~40 descent + 64 rim samples, still a few ms)
+            const lowlandStart = lakes.length; // up to 2 lowland lakes of their own, whatever the terminal pass found
+            while (lakes.length - lowlandStart < 2 && pa++ < 300) {
+                await mayYield();
                 const u2 = rand() * 2 - 1,
                     phi2 = rand() * Math.PI * 2;
                 const r2 = Math.sqrt(1 - u2 * u2);
@@ -423,10 +512,45 @@ export class RiverSystem {
                 const elev = planet.elevationAt(_scratch.src.x, _scratch.src.y, _scratch.src.z, false);
                 if (elev < 0.005 || elev > 0.07) continue;
                 if (planet.moistureAt(_scratch.src) < 0.45) continue;
-                const ctr = _scratch.src.clone().multiplyScalar(R);
+                const basin = this._findBasin(_scratch.src, planet, R, 50 + rand() * 70);
+                if (!basin) continue; // open or sloping ground: no depression to hold water
+                const ctr = basin.dir.clone().multiplyScalar(R);
                 if (accepted.some((p) => p.some((pt) => ctr.distanceToSquared(pt) < lakeThSq))) continue;
                 if (lakes.some((pd) => pd.center.distanceToSquared(ctr) < lakeThSq)) continue;
-                lakes.push({ center: ctr, radius: 50 + rand() * 70, aspect: 0.55 + rand() * 0.9 });
+                lakes.push({
+                    center: ctr,
+                    radius: basin.radius,
+                    level: basin.level,
+                    seed: rand() * 1000,
+                });
+            }
+            // Mountain tarns: up to 3 small lakes in high hollows (cirques, saddles between ridges). Own random stream so
+            // the lowland lakes above are unchanged. Same basin test — only real depressions hold water. Distances are
+            // compared on the unit sphere: at altitude the river points sit 20–40 m above the sea-radius anchor.
+            const trand = rng(S.seed + 5151),
+                tarnSep = 90 / R, // angular separation (≈ 90 m) from rivers and other lakes
+                farFrom = (d: THREE.Vector3, pts: THREE.Vector3[]) =>
+                    pts.every((p) => d.angleTo(p) > tarnSep);
+            let tarns = 0;
+            for (let tries = 0; tarns < 3 && tries < 400; tries++) {
+                await mayYield();
+                const u2 = trand() * 2 - 1,
+                    phi2 = trand() * Math.PI * 2,
+                    r2 = Math.sqrt(1 - u2 * u2);
+                _scratch.src.set(r2 * Math.cos(phi2), u2, r2 * Math.sin(phi2));
+                const elev = planet.elevationAt(_scratch.src.x, _scratch.src.y, _scratch.src.z, false);
+                if (elev < 0.22 || elev > 0.5) continue; // uplands → high ground, below bare summits
+                const basin = this._findBasin(_scratch.src, planet, R, 25 + trand() * 30);
+                if (!basin) continue;
+                if (!farFrom(basin.dir, lakes.map((l) => l.center))) continue;
+                if (!accepted.every((p) => farFrom(basin.dir, p))) continue;
+                lakes.push({
+                    center: basin.dir.clone().multiplyScalar(R),
+                    radius: basin.radius,
+                    level: basin.level,
+                    seed: trand() * 1000,
+                });
+                tarns++;
             }
         }
 
@@ -445,6 +569,102 @@ export class RiverSystem {
         return { paths: smoothed, scales: acceptedScales, lakes };
     }
 
+    /** Move unit direction `d` (in place) up to `steps` × stepSize uphill — steepest ascent, stopping at a summit. */
+    private _climb(d: THREE.Vector3, planet: Planet, R: number, steps: number) {
+        const stepRad = CFG.river.stepSize / R,
+            { up, ref, east, north, nbr } = _scratch.path;
+        let h = planet.elevationAt(d.x, d.y, d.z, false);
+        for (let s = 0; s < steps; s++) {
+            up.copy(d);
+            ref.set(Math.abs(up.y) < 0.9 ? 1 : 0, 0, Math.abs(up.y) < 0.9 ? 0 : 1);
+            east.crossVectors(up, ref).normalize();
+            north.crossVectors(east, up).normalize();
+            let best = h,
+                ba = -1;
+            for (const a of DIRS) {
+                nbr.copy(d)
+                    .addScaledVector(east, Math.cos(a) * stepRad)
+                    .addScaledVector(north, Math.sin(a) * stepRad)
+                    .normalize();
+                const hn = planet.elevationAt(nbr.x, nbr.y, nbr.z, false);
+                if (hn > best) {
+                    best = hn;
+                    ba = a;
+                }
+            }
+            if (ba < 0 || best > 0.6) break; // summit, or into the bare peaks (no springs up there)
+            d.addScaledVector(east, Math.cos(ba) * stepRad).addScaledVector(north, Math.sin(ba) * stepRad).normalize();
+            h = best;
+        }
+    }
+
+    /**
+     * Find a basin that can hold a lake near `start` (unit direction). Walks downhill to the local low point, then reads
+     * the ground on a ring at the planned radius: the water level is the ring's lowest point (the spill height) less a
+     * margin, so the lake fills the depression and its visible shore is the terrain's own contour line. Returns null
+     * when the low point is too shallow (open or sloping ground would show a flat sheet cutting the hillside).
+     */
+    private _findBasin(
+        start: THREE.Vector3,
+        planet: Planet,
+        R: number,
+        radius: number
+    ): { dir: THREE.Vector3; level: number; radius: number } | null {
+        const amp = S.amplitude,
+            hAt = (d: THREE.Vector3) => R + planet.elevationAt(d.x, d.y, d.z, false) * amp;
+        // 1) descend to the local low point (8 directions, 6 m steps)
+        const cur = start.clone().normalize(),
+            step = 6 / R,
+            nb = new THREE.Vector3(),
+            up = new THREE.Vector3(),
+            east = new THREE.Vector3(),
+            north = new THREE.Vector3();
+        let h = hAt(cur);
+        for (let it = 0; it < 40; it++) {
+            up.copy(cur);
+            east.crossVectors(up, Math.abs(up.y) < 0.9 ? new THREE.Vector3(0, 1, 0) : new THREE.Vector3(1, 0, 0)).normalize();
+            north.crossVectors(east, up);
+            let best = h,
+                bx = 0,
+                by = 0;
+            for (const a of DIRS) {
+                nb.copy(cur)
+                    .addScaledVector(east, Math.cos(a) * step)
+                    .addScaledVector(north, Math.sin(a) * step)
+                    .normalize();
+                const hn = hAt(nb);
+                if (hn < best) {
+                    best = hn;
+                    bx = Math.cos(a);
+                    by = Math.sin(a);
+                }
+            }
+            if (best >= h) break;
+            cur.addScaledVector(east, bx * step).addScaledVector(north, by * step).normalize();
+            h = best;
+        }
+        if (h - R < 0.4) return null; // at / below the sea: that is the ocean's job
+        // 2) spill height: lowest ground on rings at 60 % and 100 % of the radius (a gap in either lets water out)
+        up.copy(cur);
+        east.crossVectors(up, Math.abs(up.y) < 0.9 ? new THREE.Vector3(0, 1, 0) : new THREE.Vector3(1, 0, 0)).normalize();
+        north.crossVectors(east, up);
+        let rim = Infinity;
+        for (const f of [0.6, 1]) {
+            for (let i = 0; i < 32; i++) {
+                const a = (i / 32) * Math.PI * 2;
+                nb.copy(cur)
+                    .multiplyScalar(R)
+                    .addScaledVector(east, Math.cos(a) * radius * f)
+                    .addScaledVector(north, Math.sin(a) * radius * f)
+                    .normalize();
+                rim = Math.min(rim, hAt(nb));
+            }
+        }
+        const level = rim - 0.25; // a little under the spill point so the shore never touches the rim
+        if (level - h < 0.6) return null; // too shallow to read as a lake
+        return { dir: cur, level, radius };
+    }
+
     private _tracePath(
         source: THREE.Vector3,
         planet: Planet,
@@ -456,7 +676,12 @@ export class RiverSystem {
 
         const path: THREE.Vector3[] = [];
         let cur = source.clone().normalize();
-        let prevDir: THREE.Vector3 | null = null; // momentum: bias toward current direction
+        // flow direction (tangent, unit) of the last step. Momentum used to compare *positions* (nbr · prev ≈ 1 for every
+        // neighbour), so it never acted and rivers zig-zagged in place inside pits until maxSteps.
+        const flow = new THREE.Vector3();
+        let hasFlow = false,
+            stuck = 0,
+            seaSteps = 0;
 
         for (let step = 0; step < maxSteps; step++) {
             const curElev = planet.elevationAt(cur.x, cur.y, cur.z, false);
@@ -464,7 +689,13 @@ export class RiverSystem {
             const surfElev = Math.max(0, curElev);
             path.push(cur.clone().multiplyScalar(R + surfElev * S.amplitude + cfg.surfaceOffset));
 
-            if (curElev <= 0) break; // reached ocean/lake — stop here
+            // Reached the sea: run 3 more steps out over the water so the ribbon's end fade happens on the sea, and the
+            // river visibly pours into it instead of ending at the waterline.
+            if (curElev <= 0 && ++seaSteps > 3) break;
+            if (seaSteps > 0 && hasFlow) {
+                cur = cur.clone().addScaledVector(flow, stepRad).normalize();
+                continue;
+            }
 
             _scratch.path.up.copy(cur);
             if (Math.abs(_scratch.path.up.y) < 0.9) _scratch.path.ref.set(1, 0, 0);
@@ -481,8 +712,9 @@ export class RiverSystem {
                     .addScaledVector(_scratch.path.north, Math.sin(angle) * stepRad);
                 _scratch.path.nbr.copy(cur).add(_scratch.path.off).normalize();
                 const nElev = planet.elevationAt(_scratch.path.nbr.x, _scratch.path.nbr.y, _scratch.path.nbr.z, false);
-                // momentum: small bonus for continuing in the same direction, prevents zigzag on flat terrain
-                const momentum = prevDir ? (1 - _scratch.path.nbr.dot(prevDir)) * 0.012 : 0;
+                // momentum: small penalty for turning away from the current flow, prevents zigzag on flat terrain.
+                // off is the step vector (tangent), so off·flow / stepRad is the cosine of the turn (1 straight, -1 back).
+                const momentum = hasFlow ? (1 - _scratch.path.off.dot(flow) / stepRad) * 0.006 : 0;
                 const score = nElev + momentum;
                 if (score < bestScore) {
                     bestScore = score;
@@ -491,7 +723,15 @@ export class RiverSystem {
             }
 
             if (!bestDir) break;
-            prevDir = bestDir;
+            // Pit: every neighbour is higher. Breach it by carrying on downstream (rivers cut through low saddles);
+            // after 6 stuck steps it is a real basin, so the river ends there — a lake site (see _generatePaths).
+            if (bestScore > curElev + 0.0005 && hasFlow) {
+                if (++stuck > 6) break;
+                bestDir = cur.clone().addScaledVector(flow, stepRad).normalize();
+            } else stuck = 0;
+            flow.copy(bestDir).sub(cur);
+            flow.addScaledVector(cur, -flow.dot(cur)).normalize(); // keep it tangent to the sphere
+            hasFlow = true;
             cur = bestDir;
         }
 
@@ -631,39 +871,44 @@ export class RiverSystem {
             }
         }
 
-        // Lake discs — flat fans on the sphere surface.
-        // UVs: vUv.x = radial distance (0.5 centre → 1.0 edge) so edgeMask gives deep centre / shallow edges.
-        // vUv.y = 2.0 signals the lake branch in the fragment shader (ripple + shore fade).
-        const LAKE_SEGS = 48;
+        // Lakes: a flat sheet at the basin's water level (a spherical cap, so it stays level on the curved planet). The
+        // terrain rises through it around the edge, so the visible shoreline is the ground's own contour line — no
+        // polygon outline. The sheet is a polar grid (RINGS × SEGS) so its edge is round, and the outer ring overshoots
+        // into the rim, hidden under the ground. vUv.x: 0.5 centre → 1.0 edge (depth tint / ripples); vUv.y = 2 marks lakes.
+        const SEGS = 96,
+            RINGS = 6;
         for (const lake of lakes) {
             const norm = lake.center.clone().normalize();
             const ref = Math.abs(norm.y) < 0.9 ? new THREE.Vector3(0, 1, 0) : new THREE.Vector3(1, 0, 0);
             const east = new THREE.Vector3().crossVectors(norm, ref).normalize();
             const north = new THREE.Vector3().crossVectors(east, norm).normalize();
-
-            const base = positions.length / 3;
-            // Centre vertex
-            positions.push(lake.center.x, lake.center.y, lake.center.z);
-            normals.push(norm.x, norm.y, norm.z);
-            uvs.push(0.5, 2.0);
-            steeps.push(0);
-
-            // Perimeter vertices — item 10: two non-integer sine terms displace radius for organic shorelines
-            for (let i = 0; i < LAKE_SEGS; i++) {
-                const a = (i / LAKE_SEGS) * Math.PI * 2;
-                const noiseR = 1.0 + 0.12 * Math.sin(a * 3.7 + 0.5) + 0.07 * Math.sin(a * 7.1 + 1.8);
-                const pt = lake.center
-                    .clone()
-                    .addScaledVector(east, Math.cos(a) * lake.radius * noiseR)
-                    .addScaledVector(north, Math.sin(a) * lake.radius * lake.aspect * noiseR);
+            const base = positions.length / 3,
+                pt = new THREE.Vector3(),
+                R = lake.center.length();
+            const put = (rr: number, a: number) => {
+                pt.copy(norm)
+                    .multiplyScalar(R)
+                    .addScaledVector(east, Math.cos(a) * rr)
+                    .addScaledVector(north, Math.sin(a) * rr)
+                    .normalize();
+                normals.push(pt.x, pt.y, pt.z);
+                pt.multiplyScalar(lake.level);
                 positions.push(pt.x, pt.y, pt.z);
-                normals.push(norm.x, norm.y, norm.z);
-                uvs.push(1.0, 2.0);
+                uvs.push(0.5 + 0.5 * (rr / (lake.radius * 1.15)), 2.0);
                 steeps.push(0);
-            }
-
-            // Fan triangles: centre + consecutive perimeter pairs
-            for (let i = 0; i < LAKE_SEGS; i++) indices.push(base, base + 1 + i, base + 1 + ((i + 1) % LAKE_SEGS));
+            };
+            put(0, 0);
+            for (let r = 1; r <= RINGS; r++)
+                for (let i = 0; i < SEGS; i++) put((r / RINGS) * lake.radius * 1.15, (i / SEGS) * Math.PI * 2);
+            for (let i = 0; i < SEGS; i++) indices.push(base, base + 1 + i, base + 1 + ((i + 1) % SEGS));
+            for (let r = 1; r < RINGS; r++)
+                for (let i = 0; i < SEGS; i++) {
+                    const a = base + 1 + (r - 1) * SEGS + i,
+                        b = base + 1 + (r - 1) * SEGS + ((i + 1) % SEGS),
+                        c = a + SEGS,
+                        d = b + SEGS;
+                    indices.push(a, c, b, b, c, d);
+                }
         }
 
         const geo = new THREE.BufferGeometry();
