@@ -186,6 +186,11 @@ const cases: [string, string | null, boolean, number, string, boolean, string][]
     ["iPad Air 3 (A12, 2019) @834x1112", "Apple GPU", true, 5, "MacIntel", true, "medium"],
     ["iPhone", "Apple GPU", true, 5, "iPhone", true, "medium"],
     ["Galaxy S22 Ultra Snapdragon", "Adreno (TM) 730", true, 5, "Linux armv8l", true, "high"],
+    ["Mid-range SD 6 Gen 1 (Adreno 710)", "Adreno (TM) 710", true, 5, "Linux armv8l", true, "medium"],
+    ["Mid-range SD 7 Gen 1 (Adreno 720)", "Adreno (TM) 720", true, 5, "Linux armv8l", true, "medium"],
+    ["Galaxy S23 (Adreno 740)", "Adreno (TM) 740", true, 5, "Linux armv8l", true, "high"],
+    // iPad with Magic Keyboard trackpad: pointer is fine, but it is still a touch device (MacIntel + touch points)
+    ["iPad Pro + trackpad @1024x1366", "Apple GPU", false, 5, "MacIntel", true, "high"],
     ["Galaxy S22 Ultra Exynos", "Samsung Xclipse 920", true, 5, "Linux armv8l", true, "high"],
     ["Galaxy S20 (Adreno 650)", "Adreno (TM) 650", true, 5, "Linux armv8l", true, "high"],
     ["Galaxy S10 (Adreno 640)", "Adreno (TM) 640", true, 5, "Linux armv8l", true, "high"],
@@ -216,7 +221,8 @@ for (const [label, r, coarse, tp, plat, astc, want] of cases) {
     (globalThis as any).screen = sz ? { width: +sz[1], height: +sz[2] } : undefined;
     const m = await load(String(i++));
     const got = m.detectGpuTier(gl(r, astc) as any);
-    const ok = got === want;
+    // trackpad iPads must still get touch budgets (MSAA, shadow map, render scale)
+    const ok = got === want && (!label.includes("trackpad") || m.isTouchDevice);
     if (!ok) fails++;
     console.log(
         `${ok ? "ok  " : "FAIL"} ${label}: ${got}${ok ? "" : " (want " + want + ")"}  touch=${m.isTouchDevice}`

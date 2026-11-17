@@ -3,8 +3,14 @@ import { S, CFG } from "../core/config";
 import { terrainMat } from "../render/fx";
 import { makeRT, bakeChunk } from "../render/bake";
 import { frame, type Frame } from "../core/utilgeo";
-import { chunkFade } from "../render/gputier";
+import { chunkFade, gpuTier } from "../render/gputier";
 const { cells: CS, cell: CC, radius: CR, budget: BUDGET, firstBudget: FIRST, makeAlt, clearAlt } = CFG.chunk;
+// Fine near-field: the 3×3 chunks around the player use a 2× denser grid (0.75 m) on medium/high, so sharp ridges and
+// creases are carved by ~4× as many triangles. Same 120 m footprint and lattice coordinates as a coarse chunk; only the
+// vertex grid and the bake resolution change. Low tier keeps 1.5 m everywhere.
+const FS = CS * 2,
+    FC = CC / 2;
+const fineOn = () => gpuTier !== "low";
 
 interface Shared {
     idx: THREE.BufferAttribute;
@@ -23,8 +29,10 @@ interface Shared {
 export class ChunkManager {
     private map = new Map<string, THREE.Mesh>();
     private pool: THREE.Mesh[] = [];
+    private finePool: THREE.Mesh[] = [];
     private dying: THREE.Mesh[] = [];
     private shared?: Shared;
+    private sharedFine?: Shared;
     private scratchFrame = frame(new THREE.Vector3(0, 1, 0), 1, 1);
     private scratchCenter = new THREE.Vector3();
     private lastFace = -1;
@@ -78,7 +86,7 @@ export class ChunkManager {
         if (instant) {
             this.dying.forEach((m) => {
                 this.group.remove(m);
-                this.pool.push(m);
+                this.poolOf(m).push(m);
             });
             this.dying.length = 0;
         }
@@ -87,8 +95,14 @@ export class ChunkManager {
     private retire(m: THREE.Mesh, instant: boolean) {
         if (instant) {
             this.group.remove(m);
-            this.pool.push(m);
+            this.poolOf(m).push(m);
         } else this.dying.push(m);
+    }
+    private key(face: number, i: number, j: number, fine: boolean) {
+        return `${face},${i},${j}${fine ? "f" : ""}`;
+    }
+    private poolOf(m: THREE.Mesh) {
+        return m.userData.fine ? this.finePool : this.pool;
     }
 
     update(playerDirection: THREE.Vector3, altitude: number) {
@@ -105,10 +119,12 @@ export class ChunkManager {
             todo = this.todoArr;
         want.clear();
         todo.length = 0;
+        const fineNear = fineOn();
         for (let a = -CR; a <= CR; a++)
             for (let b = -CR; b <= CR; b++) {
                 if (!this.inReach(currentFrame, ci, cj, a, b)) continue;
-                const k = `${currentFrame.face},${ci + a},${cj + b}`;
+                // centre 3×3 = fine grid (own key, so crossing into a new chunk swaps fine ↔ coarse with the usual fade)
+                const k = this.key(currentFrame.face, ci + a, cj + b, fineNear && Math.abs(a) <= 1 && Math.abs(b) <= 1);
                 want.add(k);
                 if (!this.map.has(k)) todo.push([ci + a, cj + b]);
             }
@@ -121,14 +137,11 @@ export class ChunkManager {
         });
         let budget = this.map.size ? BUDGET : FIRST;
         for (const [a, b] of todo) {
-            if (budget-- <= 0) break;
-            this.make(
-                currentFrame,
-                a,
-                b,
-                `${currentFrame.face},${a},${b}`,
-                Math.max(Math.abs(a - ci), Math.abs(b - cj)) >= CR
-            );
+            const ring = Math.max(Math.abs(a - ci), Math.abs(b - cj)),
+                fine = fineNear && ring <= 1;
+            // a fine chunk bakes 4× the texels and has 4× the vertices: it costs 2 of the per-move budget
+            if ((budget -= fine ? 2 : 1) < 0) break;
+            this.make(currentFrame, a, b, this.key(currentFrame.face, a, b, fine), ring >= CR, fine);
         }
         for (const m of this.map.values())
             m.userData.lo = Math.max(Math.abs(m.userData.ci - ci), Math.abs(m.userData.cj - cj)) >= CR; // target LOD; tick() geomorphs to it — only the outermost ring uses half-res
@@ -158,7 +171,8 @@ export class ChunkManager {
             const isLowLod = !!userData.lo && morphUniform.value >= 1;
             if (userData.usingLo !== isLowLod) {
                 userData.usingLo = isLowLod;
-                m.geometry.setIndex(isLowLod ? this.shared!.idxLo : this.shared!.idx);
+                const sh = this.buffers(!!userData.fine);
+                m.geometry.setIndex(isLowLod ? sh.idxLo : sh.idx);
             } // swap index once the surfaces coincide
         }
         for (let i = this.dying.length - 1; i >= 0; i--) {
@@ -167,27 +181,30 @@ export class ChunkManager {
             fadeUniform.value -= dt * 1.6;
             if (fadeUniform.value <= 0) {
                 this.group.remove(m);
-                this.pool.push(m);
+                this.poolOf(m).push(m);
                 this.dying[i] = this.dying[this.dying.length - 1];
                 this.dying.pop();
             }
         }
     }
 
-    /** Vertex data shared by all chunks: full-res and half-res index buffers (with skirts), local grid coordinates, skirt flags. */
-    private buffers(): Shared {
-        if (this.shared) return this.shared;
-        const gridSize = CS + 1,
-            totalVertexCount = gridSize * gridSize + 4 * CS,
+    /** Vertex data shared by all chunks of one grid size N (CS coarse, FS fine): full-res and half-res index buffers
+     *  (with skirts), local grid coordinates, skirt flags. */
+    private buffers(fine = false): Shared {
+        const cached = fine ? this.sharedFine : this.shared;
+        if (cached) return cached;
+        const N = fine ? FS : CS,
+            gridSize = N + 1,
+            totalVertexCount = gridSize * gridSize + 4 * N,
             perimeterVertexIds: number[] = []; // perimeter vertex ids in loop order (skirt vertices are duplicates of these)
         for (let a = 0; a < gridSize; a++) perimeterVertexIds.push(a);
         for (let b = 1; b < gridSize; b++) perimeterVertexIds.push(b * gridSize + gridSize - 1);
         for (let a = gridSize - 2; a >= 0; a--) perimeterVertexIds.push((gridSize - 1) * gridSize + a);
         for (let b = gridSize - 2; b >= 1; b--) perimeterVertexIds.push(b * gridSize);
-        const idx = new Uint32Array(6 * CS * CS + 6 * perimeterVertexIds.length);
+        const idx = new Uint32Array(6 * N * N + 6 * perimeterVertexIds.length);
         let t = 0;
-        for (let b = 0; b < CS; b++)
-            for (let a = 0; a < CS; a++) {
+        for (let b = 0; b < N; b++)
+            for (let a = 0; a < N; a++) {
                 const i0 = b * gridSize + a;
                 idx.set([i0, i0 + 1, i0 + gridSize, i0 + 1, i0 + gridSize + 1, i0 + gridSize], t);
                 t += 6;
@@ -200,7 +217,7 @@ export class ChunkManager {
             idx.set([a, b, a2, b, b2, a2], t);
             t += 6;
         });
-        const halfResCount = CS / 2,
+        const halfResCount = N / 2,
             lo = new Uint32Array(6 * halfResCount * halfResCount + 3 * perimeterVertexIds.length);
         t = 0; // half resolution (every second vertex); skirts hide LOD seams
         for (let b = 0; b < halfResCount; b++)
@@ -225,22 +242,28 @@ export class ChunkManager {
             aL.copyWithin((gridSize * gridSize + k) * 2, src * 2, src * 2 + 2);
             aS[gridSize * gridSize + k] = 1;
         });
-        return (this.shared = {
+        const sh: Shared = {
             idx: new THREE.BufferAttribute(idx, 1),
             idxLo: new THREE.BufferAttribute(lo, 1),
             pos: new THREE.BufferAttribute(new Float32Array(totalVertexCount * 3), 3),
             aL: new THREE.BufferAttribute(aL, 2),
             aS: new THREE.BufferAttribute(aS, 1),
-        });
+        };
+        if (fine) this.sharedFine = sh;
+        else this.shared = sh;
+        return sh;
     }
 
-    private make(fr: Frame, ci: number, cj: number, key: string, isLowLod: boolean) {
-        const gridSize = CS + 1,
-            shared = this.buffers(),
+    private make(fr: Frame, ci: number, cj: number, key: string, isLowLod: boolean, fine = false) {
+        const N = fine ? FS : CS,
+            cell = fine ? FC : CC,
+            gridSize = N + 1,
+            shared = this.buffers(fine),
             faceCode = fr.face * 2 + (fr.normal.getComponent(fr.face) < 0 ? 1 : 0);
-        let m = this.pool.pop();
+        if (fine) isLowLod = false; // fine chunks are the centre 3×3, never the half-res outer ring
+        let m = (fine ? this.finePool : this.pool).pop();
         if (!m) {
-            // new pool slot: material + two bake targets are created once and reused for every chunk
+            // new pool slot: material + two bake targets are created once and reused for every chunk of this grid size
             const rt = makeRT(gridSize, gridSize),
                 rtC = makeRT(gridSize, gridSize),
                 fade = { value: 0 },
@@ -260,23 +283,25 @@ export class ChunkManager {
                     uCh,
                     uFade: fade,
                     uMorph: morph,
+                    uCell: { value: cell },
                 })
             );
             m.receiveShadow = true;
             m.matrixAutoUpdate = false;
             m.renderOrder = -1; // drawn before the coarse planet so its hidden fragments fail early-z
-            m.userData = { rt, rtC, fade, uCh, morph };
+            m.userData = { rt, rtC, fade, uCh, morph, fine };
         }
         const userData = m.userData;
         userData.fade.value = 0;
-        userData.uCh.value.set(ci * CS, cj * CS, faceCode);
+        // uCh is in this grid's own cell units, so a fine chunk at (ci, cj) covers exactly the coarse chunk's square
+        userData.uCh.value.set(ci * N, cj * N, faceCode);
         userData.ci = ci;
         userData.cj = cj;
         userData.lo = isLowLod;
         userData.morph.value = isLowLod ? 1 : 0;
         userData.usingLo = isLowLod;
         m.geometry.setIndex(isLowLod ? shared.idxLo : shared.idx);
-        bakeChunk(userData.rt, userData.rtC, ci * CS, cj * CS, faceCode);
+        bakeChunk(userData.rt, userData.rtC, ci * N, cj * N, faceCode, cell);
         const R = this.radius(),
             chunkCenter = this.scratchCenter
                 .copy(fr.normal)

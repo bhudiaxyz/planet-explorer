@@ -51,6 +51,16 @@ const renderer = new THREE.WebGLRenderer({
     powerPreference: "high-performance",
 });
 setRenderer(renderer);
+// Context loss: registered before any GPU work, so a tab backgrounded during the initial build (iOS) is not left with a
+// silently flat world. preventDefault() lets the browser restore the context; the restore handler is installed once
+// the rebuild machinery exists — a restore before that is remembered and replayed.
+let onContextRestored: (() => void) | null = null,
+    contextWasRestored = false;
+renderer.domElement.addEventListener("webglcontextlost", (e) => e.preventDefault());
+renderer.domElement.addEventListener("webglcontextrestored", () => {
+    if (onContextRestored) onContextRestored();
+    else contextWasRestored = true;
+});
 // Production: skip three's per-program error check. It calls getProgramInfoLog right after linking, which forces the
 // browser to wait for each compile synchronously — defeating KHR_parallel_shader_compile and serialising ~90 programs
 // (measured: 66 calls, 128 s of a 134 s startup on Windows/ANGLE). Dev builds keep it so shader errors still surface.
@@ -123,7 +133,7 @@ const scene = new THREE.Scene(),
 
     // Rivers and scouting run concurrently — findSpots does its terrain scan while rivers build,
     // then awaits riversReady before reading planet.riverSystem for river teleport entries.
-    const riversPromise = planet.buildRivers().catch(() => {});
+    const riversPromise = planet.buildRivers().catch((err) => console.error("[planet-explorer] rivers failed", err));
     const spotsPromise = findSpots(planet, riversPromise);
 
     await setStep(2, "Setting up world");
@@ -160,18 +170,24 @@ const scene = new THREE.Scene(),
     // Rebuilds are chained: build() awaits GPU bakes, so a second rebuild starting mid-flight
     // would clear the group and then both would add their terrain/rivers (duplicate meshes).
     let rebuildTimer = 0,
-        rebuildChain = Promise.resolve();
+        rebuildChain = Promise.resolve(),
+        pendingRespawn = false; // debounced calls merge: a respawn request must survive a later non-respawn call
     const rebuild = (respawn = false) => {
+        pendingRespawn ||= respawn;
         clearTimeout(rebuildTimer);
         rebuildTimer = window.setTimeout(() => {
+            const doRespawn = pendingRespawn;
+            pendingRespawn = false;
             rebuildChain = rebuildChain
                 .then(async () => {
                     await planet.build();
-                    const newRiversPromise = planet.buildRivers().catch(() => {});
+                    const newRiversPromise = planet
+                        .buildRivers()
+                        .catch((err) => console.error("[planet-explorer] rivers failed", err));
                     mapOverlay.reset();
                     scatter.dirty = true;
                     collider.dirty = true;
-                    respawn ? player.spawn() : player.refresh();
+                    doRespawn ? player.spawn() : player.refresh();
                     // Re-scout so teleport list and map reflect the new planet
                     const newSpots = await findSpots(planet, newRiversPromise);
                     mapOverlay.setSpots(newSpots);
@@ -179,8 +195,13 @@ const scene = new THREE.Scene(),
                 .catch((err) => console.error("[planet-explorer] rebuild failed", err));
         }, 120);
     };
-    renderer.domElement.addEventListener("webglcontextlost", (e) => e.preventDefault());
-    renderer.domElement.addEventListener("webglcontextrestored", () => rebuild(false));
+    // context loss during the initial build is caught by the listener registered right after the renderer (below it
+    // only records the event); from here on a restore re-warms the bake programs in parallel, then rebuilds
+    onContextRestored = () => {
+        void precompileBakes(camera, [placementBakeMaterial()]);
+        rebuild(false);
+    };
+    if (contextWasRestored) onContextRestored();
 
     await setStep(3, "Scouting locations");
     const spots = await spotsPromise;
@@ -261,7 +282,17 @@ const scene = new THREE.Scene(),
     // compileAsync is synchronous on browsers without KHR_parallel_shader_compile (iOS Safari, many
     // mobile Chrome builds) — labelling it as a loading step keeps the screen honest during the block.
     await setStep(4, "Compiling shaders");
-    await renderer.compileAsync(scene, camera).catch(() => {});
+    // Compile against the scene target the frame actually draws into: three keys programs on the bound target's tone
+    // mapping / colour space, so with the canvas bound this warmed ACES/sRGB variants the frame never uses, and the real
+    // ones then compiled one by one inside step 5. compileAsync builds synchronously and only polls asynchronously, so
+    // the target can be restored straight after the call (same pattern as precompileBakes).
+    {
+        const prevTarget = renderer.getRenderTarget();
+        renderer.setRenderTarget(postFX.sceneTarget);
+        const ready = renderer.compileAsync(scene, camera).catch(() => {});
+        renderer.setRenderTarget(prevTarget);
+        await ready;
+    }
 
     // Render one warm-up frame — uploads geometry/textures to GPU and pre-compiles all
     // EffectComposer pass shaders. Routing through postFX ensures aerial/bloom/output passes

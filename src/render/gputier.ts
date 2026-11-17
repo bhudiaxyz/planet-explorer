@@ -5,10 +5,13 @@ export let gpuTier: GpuTier = "medium";
 // Primary input is touch: phones, tablets, iPad (incl. desktop-mode Safari). `"ontouchstart" in window` is also true on
 // Windows touchscreen laptops and some Chromebooks, which then lost mouse-look/pointer-lock and got the joystick UI.
 // `pointer: coarse` reflects the *primary* pointer, so those stay on desktop controls. Falls back for very old browsers.
+// An iPad with a trackpad / Magic Keyboard reports pointer: fine, but must still get touch-device budgets (MSAA, shadow
+// map, render scale): iPadOS is the only "MacIntel" platform with touch points, since Macs report 0.
 export const isTouchDevice: boolean =
-    typeof matchMedia === "function" && matchMedia("(pointer: coarse)").media !== "not all"
+    (typeof matchMedia === "function" && matchMedia("(pointer: coarse)").media !== "not all"
         ? matchMedia("(pointer: coarse)").matches
-        : "ontouchstart" in window;
+        : "ontouchstart" in window) ||
+    (typeof navigator !== "undefined" && navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
 
 export function setGpuTier(t: GpuTier) {
     gpuTier = t;
@@ -59,18 +62,21 @@ export function detectGpuTier(gl: WebGLRenderingContext | WebGL2RenderingContext
     // 2024+, ≈ GTX 1650) and discrete Battlemage B570/B580. Bare "Intel(R) Arc(TM) Graphics" (Meteor Lake, ~GTX 1050
     // class but sold with 2-core U chips too) stays medium. "rtx" already covers "RTX PRO 2000 Blackwell" / RTX A-series.
     const HIGH =
-        /rtx|rx [5-9]\d{3}|rx (4[78]|5[789])0(?!\d)|vega [5-9]\d|radeon vii|gtx 1[0-9]{3}|gtx 9[5-9]\d|arc.{0,8}a[5-9]\d{2}|arc.{0,8}(pro.{0,4})?(1[34]0[tv]|b\d{3})|apple m\d+|adreno.{0,8}(6[4-9]\d|7\d{2}|8\d{2}|x\d)|xclipse/i;
+        /rtx|rx [5-9]\d{3}|rx (4[78]|5[789])0(?!\d)|vega [5-9]\d|radeon vii|gtx 1[0-9]{3}|gtx 9[5-9]\d|arc.{0,8}a[5-9]\d{2}|arc.{0,8}(pro.{0,4})?(1[34]0[tv]|b\d{3})|apple m\d+|adreno.{0,8}(6[4-9]\d|7[3-9]\d|8\d{2}|x\d)|xclipse/i;
     if (HIGH.test(renderer)) return "high";
 
     // Mali-G710/G715/G720 (Dimensity 9000+, high-end Oppo/Nothing/MediaTek) → medium
     // g7\d{2} matches G710-G799; (?!\d) prevents matching G7100+; must precede broad mali LOW
     if (/mali[-\s]g7\d{2}(?!\d)/i.test(renderer)) return "medium";
-    // Mali-G72 (Galaxy S9/Note 8, 2017 flagship) lands medium not low — still handles medium quality
+    // Mali-G71/G72/G76/G77/G78 (Galaxy S8–S21 Exynos, 2017–2021 flagships) land medium, not low — all handle medium quality
     if (/mali[-\s]g7[0-9](?!\d)/i.test(renderer)) return "medium";
     // Mali-G610/G615 (Dimensity 8000–8300, Tensor-class mid-range 2022+) ≈ G78 — must precede broad mali LOW
     if (/mali[-\s]g6[1-2]\d(?!\d)/i.test(renderer)) return "medium";
     // Adreno 610/612 (Snapdragon 665/680 budget phones, 2019–2022) are ≈ Adreno 506 — low despite the 6xx number
     if (/adreno.{0,8}61[0-2](?!\d)/i.test(renderer)) return "low";
+    // Adreno 702/710/720/725 (Snapdragon 4/6/7-series mid-range, 2022+): ≈ mid 6xx — medium, not flagship high.
+    // Only 730+ (8 Gen 1 and up, e.g. Galaxy S22 Ultra) is high, above.
+    if (/adreno.{0,8}7[0-2]\d(?!\d)/i.test(renderer)) return "medium";
 
     // uhd.{0,12} handles "UHD Graphics 630" (real ANGLE string) and "UHD 630"
     // adreno.{0,8} handles "Adreno (TM) 530" ANGLE wrapper format

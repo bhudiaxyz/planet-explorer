@@ -4,7 +4,7 @@ import { T, TERRAIN_GLSL, BIOME_GLSL } from "./terrain";
 import { CFG } from "../core/config";
 import { CurrentPalette } from "../core/palette";
 
-const CELL = CFG.chunk.cell.toFixed(2),
+const
     SKIRT = CFG.chunk.skirt.toFixed(1);
 // uGLod = ground-cover LOD (near tier grows 28→12 m, far tier shrinks away 11→5 m)
 // 64³ random-byte texture: value noise = one trilinear fetch at a smoothstepped position (same look as the old 8-hash lattice noise, ~8× cheaper per call)
@@ -137,7 +137,7 @@ const BEGIN = `
 vec4 H    = texelFetch(uH, ivec2(aL + .5), 0);
 vec3 gN   = H.yzw, nA, uu, vv;
 basis(uCh.z, nA, uu, vv);
-vec3 d0   = normalize(nA * uR + uu * (uCh.x + aL.x) * ${CELL} + vv * (uCh.y + aL.y) * ${CELL});
+vec3 d0   = normalize(nA * uR + uu * (uCh.x + aL.x) * uCell + vv * (uCh.y + aL.y) * uCell);
 vec3 p0   = d0 * (uR + H.x * uAmp);
 vec3 vcol = texelFetch(uC, ivec2(aL + .5), 0).rgb;
 vec2 od   = mod(aL, 2.);
@@ -200,11 +200,11 @@ ${TERRAIN_GLSL}
 ${BIOME_GLSL}
 #endif
 #ifdef GPU_H
-attribute vec2 aL;attribute float aS;uniform sampler2D uH,uC;uniform vec3 uCh;uniform float uMorph;
+attribute vec2 aL;attribute float aS;uniform sampler2D uH,uC;uniform vec3 uCh;uniform float uMorph,uCell;
 #ifdef SMOOTH_N
 varying vec2 vL;
 #endif
-vec3 cpos(vec2 L,vec3 nA,vec3 uu,vec3 vv){return normalize(nA*uR+uu*(uCh.x+L.x)*${CELL}+vv*(uCh.y+L.y)*${CELL})*(uR+texelFetch(uH,ivec2(L+.5),0).x*uAmp);}
+vec3 cpos(vec2 L,vec3 nA,vec3 uu,vec3 vv){return normalize(nA*uR+uu*(uCh.x+L.x)*uCell+vv*(uCh.y+L.y)*uCell)*(uR+texelFetch(uH,ivec2(L+.5),0).x*uAmp);}
 #elif defined(BASE_COL)
 attribute vec3 aCol;
 #else
@@ -403,7 +403,7 @@ gn -= fp * .9;`
                 `#include <normal_fragment_maps>
 #ifdef SMOOTH_N
 // skirt vertices share their edge vertex's aL, so the clamp keeps the 2×2 fetch inside the (CS+1)² texture
-normal = normalize((viewMatrix * vec4(smoothN(clamp(vL, 0., ${CFG.chunk.cells - 1}.999)), 0.)).xyz);
+normal = normalize((viewMatrix * vec4(smoothN(clamp(vL, 0., float(textureSize(uH, 0).x) - 2.001)), 0.)).xyz);
 #endif
 #ifndef GPU_H
 if (uAtOn > 0.)

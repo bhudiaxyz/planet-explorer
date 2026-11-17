@@ -46,6 +46,8 @@ export class PostFX {
     readonly composer: EffectComposer;
     readonly bloom: UnrealBloomPass;
     readonly aerial: AerialPass;
+    /** the HDR MSAA target the scene is drawn into: programs must be compiled against it (linear, no tone map) */
+    readonly sceneTarget: THREE.WebGLRenderTarget;
     private pixelRatio: number;
     private pendingPixelRatio: number;
     private devicePixelRatio: number;
@@ -71,6 +73,7 @@ export class PostFX {
             // touch-high (iPad, S22-class): 2×, not 4× — halves ~115 MB of MSAA colour+depth at DPR 2+, the iPadOS tab-kill risk
             samples: gpuTier === "low" ? 0 : gpuTier === "medium" || isTouchDevice ? 2 : 4,
         });
+        this.sceneTarget = rt;
         rt.depthTexture = new THREE.DepthTexture(w, h);
         rt.depthTexture.format = THREE.DepthFormat;
         rt.depthTexture.type = THREE.FloatType;

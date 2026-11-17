@@ -1,7 +1,6 @@
 import * as THREE from "three";
 import { T, TERRAIN_GLSL, BIOME_GLSL } from "./terrain";
 import { S, CFG } from "../core/config";
-const CELL = CFG.chunk.cell.toFixed(2);
 // GPU "compute" via render-to-texture: the terrain function is evaluated on the GPU once (rebuild / chunk load / lattice move), never per frame.
 let renderer: THREE.WebGLRenderer | null = null;
 export const setRenderer = (r: THREE.WebGLRenderer) => {
@@ -32,18 +31,20 @@ export function draw(rt: THREE.WebGLRenderTarget, mat: THREE.Material) {
     renderToTarget(rt, quadScene);
 }
 export const QUAD_VS = "void main(){gl_Position=vec4(position.xy,0.,1.);}";
-const uCh = { value: new THREE.Vector3() };
+const uCh = { value: new THREE.Vector3() },
+    uCellB = { value: CFG.chunk.cell as number }; // grid spacing (m): 1.5 coarse, 0.75 for the fine near-player chunks
 const CHFS = `
 uniform vec3 uCh;
+uniform float uCell;
 ${TERRAIN_GLSL}
 ${BIOME_GLSL}
 void main() {
   vec2 L = floor(gl_FragCoord.xy);
   vec3 nA, uu, vv;
   basis(uCh.z, nA, uu, vv);
-  vec3  P  = nA * uR + uu * (uCh.x + L.x) * ${CELL} + vv * (uCh.y + L.y) * ${CELL};
+  vec3  P  = nA * uR + uu * (uCh.x + L.x) * uCell + vv * (uCh.y + L.y) * uCell;
   vec3  d0 = normalize(P);
-  vec3  du = uu * ${CELL}, dv = vv * ${CELL};
+  vec3  du = uu * uCell, dv = vv * uCell;
   vec3  d1 = normalize(P + du), d2 = normalize(P + dv);
   vec3  d3 = normalize(P - du), d4 = normalize(P - dv);
   // each e3() is ~18 inlined Perlin calls; ANGLE's D3D compiler (fxc) fully unrolls and inlines them, so every extra
@@ -67,7 +68,7 @@ void main() {
 const makeChunkMat = (isColor: boolean) =>
     new THREE.ShaderMaterial({
         defines: isColor ? { COL: "" } : {},
-        uniforms: { ...T, uCh },
+        uniforms: { ...T, uCh, uCell: uCellB },
         vertexShader: QUAD_VS,
         fragmentShader: CHFS,
     });
@@ -79,9 +80,11 @@ export function bakeChunk(
     rtC: THREE.WebGLRenderTarget,
     i0: number,
     j0: number,
-    face: number
+    face: number,
+    cell: number = CFG.chunk.cell
 ) {
     uCh.value.set(i0, j0, face);
+    uCellB.value = cell;
     draw(rt, chunkNormalMat);
     draw(rtC, chunkColorMat);
 }
@@ -156,36 +159,37 @@ void main() {
 }`;
 // Bake material cache keyed by mode — avoids GPU shader recompilation on every world rebuild.
 // uW/uH are stored by reference so they can be updated between calls without touching the material.
-type BakeEntry = { mat: THREE.ShaderMaterial; uW: { value: number }; uH: { value: number } };
+type U1 = { value: number };
+type BakeEntry = { mat: THREE.ShaderMaterial; uW: U1; uH: U1; uRes: U1; uStep: U1 };
 const _bakeMats = new Map<number, BakeEntry>();
 function getBakeMat(mode: number, texWidth: number, texHeight: number): THREE.ShaderMaterial {
     let e = _bakeMats.get(mode);
     if (!e) {
         const uW = { value: texWidth },
-            uH = { value: texHeight };
+            uH = { value: texHeight },
+            uRes = { value: S.resolution },
+            uStep = { value: 1.57 / S.resolution };
         e = {
             uW,
             uH,
+            uRes,
+            uStep,
             mat: new THREE.ShaderMaterial({
                 defines: { MODE: mode },
                 depthTest: false,
                 depthWrite: false,
-                uniforms: {
-                    ...T,
-                    uW,
-                    uH,
-                    uRes: { value: S.resolution },
-                    uStep: { value: 1.57 / S.resolution },
-                },
+                uniforms: { ...T, uW, uH, uRes, uStep },
                 vertexShader: PV,
                 fragmentShader: `varying vec4 vO;\nvoid main(){gl_FragColor=vO;}`,
             }),
         };
         _bakeMats.set(mode, e);
-    } else {
-        e.uW.value = texWidth;
-        e.uH.value = texHeight;
     }
+    e.uW.value = texWidth;
+    e.uH.value = texHeight;
+    // resolution is a live GUI setting: cached materials must follow it (mode 2 coarse-mesh seating, mode 3 normal step)
+    e.uRes.value = S.resolution;
+    e.uStep.value = 1.57 / S.resolution;
     return e.mat;
 }
 
@@ -216,6 +220,10 @@ export async function bakePoints(
     }
     _bakeMesh.material = getBakeMat(mode, texWidth, texHeight);
     renderToTarget(rt, _bakePointScene);
+    // free this call's attribute GL buffers: three only releases them on geometry.dispose(), so swapping attributes on
+    // the singleton geometry leaked ~30–45 MB of GPU memory per planet rebuild. Safe straight after the draw (GL defers
+    // the delete past queued work); three re-registers the geometry on the next bake.
+    _bakeGeo.dispose();
     const results = new Float32Array(texWidth * texHeight * 4);
     const r: any = renderer!;
     if (typeof r.readRenderTargetPixelsAsync === "function")
