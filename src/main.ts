@@ -97,7 +97,18 @@ const scene = new THREE.Scene(),
 (async () => {
     const lsTip = document.getElementById("ls-tip")!;
     const STEPS = 5;
+    // startup profile: each step's wall time is logged when the next starts (and the last at "ready"), so a slow
+    // device can be diagnosed from its console. One line per step, no overlay.
+    const t0 = performance.now();
+    let stepStart = t0,
+        stepLabel = "";
+    const logStep = () => {
+        if (stepLabel) console.info(`[startup] ${stepLabel}: ${Math.round(performance.now() - stepStart)} ms`);
+    };
     const setStep = (n: number, label: string) => {
+        logStep();
+        stepStart = performance.now();
+        stepLabel = `${n} ${label}`;
         lsTip.textContent = `Step ${n} of ${STEPS}: ${label}…`;
         return new Promise<void>((r) => requestAnimationFrame(() => r()));
     };
@@ -351,6 +362,8 @@ const scene = new THREE.Scene(),
 
     // Loop is now running — wait for one rendered frame then reveal the splash
     await new Promise<void>((r) => requestAnimationFrame(() => r()));
+    logStep();
+    console.info(`[startup] total: ${Math.round(performance.now() - t0)} ms (tier ${gpuTier})`);
     showSplash(enterLabel);
     splash.addEventListener("click", () => {
         hideSplash();

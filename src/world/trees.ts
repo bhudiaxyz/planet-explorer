@@ -3,6 +3,7 @@ import { rng } from "../core/noise";
 import { CurrentPalette } from "../core/palette";
 import { N0, add, T, cyl, blob, done, frond, leaves, logCanopies } from "./geoutil";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
+import { gpuTier } from "../render/gputier";
 export { treeMats } from "../render/treemat";
 
 // ---- species builders; q = 1 detailed tier, q = 0.5 medium tier (same seed → same height/lean, so tiers match in silhouette). Foliage hue comes from LEAF × per-tree variation.
@@ -421,9 +422,19 @@ function withLeaves(f: (r: () => number, q: number) => THREE.BufferGeometry, si:
     );
     return p.length ? mergeGeometries([crown, ...p])! : crown;
 }
+// Shape-variant rows (index ≥ BASE_SPECIES) are only placed on high tier (forest.ts vary()). Elsewhere they get a
+// shared empty placeholder: their meshes stay hidden (count 0), and building 4 more detailed+leaf trees ×3 tiers is
+// pure startup cost. Variants are the last rows, so skipping them leaves the shared low-poly random stream unchanged.
+const BASE_SPECIES = 14;
+const EMPTY = new THREE.BufferGeometry();
+const built = (i: number) => i < BASE_SPECIES || gpuTier === "high";
 export const treeGeos = (seed: number, q = 1) =>
     SPECIES.map((sp, i) =>
-        q > 0.7 && sp.leafSize ? withLeaves(sp.build, i, seed, sp.leafSize) : sp.build(rng(seed + 55 + i * 31), q)
+        !built(i)
+            ? EMPTY
+            : q > 0.7 && sp.leafSize
+              ? withLeaves(sp.build, i, seed, sp.leafSize)
+              : sp.build(rng(seed + 55 + i * 31), q)
     );
 // base foliage colour per species (HSL in the working space); Forest multiplies in seasonal / blossom / drought variation per tree
 // extra species -> [base slot, dH, dS, dL]: kapok <- mangrove (lush), baobab <- acacia (dusty), spruce <- fir (blue-green), juniper <- pine (dark grey-green)
@@ -640,7 +651,7 @@ const lowJuniper = (r: () => number) => {
 };
 export const lowGeos = (seed: number) => {
     const r = rng(seed + 56); // one stream shared by every low-poly builder, consumed in SPECIES order
-    return SPECIES.map((sp) => sp.low(r));
+    return SPECIES.map((sp, i) => (built(i) ? sp.low(r) : EMPTY));
 };
 
 /** One row per tree species, in index order. Order is load-bearing: the detailed / leaf seeds use the index, and all
