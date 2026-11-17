@@ -68,7 +68,8 @@ export class PostFX {
             h = Math.round(innerHeight * pr);
         const rt = new THREE.WebGLRenderTarget(w, h, {
             type: THREE.HalfFloatType,
-            samples: gpuTier === "low" ? 0 : gpuTier === "medium" ? 2 : 4,
+            // touch-high (iPad, S22-class): 2×, not 4× — halves ~115 MB of MSAA colour+depth at DPR 2+, the iPadOS tab-kill risk
+            samples: gpuTier === "low" ? 0 : gpuTier === "medium" || isTouchDevice ? 2 : 4,
         });
         rt.depthTexture = new THREE.DepthTexture(w, h);
         rt.depthTexture.format = THREE.DepthFormat;

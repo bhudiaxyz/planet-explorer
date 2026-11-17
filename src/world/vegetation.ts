@@ -356,6 +356,7 @@ class Layer {
             this.cellAttr.clearUpdateRanges();
             this.cellAttr.needsUpdate = true;
             this.mesh.geometry.instanceCount = this.fullCount;
+            this.mesh.visible = true;
         }
     }
     /** Keep only disc cells the bake accepted (texel.x > -5000); same cells, same texels, so rendering is identical. */
@@ -385,6 +386,7 @@ class Layer {
         }
         this.cellAttr.needsUpdate = true;
         (this.mesh.geometry as THREE.InstancedBufferGeometry).instanceCount = w;
+        this.mesh.visible = w > 0; // empty layer: skip the draw (and its 30 Hz shadow draw) entirely
     }
 }
 

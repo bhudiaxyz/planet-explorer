@@ -150,6 +150,9 @@ if (uMorph > 0. && od.x + od.y > 0.) {
   p0 = mix(p0, tg, uMorph);
 }
 vec3 gP = p0 * (1. - aS * ${SKIRT} / length(p0));
+#ifdef SMOOTH_N
+vL = aL;
+#endif
 #else
 vec3 gN = normal, gP = position;
 #ifdef BASE_COL
@@ -174,12 +177,17 @@ export function terrainMat(
     else if (baked) (m as any).defines = { BASE_COL: "" };
     if (gpuTier === "high") (m as any).defines = { ...((m as any).defines ?? {}), DUNES: "" };
     if (gpuTier !== "low") (m as any).defines = { ...((m as any).defines ?? {}), WET: "" }; // low: identical shader to before
+    // chunks, medium/high: per-pixel smoothed baked normals (4 texelFetch) instead of per-triangle ones — removes the
+    // grid-diagonal faceting on ridges. Low keeps the per-vertex normal (identical shader to before).
+    const smoothN = gpu && gpuTier !== "low";
+    if (smoothN) (m as any).defines = { ...((m as any).defines ?? {}), SMOOTH_N: "" };
     m.customProgramCacheKey = () =>
         (cut ? "c" : "n") +
         (gpu ? "g" : "b") +
         (baked ? "k" : "") +
         (gpuTier === "high" ? "d" : "") +
-        (gpuTier !== "low" ? "w" : "");
+        (gpuTier !== "low" ? "w" : "") +
+        (smoothN ? "s" : "");
     m.onBeforeCompile = (s) => {
         Object.assign(s.uniforms, U, T, extraUniforms);
         s.vertexShader = s.vertexShader
@@ -193,6 +201,9 @@ ${BIOME_GLSL}
 #endif
 #ifdef GPU_H
 attribute vec2 aL;attribute float aS;uniform sampler2D uH,uC;uniform vec3 uCh;uniform float uMorph;
+#ifdef SMOOTH_N
+varying vec2 vL;
+#endif
 vec3 cpos(vec2 L,vec3 nA,vec3 uu,vec3 vv){return normalize(nA*uR+uu*(uCh.x+L.x)*${CELL}+vv*(uCh.y+L.y)*${CELL})*(uR+texelFetch(uH,ivec2(L+.5),0).x*uAmp);}
 #elif defined(BASE_COL)
 attribute vec3 aCol;
@@ -209,6 +220,19 @@ attribute float aE,aM;
 varying vec3 vWp,vC;float swashWet = 0.,puddle = 0.;uniform vec3 uSky,uCw;uniform float uTime,uWind,uOn,uR,uFade,uWet,uSnowFall,uSnow,uAmp;uniform vec4 uRect,uFoot[48];uniform vec3 uN,uU,uV,uPl,uSun;uniform float uDayF,uCloudR,uAtOn;uniform samplerCube uCubeN,uCubeC;
 #ifdef DUNES
 uniform vec3 uCs;
+#endif
+#ifdef SMOOTH_N
+// per-pixel bilinear blend of the chunk's baked analytic normals (manual: the float RT is NEAREST, and linear filtering
+// of float textures needs OES_texture_float_linear, which many phones lack). Replaces the per-triangle interpolated
+// normal, so lighting follows the smooth surface instead of the 1.5 m grid's diagonals on ridges and creases.
+uniform sampler2D uH;varying vec2 vL;
+vec3 smoothN(vec2 L) {
+  vec2 i = floor(L), f = L - i;
+  ivec2 c = ivec2(i);
+  vec3 a = texelFetch(uH, c, 0).yzw,               b = texelFetch(uH, c + ivec2(1, 0), 0).yzw;
+  vec3 e = texelFetch(uH, c + ivec2(0, 1), 0).yzw, g = texelFetch(uH, c + ivec2(1, 1), 0).yzw;
+  return normalize(mix(mix(a, b, f.x), mix(e, g, f.x), f.y));
+}
 #endif
 ${NOISE}${SURF_GLSL}${IGN}${CLOUD_GLSL}`
             )
@@ -303,7 +327,9 @@ float dd = length(vViewPosition), gn;
 }
 // PUDDLES (medium/high): after rain, flat low dips (noise-shaped, gentle slopes, not sand / snow) hold water that
 // mirrors the sky. Darkens and smooths here; the roughness and normal blocks below make them glossy and flat.
-{
+// uWet is a uniform, so this branch is coherent: dry weather (most of the time) skips the two noise taps entirely.
+// geoN's derivatives are taken above, outside the branch.
+if (uWet > .01) {
   float pFlat = smoothstep(.93, .985, dot(geoN, normalize(vWp)));
   float pDip  = smoothstep(.56, .66, vn(vWp * .16) * .7 + vn(vWp * .41 + vec3(2.3, 0., 5.1)) * .3);
   puddle = uWet * pFlat * pDip * (1. - smoothstep(.68, .8, min(vC.r, min(vC.g, vC.b))))
@@ -375,6 +401,10 @@ gn -= fp * .9;`
             .replace(
                 "#include <normal_fragment_maps>",
                 `#include <normal_fragment_maps>
+#ifdef SMOOTH_N
+// skirt vertices share their edge vertex's aL, so the clamp keeps the 2×2 fetch inside the (CS+1)² texture
+normal = normalize((viewMatrix * vec4(smoothN(clamp(vL, 0., ${CFG.chunk.cells - 1}.999)), 0.)).xyz);
+#endif
 #ifndef GPU_H
 if (uAtOn > 0.)
   normal = normalize(mix(normal, normalize((viewMatrix * vec4(normalize(atN.xyz), 0.)).xyz), uAtOn));

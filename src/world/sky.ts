@@ -21,6 +21,18 @@ export class Sky {
     ambientLight = new THREE.AmbientLight(CurrentPalette.ambientLight, 0.3);
     bg = new THREE.Color();
     scratchColor = new THREE.Color();
+    private dawnMesh!: THREE.Mesh;
+    // palette colours parsed once per palette (setPalette swaps the whole object), not ~8 hex parses every frame
+    private palRef: unknown = null;
+    private pal = {
+        skyNight: new THREE.Color(),
+        skyDay: new THREE.Color(),
+        skySunset: new THREE.Color(),
+        sunLight: new THREE.Color(),
+        sunsetLight: new THREE.Color(),
+        moonLight: new THREE.Color(),
+        ambientLight: new THREE.Color(),
+    };
     disc: THREE.Mesh;
     moonDisc: THREE.Mesh;
     stars: THREE.Points;
@@ -164,7 +176,10 @@ void main() {
   gl_FragColor = vec4(col, band * dusk * 0.5);
 }`,
         });
-        const dawnMesh = new THREE.Mesh(new THREE.SphereGeometry(SKY.dawnSphereRadius, 32, 12), dawnMat);
+        const dawnMesh = (this.dawnMesh = new THREE.Mesh(
+            new THREE.SphereGeometry(SKY.dawnSphereRadius, 32, 12),
+            dawnMat
+        ));
         dawnMesh.renderOrder = 2;
         dawnMesh.frustumCulled = false;
         for (const o of [this.stars, this.nebulae, this.precip, this.disc, this.moonDisc]) o.frustumCulled = false;
@@ -196,12 +211,19 @@ void main() {
         this.fogWeight += ((this.kind === "fog" ? 1 : isPrecip ? 0.35 : 0) - this.fogWeight) * smoothFactor;
         this.precipitationAmount += ((isPrecip ? 1 : 0) - this.precipitationAmount) * smoothFactor;
         // sky colour
+        const pal = this.pal;
+        if (this.palRef !== CurrentPalette) {
+            this.palRef = CurrentPalette;
+            for (const k of Object.keys(pal) as (keyof typeof pal)[]) pal[k].set(CurrentPalette[k]);
+        }
+        // dawn/dusk horizon band: its alpha is 0 outside dayF ≈ .2–.8, so skip the full-sky additive pass then
+        this.dawnMesh.visible = Math.abs(this.dayF - 0.5) < 0.3;
         const skyGrey = this.dayF * 0.55 + 0.03;
         this.bg
-            .set(CurrentPalette.skyNight)
-            .lerp(this.scratchColor.set(CurrentPalette.skyDay), this.dayF)
+            .copy(pal.skyNight)
+            .lerp(pal.skyDay, this.dayF)
             .lerp(
-                this.scratchColor.set(CurrentPalette.skySunset),
+                pal.skySunset,
                 Math.exp(-((sunElevation / 0.15) ** 2)) * 0.55 * (1 - this.cloud)
             )
             .lerp(this.scratchColor.setRGB(skyGrey, skyGrey, skyGrey * 1.05), this.cloud * 0.8)
@@ -212,12 +234,10 @@ void main() {
         // lights
         this.light.position.copy(this.sun).multiplyScalar(planetRadius * 6);
         this.moon.position.copy(this.sun).multiplyScalar(-planetRadius * 6);
-        this.light.color
-            .set(CurrentPalette.sunLight)
-            .lerp(this.scratchColor.set(CurrentPalette.sunsetLight), Math.exp(-((sunElevation / 0.15) ** 2)) * 0.8);
+        this.light.color.copy(pal.sunLight).lerp(pal.sunsetLight, Math.exp(-((sunElevation / 0.15) ** 2)) * 0.8);
         this.light.intensity = LGT.sunIntensity * (1 - LGT.sunCloudDim * this.cloud);
-        this.moon.color.set(CurrentPalette.moonLight);
-        this.ambientLight.color.set(CurrentPalette.ambientLight);
+        this.moon.color.copy(pal.moonLight);
+        this.ambientLight.color.copy(pal.ambientLight);
         this.ambientLight.intensity = LGT.ambientBase + LGT.ambientDayMul * this.dayF * (1 - this.space);
         // bodies
         const starOp = (1 - this.dayF * (1 - this.space)) * (1 - this.cloud * 0.7);
