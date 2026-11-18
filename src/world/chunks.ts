@@ -3,14 +3,20 @@ import { S, CFG } from "../core/config";
 import { terrainMat } from "../render/fx";
 import { makeRT, bakeChunk } from "../render/bake";
 import { frame, type Frame } from "../core/utilgeo";
-import { chunkFade, gpuTier } from "../render/gputier";
-const { cells: CS, cell: CC, radius: CR, budget: BUDGET, firstBudget: FIRST, makeAlt, clearAlt } = CFG.chunk;
-// Fine near-field: the 3×3 chunks around the player use a 2× denser grid (0.75 m) on medium/high, so sharp ridges and
-// creases are carved by ~4× as many triangles. Same 120 m footprint and lattice coordinates as a coarse chunk; only the
-// vertex grid and the bake resolution change. Low tier keeps 1.5 m everywhere.
+import { chunkFade, gpuTier, isTouchDevice } from "../render/gputier";
+
+const { cells: CS, cell: CC, radius: CR, budget: DESK_BUDGET, firstBudget: FIRST, makeAlt, clearAlt } = CFG.chunk;
+// Fine near-field: the 3×3 chunks around the player use a 2× denser grid (0.75 m) on medium/high desktop, so sharp ridges
+// and creases are carved by ~4× as many triangles. Same 120 m footprint and lattice coordinates as a coarse chunk; only
+// the vertex grid and the bake resolution change. Low tier and touch devices keep 1.5 m everywhere: a fine bake is
+// 161² texels × 2 passes × 5 terrain evaluations, and on phones (S22 Ultra) the 3×3 swap on every chunk crossing was
+// the stop-start stutter while walking.
 const FS = CS * 2,
     FC = CC / 2;
-const fineOn = () => gpuTier !== "low";
+const fineOn = () => gpuTier !== "low" && !isTouchDevice;
+// Bakes per frame while streaming. Touch: one coarse chunk a frame (~81² texels), so a crossing costs a few short frames
+// instead of a burst of 4 back to back — the streamed ring sits beyond the near field, so the extra frames are not seen.
+const BUDGET = isTouchDevice ? 1 : DESK_BUDGET;
 
 interface Shared {
     idx: THREE.BufferAttribute;

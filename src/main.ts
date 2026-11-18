@@ -300,7 +300,13 @@ const scene = new THREE.Scene(),
     await setStep(5, "Warming up");
     sky.update(0, camera, player.up, player.alt, 0.5);
     planet.update(player.up, player.alt);
-    postFX.render(0);
+    {
+        // first shadow pass with every tree tier drawn, so their depth programs build now, not on the first forest walk
+        const restore = planet.forest.warmAllTiers();
+        renderer.shadowMap.needsUpdate = sky.light.shadow.needsUpdate = true;
+        postFX.render(0);
+        restore();
+    }
     // Frame loop must be running before the RAF wait so the first visible frame
     // is already rendered when showSplash reveals the canvas (memory: project_startup_sequence)
     let lastFrameTime = performance.now(),

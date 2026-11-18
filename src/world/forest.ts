@@ -424,6 +424,23 @@ export class Forest {
         });
     }
 
+    /** Show every tier for one render so its shadow-depth program compiles during loading (compileAsync only builds the
+     *  colour programs). The near tiers start hidden, so otherwise the first walk up to a forest compiled the depth
+     *  variants mid-game: a freeze of a second or more on Android drivers. Returns a restore function. */
+    warmAllTiers(): () => void {
+        const prev = this.speciesLists.flatMap((l) => l.meshes.map((m) => [m, m.visible, m.count] as const));
+        for (const [m] of prev) {
+            m.visible = true;
+            m.count = Math.max(1, m.count); // instance 0's matrix may be zeros: a degenerate draw, but the program builds
+        }
+        return () => {
+            for (const [m, v, c] of prev) {
+                m.visible = v;
+                m.count = c;
+            }
+        };
+    }
+
     /** Rebuilds the detailed and medium instance sets after the camera moved ≥ 6 m. */
     update(cam: THREE.Vector3) {
         const now = performance.now() * 0.001;

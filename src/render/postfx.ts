@@ -52,6 +52,7 @@ export class PostFX {
     private pendingPixelRatio: number;
     private devicePixelRatio: number;
     private smoothedFrameTime = 0.016;
+    private slowFor = 0; // seconds the smoothed frame time has stayed over budget
     private timeSinceLastScaleChange = -2; // negative = start-up grace
     // frame-cap detection: smoothed frame time when the last downscale was applied, and how many downscales in a row
     // failed to make frames faster (a 30 Hz-capped device, e.g. iOS Low Power Mode, is not GPU-bound)
@@ -83,7 +84,8 @@ export class PostFX {
         );
         // allocate bloom at half the real render size; only added to the composer on medium/high to avoid
         // committing ~2.5 MB of HalfFloat RTs on low-tier devices where it's never rendered.
-        this.bloom = new UnrealBloomPass(new THREE.Vector2(w / 2, h / 2), 0.45, 0.5, 0.75);
+        // strength 0.36 (was 0.45, −20 %): bright snow on peaks bled a glow into the sky
+        this.bloom = new UnrealBloomPass(new THREE.Vector2(w / 2, h / 2), 0.36, 0.5, 0.75);
         const clean = new THREE.ShaderMaterial({
             uniforms: { tDiffuse: { value: null } },
             depthTest: false,
@@ -159,9 +161,13 @@ void main() {
         this.composer.render();
         this.smoothedFrameTime += (dt - this.smoothedFrameTime) * 0.08;
         this.timeSinceLastScaleChange += dt;
+        // a pixel-ratio step reallocates every target (MSAA HalfFloat scene, bloom mips), itself a long frame on phones:
+        // only react to load that lasts, not a one-off spike (a chunk/plant bake burst, a first-use shader compile) that
+        // would otherwise trigger a downscale, its hitch, then 3 s later an upscale and another
+        this.slowFor = this.smoothedFrameTime > 0.03 ? this.slowFor + dt : 0;
         const cap = Math.min(this.devicePixelRatio, S.renderScale);
-        // downscale reacts quickly (0.5 s) to catch sudden load spikes (e.g. descent into terrain)
-        if (this.timeSinceLastScaleChange > 0.5 && this.smoothedFrameTime > 0.03 && this.pixelRatio > this.floor) {
+        if (this.timeSinceLastScaleChange > 0.5 && this.slowFor > 1.5 && this.pixelRatio > this.floor) {
+            this.slowFor = 0;
             // Did the previous downscale help? If frames are no faster (within 8%), resolution isn't the bottleneck —
             // usually a 30 Hz cap (iOS Low Power Mode, Android battery saver) or CPU load. Two misses in a row: stop
             // here instead of sinking to 0.5 for no gain. The floor resets when frames recover (below).
