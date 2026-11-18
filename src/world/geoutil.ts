@@ -189,3 +189,32 @@ export function frond(
         );
     add(p, new THREE.ConeGeometry(w, len, 4), m, c, len / 2, false, true, sway);
 }
+
+
+type Lake = { center: THREE.Vector3; radius: number; level: number };
+
+/**
+ * End a river where it enters a lake. The ribbon hugs the ground, so inside a basin it would keep running down the lake
+ * bed, visible through the translucent water sheet. Cuts the path at the first point below a lake's surface (within the
+ * sheet's 115 % disc), then adds `tail` points held just above the water so the end fade happens on the lake, the same
+ * way rivers run a few steps out over the sea. Returns the input unchanged when no lake is reached.
+ */
+export function clipAtLakes(path: THREE.Vector3[], lakes: Lake[], surfaceOffset: number, tail = 2): THREE.Vector3[] {
+    for (let i = 0; i < path.length; i++) {
+        const dir = path[i].clone().normalize();
+        const lake = lakes.find(
+            (l) =>
+                path[i].length() - surfaceOffset < l.level &&
+                dir.angleTo(l.center) < (l.radius * 1.15) / l.center.length()
+        );
+        if (!lake) continue;
+        const out = path.slice(0, i);
+        const step = i > 0 ? path[i].clone().sub(path[i - 1]) : new THREE.Vector3();
+        for (let k = 0; k <= tail; k++) {
+            const p = path[i].clone().addScaledVector(step, k);
+            out.push(p.normalize().multiplyScalar(lake.level + 0.05));
+        }
+        return out;
+    }
+    return path;
+}

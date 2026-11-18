@@ -5,6 +5,7 @@ import { U, WATER_DEEP, WATER_GRADE_GLSL, NOISE } from "../render/fx";
 import { gpuTier } from "../render/gputier";
 import { rng } from "../core/noise";
 import { RIVER_NAMES } from "../core/names";
+import { clipAtLakes } from "./geoutil";
 
 // Chaikin corner-cutting: replaces each segment with two points at 1/4 and 3/4,
 // preserving the first and last point so source/mouth stay in place.
@@ -551,6 +552,12 @@ export class RiverSystem {
                     seed: trand() * 1000,
                 });
                 tarns++;
+            }
+            // end each river at the first lake it enters, instead of running on down the lake bed under the water
+            for (let i = accepted.length - 1; i >= 0; i--) {
+                accepted[i] = clipAtLakes(accepted[i], lakes, CFG.river.surfaceOffset);
+                if (accepted[i].length < 4)
+                    for (const a of [accepted, acceptedScales, acceptedMeanders, acceptedArchetypes]) a.splice(i, 1);
             }
         }
 

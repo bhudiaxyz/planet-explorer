@@ -7,7 +7,8 @@
         "dev": "vite",
         "build": "tsc --noEmit && vite build",
         "preview": "vite preview",
-        "test:tiers": "node --experimental-strip-types --no-warnings scripts/gputier.test.mts"
+        "test:tiers": "node --experimental-strip-types --no-warnings scripts/gputier.test.mts",
+        "test:lakeclip": "node --experimental-strip-types --no-warnings scripts/lakeclip.test.mts"
     },
     "dependencies": {
         "lil-gui": "^0.21.0",
