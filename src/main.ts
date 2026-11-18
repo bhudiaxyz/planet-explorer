@@ -275,8 +275,8 @@ const scene = new THREE.Scene(),
 
     const enterLabel = isTouchDevice ? "Tap to enter" : "Click to enter";
     splashControls.textContent = isTouchDevice
-        ? "Left joystick · move  |  ↑ · ascend  |  ↓ · descend  |  ⚡ · sprint  |  ✈ · fly toggle  |  ◀ ▶ · time of day  |  Swipe right · look"
-        : "WASD · move  |  Shift · sprint  |  Space · jump/ascend  |  C · descend  |  F · walk↔fly  |  Q/E · roll  |  [ ] · time of day  |  G · panel  |  Esc · release mouse";
+        ? "Left thumb · move  |  Right drag · look  |  ↑ · ascend  |  ↓ · descend  |  ⚡ · sprint  |  ✈ · walk/drone/fly  |  🛬 · land  |  ⟲⟳ · roll (fly)  |  ◀ ▶ · time of day  |  🗺️ · map  |  ☰ · settings"
+        : "WASD · move  |  Shift · sprint  |  Space · jump/ascend  |  C · descend  |  F · walk/drone/fly  |  L · land  |  Q/E · roll  |  [ ] · time of day  |  M · map  |  G · panel  |  Esc · release mouse";
 
     // Pre-compile all shaders so the first visible frame is instant.
     // compileAsync is synchronous on browsers without KHR_parallel_shader_compile (iOS Safari, many

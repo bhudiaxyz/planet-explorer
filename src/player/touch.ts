@@ -24,8 +24,8 @@ const STYLE = `
 }
 #touch-btns button {
   width: 60px; height: 60px; border-radius: 50%;
-  border: 2px solid rgba(255,255,255,0.32);
-  background: rgba(0,0,0,0.45); color: #fff;
+  border: 2px solid rgba(201,173,115,0.45);
+  background: rgba(0,0,0,0.45); color: var(--ink);
   font-size: 22px; line-height: 1; cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   user-select: none; touch-action: none;
@@ -40,8 +40,8 @@ const STYLE = `
 }
 #touch-roll button {
   width: 50px; height: 50px; border-radius: 50%;
-  border: 2px solid rgba(255,255,255,0.22);
-  background: rgba(0,0,0,0.38); color: #fff;
+  border: 2px solid rgba(201,173,115,0.3);
+  background: rgba(0,0,0,0.38); color: var(--ink);
   font-size: 18px; line-height: 1; cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   user-select: none; touch-action: none;
@@ -50,8 +50,8 @@ const STYLE = `
 #btn-gui {
   position: fixed; left: 20px; top: 20px;
   width: 48px; height: 48px; border-radius: 12px;
-  border: 2px solid rgba(255,255,255,0.32);
-  background: rgba(0,0,0,0.45); color: #fff;
+  border: 2px solid rgba(201,173,115,0.45);
+  background: rgba(0,0,0,0.45); color: var(--ink);
   font-size: 18px; cursor: pointer; pointer-events: auto;
   -webkit-tap-highlight-color: transparent;
   user-select: none; display: none; z-index: 10;
@@ -64,8 +64,8 @@ const STYLE = `
 }
 #touch-time button {
   width: 44px; height: 44px; border-radius: 12px;
-  border: 2px solid rgba(255,255,255,0.32);
-  background: rgba(0,0,0,0.45); color: #fff;
+  border: 2px solid rgba(201,173,115,0.45);
+  background: rgba(0,0,0,0.45); color: var(--ink);
   font-size: 16px; line-height: 1; cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   user-select: none; touch-action: none;
@@ -308,12 +308,6 @@ export function setupTouch(player: Player, dom: HTMLElement): void {
         requestAnimationFrame(updateButtons);
     };
     requestAnimationFrame(updateButtons);
-
-    // Update controls hint
-    const hint = document.getElementById("ls-controls");
-    if (hint)
-        hint.textContent =
-            "Left thumb · steer/move  ·  Right drag · look  ·  ↑ ascend  ·  ↓ descend  ·  ⟲⟳ roll (fly)  ·  ⚡ sprint  ·  ✈ cycle mode  ·  🛬 land  ·  🗺️ map  ·  ☰ settings";
 }
 
 /** Wire the GUI toggle button to show/hide lil-gui. Called from main after setupGui. */

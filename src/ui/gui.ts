@@ -44,6 +44,8 @@ document.head.appendChild(locsStyle);
 export function setupGui({ planet, player, post, rebuild, rebuildVeg, resetMap, spots }: Ctx) {
     const gui = new GUI({ title: "Planet settings", width: Math.min(280, innerWidth - 8) });
     gui.close();
+    gui.domElement.style.zIndex = "49"; // under the splash/pause screen (50); lil-gui defaults to 1001
+
     const seedState = { word: currentSeedWord };
     gui.add(
         {
@@ -115,6 +117,7 @@ export function setupGui({ planet, player, post, rebuild, rebuildVeg, resetMap, 
         const touch = isTouchDevice;
         locs = new GUI({ title: "📍", width: touch ? 120 : 110 });
         locs.domElement.classList.add("locs-panel");
+        locs.close(); // collapsed to its title bar until clicked
         // ungrouped spots (fixed nav + terrain features) go flat
         for (const spot of spots.filter((s) => !s.group))
             locs.add({ go: () => player.warpTo(spot.dir) }, "go").name(`${spot.icon} ${spot.name}`);
@@ -135,14 +138,14 @@ export function setupGui({ planet, player, post, rebuild, rebuildVeg, resetMap, 
         // and fades in naturally as the splash opacity transitions to 0 on entry.
         Object.assign(locs.domElement.style, {
             position: "fixed",
-            top: "78px",
+            top: touch ? "134px" : "10px", // touch: below the ☰ and ◀ ▶ buttons that own the corner (to ~124 px)
             left: "10px",
             zIndex: "49",
         });
         if (touch) {
             locs.domElement.style.setProperty("--widget-height", "44px");
             Object.assign(locs.domElement.style, {
-                maxHeight: "calc(100dvh - 90px)",
+                maxHeight: "calc(100dvh - 146px)",
                 overflowY: "auto",
             });
             locs.hide();

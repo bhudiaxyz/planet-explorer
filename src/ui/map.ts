@@ -64,7 +64,7 @@ export class MapOverlay {
             display: "none",
             zIndex: "40",
             border: "1px solid rgba(201,173,115,.4)",
-            borderRadius: "4px",
+            borderRadius: "3px", // matches lil-gui --border-radius
             overflow: "hidden",
         });
         this.canvas.style.cssText = "width:100%;height:100%;display:block;";
