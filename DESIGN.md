@@ -92,7 +92,7 @@ Anything that needs the full terrain function is evaluated on the GPU **once**, 
 ### Shared helpers
 
 - **`core/utilgeo.ts`:** `smoothstep`, `frame` / `basisFromCode` (cube-face lattice), `randomDir(rand, out)` (one rejection-sampling attempt at a random unit direction; returns false on a rejected sample, so callers keep their attempt budgets and random sequences), and `tangentForward(forward, up)` (project onto the tangent plane, with pole fallbacks).
-- **`world/geoutil.ts`:** the procedural-geometry kit. `add()` bakes one primitive with colour, AO, soft jitter and the `aLeaf` motion band. `M(pos, euler | null, scale)` builds a placement matrix (its arguments are evaluated in order, so random draws inside them keep their sequence). Also `T`, `cyl`, `blob`, `frond`, `leaves`, `tiny` (the far-tier octahedron) and `done` (merge).
+- **`world/geoutil.ts`:** the procedural-geometry kit. `add()` bakes one primitive with colour, AO, soft jitter and the `aLeaf` motion band. `M(pos, euler | null, scale)` builds a placement matrix (its arguments are evaluated in order, so random draws inside them keep their sequence). Also `T`, `cyl`, `blob`, `frond`, `leaves`, `tiny` (the far-tier octahedron), `done` (merge) and `clipAtLakes` (ends a river path at the first lake it enters, §5).
 - **`Planet` terrain queries:** `elev`, `radiusAt`, `moistureAt`, `temp` and `treeDensity` (the CPU mirror of the GPU tree-density field).
 
 ### Verifying a change
@@ -213,6 +213,7 @@ main.ts (async IIFE):
 - Rivers and scouting start immediately after terrain because `findSpots` can scan terrain in parallel with river generation; it only awaits `riversPromise` at the very end to append river teleport entries.
 - `compileAsync` is deferred until after all GPU baking. Baking and compiling both submit GPU work; running them together creates pipeline stalls on tiler GPUs.
 - The warm-up calls `postFX.render(0)` rather than a direct `renderer.render()` into a 1×1 target. This pre-compiles all EffectComposer pass shaders (aerial / bloom / output) during the labelled loading step rather than lazily on the first visible frame. It also uploads all geometry and texture buffers to the GPU.
+- **Shadow programs are warmed in the same frame.** `compileAsync` builds only the colour programs. Depth programs (for instanced meshes and any `customDepthMaterial`) are built on the first shadow pass that draws them. The detailed and medium tree tiers start hidden, so their depth programs used to compile on the first walk up to a forest, freezing Android for a second or more. `forest.warmAllTiers()` shows every tree tier (at least one instance each) for the warm-up render, with the sun's shadow update forced, and then restores them.
 - The animation loop starts **before** the RAF yield. This guarantees the compositor has already been given a fully-rendered frame before the "Click to enter" button is shown, so clicking in is visually instant.
 
 ### Rebuilds (new seed / terrain settings)
@@ -325,6 +326,8 @@ Touch = unknown mobile → conservative `low`. Desktop → `medium`, not `high`:
 | Tree LOD distance multiplier | 0.45 | 0.65 | 1.0 | 1.3 |
 | Detailed-terrain fade (m) | 170–235 | 170–235 | 170–235 | 240–320 |
 | Terrain chunks streamed (of 9×9 lattice) | ~37 | ~37 | ~37 | ~45 |
+| Fine 0.75 m near-field chunks (centre 3×3) | off | on (desktop) | off | on |
+| Chunk bakes per frame while streaming | 1 on touch, 4 desktop | 1 on touch, 4 desktop | 1 | 4 |
 | Forest count multiplier | 0.30 | 0.55 | 0.80 | 0.80 |
 | Star count | 900 | 1600 | 2500 | 2500 |
 | Rain/snow particle count | 600 | 1100 | 1750 | 1750 |
@@ -387,6 +390,10 @@ A (2·CR+1)² = 9×9 lattice of 80×80-cell chunks (1.5 m cells, 120 m per chunk
 
 Only chunks that can come within `chunkFade()[1] + 15` m of any point of the centre chunk are built (`inReach`, using the same chord-on-sphere distance as the shader fade). Selection reruns only when the player enters a new centre chunk. The full lattice reaches ~±540 m, so the outer rings used to be baked and vertex-shaded without a fragment surviving. Skipping them roughly halves chunk bake and vertex work on every tier.
 
+**Fine near field (medium / high desktop).** The 3×3 chunks around the player use a 2× denser grid (160×160 cells of 0.75 m, same 120 m footprint), so sharp ridges get about 4× the triangles. They have their own key, pool and shared buffers, so crossing into a new chunk swaps fine ↔ coarse with the usual fade. A fine chunk counts as 2 against the per-frame bake budget.
+
+**Touch devices stay coarse everywhere and bake one chunk per frame** (`CFG.chunk.budget` = 4 on desktop). A fine bake is 161² texels × 2 passes × 5 terrain evaluations. On an S22 Ultra (high tier), swapping the 3×3 on every chunk crossing caused a stop-start stutter while walking. The streamed ring sits beyond the near field, so spreading the bakes over more frames isn't visible.
+
 ### Cube-map planet surface
 
 The coarse planet mesh uses cube maps (512² per face, mipmapped) baked once from the full terrain function. The bake renders elevation/moisture, normals and biome colours to three separate render targets via `bakePoints()`, reading results back to the CPU for vertex attribute upload. This replaces an older per-vertex colour approach that produced a visible triangle grid and shimmer as the camera moved. The cube map matches the detail chunks at all altitudes because both sample the same `e3()` function.
@@ -444,9 +451,13 @@ Uses `distanceToSquared` with early-exit — no `sqrt` in the inner loop.
 
 ### Lake generation (medium / high tier only)
 
-- Up to 2 lakes per planet.
-- Placement: elevation 0.005–0.07, moisture ≥ 0.45, minimum 120 m from existing rivers and other lakes.
-- Shape: elliptical disc, radius 50–120 m, aspect 0.55–1.45. Perimeter vertices are noise-displaced (`sin(angle * 4 + noise) * r * 0.12`) for organic edges rather than a perfect ellipse.
+Every lake sits in a real depression. `_findBasin()` walks downhill to the local low point, then samples the ground on rings at 60 % and 100 % of the planned radius; the water level is the lowest rim sample less 0.25 m (the spill height). Basins at sea level, or shallower than 0.6 m, are rejected.
+
+- **Terminal lakes** (up to 4, checked first): a river that ends on land has stopped in a basin, so the water ponds there.
+- **Lowland lakes** (up to 2 more): elevation 0.005–0.07, moisture ≥ 0.45, at least 120 m from rivers and other lakes.
+- **Mountain tarns** (up to 3): small basins at elevation 0.22–0.5, at least ~90 m from rivers and other lakes. They use their own random stream, so the lowland lakes don't change.
+- **Shape:** a flat spherical cap at the water level (polar grid, 6 rings × 96 segments) reaching 115 % of the radius, so its edge is buried in the rim. The visible shoreline is wherever the terrain rises through the sheet, which is the ground's own contour line.
+- **Rivers end at lakes:** the ribbon drapes over the ground, so in a basin it would carry on along the lake bed under the translucent water. `clipAtLakes()` (`world/geoutil.ts`) cuts each path at its first point below a lake's surface and adds two points held just above the water, so the end fade happens on the lake, as rivers fade into the sea. It runs before meanders and Chaikin smoothing, which would otherwise pull points back into the basin. Paths left shorter than 4 points are dropped. Check: `npm run test:lakeclip`.
 
 ### Shader
 
@@ -833,7 +844,7 @@ ScenePass           → scene into its own HDR target (HalfFloat, MSAA per tier,
                       the NaN/Inf clean shader copies it into the composer buffer
                       (one NaN in a float target smears across the bloom blur)
 AerialPass          → aerial haze post-pass    ← skipped on low tier (addPass not called)
-UnrealBloomPass     → half-resolution bloom    ← skipped on low tier (addPass not called)
+UnrealBloomPass     → half-resolution bloom (strength 0.36, radius 0.5, threshold 0.75)  ← skipped on low tier
 OutputPass          → tone-map + gamma to canvas
 ```
 
@@ -870,11 +881,12 @@ Extras share the same pass and depth read, each behind a define so lower tiers c
 ### Adaptive resolution
 
 Pixel ratio range: `[0.5, renderScale]` (renderScale set at startup by tier).
-- **Downscale**: reacts within 0.5 s of a frame-time spike (EMA smoothed frame time > 30 ms, α = 0.08). Drops 0.15 per step, minimum 0.5.
+
+- **Downscale**: needs sustained load. The smoothed frame time (EMA, α = 0.08) must stay above 30 ms for 1.5 s. Drops 0.15 per step, minimum 0.5. A step reallocates every target (the MSAA HalfFloat scene, the bloom mips), which is itself a long frame on phones. Reacting to a one-off spike, such as a bake burst or a first-use shader compile, used to cause a downscale hitch and then, 3 s later, an upscale hitch.
 - **Useless-downscale guard**: if a downscale did not make frames at least 8% faster, twice in a row, resolution is not the bottleneck. Typical causes are a 30 Hz cap (iOS Low Power Mode, Android battery saver) or CPU load. The loop then undoes the last step and holds that ratio as its floor, instead of sinking to 0.5 for no gain. The floor resets once frames are fast again.
 - **Upscale**: waits 3 s of stable frames (< 18.5 ms). Rises 0.1 per step, capped at renderScale.
 
-The asymmetry prevents oscillation: load spikes react quickly; recovery is cautious.
+Both directions wait for the load to persist, so brief spikes don't make the ratio swing.
 
 On window resize (e.g. dragging to a lower-DPR monitor) the pending ratio is immediately clamped to `min(devicePixelRatio, renderScale)`; raising it again is left to the adaptive loop.
 
@@ -901,15 +913,17 @@ Built with lil-gui. Starts collapsed (`gui.close()`) — opens on G or user clic
 
 ### Locations panel (left side)
 
-Created only when `spots.length > 0`. Positioning:
+Created only when `spots.length > 0`, titled 📍, and collapsed to its title bar at start. Positioning:
 ```ts
-position: "fixed", top: "78px", left: "10px", zIndex: "49"
+position: "fixed", top: touch ? "134px" : "10px", left: "10px", zIndex: "49"
 ```
-`z-index: 49` places it below the loading splash (`z-index: 50`). The panel fades in naturally as the splash transitions to `opacity: 0` on entry — no visible grey band during loading.
+Desktop puts it in the top-left corner. On touch devices the ☰ and ◀ ▶ buttons occupy that corner down to about 124 px, so the panel starts below them.
+
+**Stacking:** both panels use `z-index: 49`, below the splash and pause screen (`z-index: 50`) and above the map (39/40). lil-gui's default is 1001, which drew the settings title bar over the splash. The panels fade in naturally as the splash goes to `opacity: 0` on entry.
 
 **Structure:** ungrouped spots render flat; grouped spots (landmarks, rivers) go into collapsible subfolders that start closed.
 
-**Touch:** `--widget-height: 44px`, `maxHeight: calc(100dvh - 90px)`, hidden by default — shown via the ☰ HUD button.
+**Touch:** `--widget-height: 44px`, `maxHeight: calc(100dvh - 146px)`, hidden by default — shown via the ☰ HUD button.
 
 ---
 

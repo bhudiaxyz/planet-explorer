@@ -33,6 +33,8 @@ Inspired by **Beyond Fable** and **threejs-procedural-planets**.
 npm install
 npm run dev        # development server
 npm run build      # type-check + production bundle
+npm run test:tiers     # GPU tier classifier self-check
+npm run test:lakeclip  # river-into-lake clip self-check
 ```
 
 Pushes to `main` deploy automatically to GitHub Pages.
