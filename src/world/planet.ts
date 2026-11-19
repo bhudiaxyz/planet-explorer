@@ -7,7 +7,7 @@ import { canBake, bakePoints, Atlas } from "../render/bake";
 import { ChunkManager } from "./chunks";
 import { smoothstep, frame } from "../core/utilgeo";
 import { Forest } from "./forest";
-import { gpuTier } from "../render/gputier";
+import { gpuTier, isTouchDevice } from "../render/gputier";
 import { buildWaterfalls } from "./life";
 import { CurrentPalette, biomeColors } from "../core/palette";
 import { buildLandmarks } from "./landmarks";
@@ -252,7 +252,11 @@ void main() {
         syncTerrain(S, this.noise, this.noise2);
         this.chunks.clear();
         if (canBake()) {
-            this.atlas ??= new Atlas();
+            // High desktop: 1024² atlas (~0.7 m texels vs 1.4 m) sharpens the planet between the chunk fade (~300 m) and
+            // the horizon — ~135 MB of cube maps, fine on a discrete / M-series GPU, not on phones. Anisotropic filtering
+            // (all high-tier, incl. flagship phones/tablets: cheap) stops the far terrain blurring at grazing angles.
+            const highDesk = gpuTier === "high" && !isTouchDevice;
+            this.atlas ??= new Atlas(highDesk ? 1024 : 512, gpuTier === "high" ? (highDesk ? 8 : 4) : 1);
             U.uCubeN.value = this.atlas.rtN.texture;
             U.uCubeC.value = this.atlas.rtC.texture;
             this.atlas.reset();

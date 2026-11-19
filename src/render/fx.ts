@@ -378,14 +378,16 @@ if (abs(hh) < 1.3) {
   float wetB  = (1. - smoothstep(run - .08, run + .12, hh)) * smoothstep(-.6, -.1, hh);
   diffuseColor.rgb *= 1. - wetB * .32;
   swashWet = max(swashWet, wetB);
-  float fo = smoothstep(.09, 0., abs(hh - run)) * smoothstep(-.2, .05, hh)
-           * (.55 + .45 * vn(vWp * 3.4 + uTime * .3));
+  // foam fringe ~0.5 m wide (was 0.09 m): trails behind the swash edge, tapering off downslope
+  float fo = smoothstep(.12, 0., hh - run) * smoothstep(-.5, 0., hh - run) * smoothstep(-.45, .05, hh)
+           * smoothstep(.2, .75, vn(vWp * 3.4 + uTime * .3) * .6 + vn(vWp * .3) * .4); // frays into clumps
 #else
   float fo = smoothstep(.45, 0., abs(hh - .1 - .3 * sin(uTime * .8 + vn(vWp * .4) * 6.)))
            * smoothstep(-.9, -.2, hh) * (1. - smoothstep(.3, .9, hh));
-  fo *= .5 + .5 * vn(vWp * 3. + uTime * .3);
+  fo *= smoothstep(.15, .8, vn(vWp * 3. + uTime * .3) * .6 + vn(vWp * .3) * .4);
 #endif
-  diffuseColor.rgb = mix(diffuseColor.rgb, vec3(.95), fo * .85);
+  // 0.85 → 0.55: a softer, off-white line (it outlined every coast as a bright band)
+  diffuseColor.rgb = mix(diffuseColor.rgb, vec3(.9), fo * .55);
 }
 float fp = 0.;
 // fp is multiplied by snowF below, so skip the 48-footprint loop off snow (it ran for every pixel within 26 m —
@@ -624,17 +626,24 @@ transformed += normalize(position) * ripple;
     float wake  = (1. - smoothstep(.0, .35, wv)) * .55;                     // foam left behind as it passes
     float fray  = smoothstep(.25, .7, vn(vWp * 1.9 + vec3(uTime * .4, 0., 0.)) * .65 + vn(vWp * 4.3) * .35);
     float shore = clamp((front + wake) * zone * (.45 + .55 * fray) * (.6 + .4 * min(uWind, 1.5)), 0., 1.);
-    // the very edge (< 0.3 m) is always a thin lapping foam line
-    shore = max(shore, (1. - smoothstep(0., .3, dep)) * (.5 + .5 * sin(uTime * 2.2 + vn(vWp * .8) * 8.)) * .7);
+    // lapping foam at the edge: a wide (~1.5 m deep), soft-falloff zone that is patchy along the coast — clumps and gaps,
+    // densest at the waterline and thinning seaward — instead of a thin constant ring that read as a clean band
+    float lapP = smoothstep(.25, .75, vn(vWp * .35 + vec3(0., uTime * .05, 0.)) * .6 + vn(vWp * 2.1) * .4);
+    float lapZ = 1. - smoothstep(0., 1.5, dep);
+    shore = max(shore, lapZ * lapZ * (.55 + .45 * sin(uTime * 2.2 - dep * 3. + vn(vWp * .8) * 8.)) * lapP * .5);
 #else
     float shore = clamp((1. - smoothstep(0., 1.1, dep))
                 * (.55 + .45 * sin(dep * 7. - uTime * 1.6
                    + (vn(vWp * .6) * .62 + vn(vWp * 1.09 + vec3(7.3, 0., 2.1)) * .38) * 5.)),
-                  0., 1.);
+                  0., 1.)
+                * smoothstep(.2, .7, vn(vWp * .5 + vec3(3.1, 0., 0.))); // broken into patches, not a continuous band
 #endif
-    diffuseColor.rgb = mix(diffuseColor.rgb, vec3(.95, .98, 1.), shore * .6);
+    diffuseColor.rgb = mix(diffuseColor.rgb, vec3(.95, .98, 1.), shore * .5);
     waterKeep = max(waterKeep, shore);
-    diffuseColor.a   = mix(diffuseColor.a,   .9,                 shore * .6);
+    diffuseColor.a   = mix(diffuseColor.a,   .9,                 shore * .5);
+    // feather the waterline: the last ~0.6 m of depth thins out, so the sea blends into wet sand instead of ending in a
+    // cut-out edge where the terrain pokes through the water sphere
+    diffuseColor.a  *= mix(.25, 1., smoothstep(0., .6, dep));
   }
 
   // icy tint near poles — abs(nW.y) ≈ 1 at poles, 0 at equator. Starts ~50° latitude (was ~27°, which paled most oceans).

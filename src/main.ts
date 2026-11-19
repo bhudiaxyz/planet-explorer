@@ -128,12 +128,13 @@ const scene = new THREE.Scene(),
     // exists) so the bakes below don't each trigger a blocking compile in turn. Not awaited: it overlaps the CPU setup.
     void precompileBakes(camera, [placementBakeMaterial()]);
     const planet = new Planet(scene);
-    await planet.build();
-    pushSeedUrl(currentSeedWord);
-
-    // Rivers and scouting run concurrently — findSpots does its terrain scan while rivers build,
-    // then awaits riversReady before reading planet.riverSystem for river teleport entries.
+    // build() seeds the noise and clears the group synchronously, then spends most of its time awaiting GPU bakes and
+    // shader compiles: river tracing (CPU only, sliced) runs in those gaps instead of after them. Scouting waits for the
+    // build (it lists landmarks), then awaits riversReady before reading planet.riverSystem for river teleport entries.
+    const built = planet.build();
     const riversPromise = planet.buildRivers().catch((err) => console.error("[planet-explorer] rivers failed", err));
+    await built;
+    pushSeedUrl(currentSeedWord);
     const spotsPromise = findSpots(planet, riversPromise);
 
     await setStep(2, "Setting up world");
@@ -180,10 +181,11 @@ const scene = new THREE.Scene(),
             pendingRespawn = false;
             rebuildChain = rebuildChain
                 .then(async () => {
-                    await planet.build();
+                    const built = planet.build(); // rivers overlap the build, as at startup
                     const newRiversPromise = planet
                         .buildRivers()
                         .catch((err) => console.error("[planet-explorer] rivers failed", err));
+                    await built;
                     mapOverlay.reset();
                     scatter.dirty = true;
                     collider.dirty = true;

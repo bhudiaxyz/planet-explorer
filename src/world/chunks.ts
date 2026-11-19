@@ -141,7 +141,10 @@ export class ChunkManager {
                 ey = y[1] - cj;
             return dx * dx + dy * dy - ex * ex - ey * ey;
         });
-        let budget = this.map.size ? BUDGET : FIRST;
+        // Empty map: burst-fill (spawn / teleport, behind the loading screen or a fresh view). But descending from orbit
+        // also empties it, and there the burst — 25 bakes in one frame, ~100–300 ms on a phone — landed mid-flight while
+        // every chunk is still far beyond its fade distance. Above 200 m stream at the normal rate instead.
+        let budget = this.map.size ? BUDGET : altitude > 200 ? BUDGET * 2 : FIRST;
         for (const [a, b] of todo) {
             const ring = Math.max(Math.abs(a - ci), Math.abs(b - cj)),
                 fine = fineNear && ring <= 1;

@@ -302,44 +302,64 @@ const makeAtlasMat = (isColor: boolean) =>
         vertexShader: QUAD_VS,
         fragmentShader: ATFS,
     });
+// Rows baked per frame. A whole 512² face (6 terrain evaluations per texel, plus two full cube mip chains) was a 20–60 ms
+// frame on phones, six frames running — after every rebuild, in play. 128-row strips cut that 4×; mips are built only once.
+const STRIP = 128;
 export class Atlas {
     rtN: THREE.WebGLCubeRenderTarget;
     rtC: THREE.WebGLCubeRenderTarget;
-    face = 6;
+    readonly size: number;
+    private strip: number; // next strip, counted over all faces
+    private readonly strips: number;
     private normalAtlasMat = makeAtlasMat(false);
     private colorAtlasMat = makeAtlasMat(true);
-    constructor() {
+    /** size: texels per face edge (power of two ≥ STRIP). anisotropy: sharpens the planet at grazing angles. */
+    constructor(size = 512, anisotropy = 1) {
         const o = {
             type: THREE.HalfFloatType,
             generateMipmaps: true,
             minFilter: THREE.LinearMipmapLinearFilter,
             magFilter: THREE.LinearFilter,
             depthBuffer: false,
+            anisotropy,
         };
-        this.rtN = new THREE.WebGLCubeRenderTarget(512, o);
-        this.rtC = new THREE.WebGLCubeRenderTarget(512, o);
+        this.size = size;
+        this.strips = 6 * 2 * (size / STRIP);
+        this.strip = this.strips;
+        this.rtN = new THREE.WebGLCubeRenderTarget(size, o);
+        this.rtC = new THREE.WebGLCubeRenderTarget(size, o);
         this.colorAtlasMat.uniforms.uSrcN.value = this.rtN.texture;
     }
     reset() {
-        this.face = 0;
+        this.strip = 0;
     }
     get done() {
-        return this.face >= 6;
+        return this.strip >= this.strips;
     }
+    /** One strip per call. Per face: every normal strip, then every colour strip — the colour pass samples the normal
+     *  face with linear filtering, so its neighbouring rows must already be baked (else faint seams every STRIP rows). */
     step() {
         if (this.done) return;
-        const faceIndex = this.face++;
-        atlasUniform.value.x = faceIndex;
-        for (const [rt, mat] of [
-            [this.rtN, this.normalAtlasMat],
-            [this.rtC, this.colorAtlasMat],
-        ] as [THREE.WebGLCubeRenderTarget, THREE.ShaderMaterial][]) {
-            quad.material = mat;
-            const prev = renderer!.getRenderTarget();
-            renderer!.setRenderTarget(rt, faceIndex);
-            renderer!.render(quadScene, quadCamera);
-            renderer!.setRenderTarget(prev);
-        }
+        const perFace = this.size / STRIP,
+            s = this.strip++,
+            faceIndex = Math.floor(s / (2 * perFace)),
+            k = s % (2 * perFace),
+            isColor = k >= perFace,
+            rt = isColor ? this.rtC : this.rtN,
+            // the planet reads the atlas only once done; colour reads normals at lod 0 — so each cube needs its mips once
+            lastOfRt = isColor ? this.done : s === this.strips - perFace - 1;
+        atlasUniform.value.set(faceIndex, this.size);
+        quad.material = isColor ? this.colorAtlasMat : this.normalAtlasMat;
+        rt.scissor.set(0, (k % perFace) * STRIP, this.size, STRIP);
+        rt.scissorTest = true;
+        const prev = renderer!.getRenderTarget();
+        // three rebuilds the whole cube mip chain after every draw into it (two chains per strip). generateMipmaps must
+        // be true while the target is first bound, so its storage is allocated with mip levels, then off for the draw.
+        rt.texture.generateMipmaps = true;
+        renderer!.setRenderTarget(rt, faceIndex);
+        rt.texture.generateMipmaps = lastOfRt;
+        renderer!.render(quadScene, quadCamera);
+        renderer!.setRenderTarget(prev);
     }
 }
 

@@ -6,6 +6,7 @@ import { gpuTier } from "../render/gputier";
 import { rng } from "../core/noise";
 import { RIVER_NAMES } from "../core/names";
 import { clipAtLakes } from "./geoutil";
+import { slicer } from "../core/util";
 
 // Chaikin corner-cutting: replaces each segment with two points at 1/4 and 3/4,
 // preserving the first and last point so source/mouth stay in place.
@@ -115,7 +116,6 @@ function riverName(index: number): string {
 // Hoisted — rebuilt per call previously, wasting 1080+ short-lived arrays on a full planet build
 const DIRS = [0, 1, 2, 3, 4, 5, 6, 7].map((i) => (i * Math.PI) / 4);
 
-const yieldFrame = () => new Promise<void>((r) => setTimeout(r));
 
 // center: unit-ish anchor at sea radius (for spacing tests) · radius: mesh extent (m) · level: water surface radius from the
 // planet centre (m), the basin's spill height · seed: per-lake shoreline noise phase
@@ -296,15 +296,7 @@ export class RiverSystem {
         const cosMin = Math.cos((cfg.minSourceSpacingDeg * Math.PI) / 180);
 
         // Time-based yielding: yield only when ≥4 ms has elapsed, same as findSpots.
-        // Replaces 26 unconditional setTimeout calls (100–400 ms overhead on mobile).
-        let _lastYield = performance.now();
-        const mayYield = async () => {
-            const t = performance.now();
-            if (t - _lastYield >= 4) {
-                await yieldFrame();
-                _lastYield = performance.now();
-            }
-        };
+        const mayYield = slicer();
 
         // Find main river sources: high elevation, high moisture, well spaced
         const sources: THREE.Vector3[] = [];
@@ -330,6 +322,7 @@ export class RiverSystem {
         const lenRand = rng(S.seed + 3131),
             riverSteps = new Map<THREE.Vector3, number>();
         for (const src of sources) {
+            await mayYield();
             const before = src.clone();
             this._climb(src, planet, R, Math.floor(lenRand() * 26));
             // keep the 40° source spacing: a climb that drifts toward another source is undone
@@ -461,7 +454,9 @@ export class RiverSystem {
         const acceptedScales: number[] = [],
             acceptedMeanders: number[] = [],
             acceptedArchetypes: string[] = [];
+        // overlaps() is points × accepted points (~260 × several thousand): yield between paths, it was a 20–50 ms block
         for (let i = 0; i < mainPaths.length; i++) {
+            await mayYield();
             if (!overlaps(mainPaths[i], accepted, 0.5)) {
                 accepted.push(mainPaths[i]);
                 acceptedScales.push(mainScales[i]);
@@ -471,6 +466,7 @@ export class RiverSystem {
         }
         // Tributaries: stricter — cull if >40% overlaps any accepted path (main or trib).
         for (let i = 0; i < tribPaths.length; i++) {
+            await mayYield();
             if (!overlaps(tribPaths[i], accepted, 0.4)) {
                 accepted.push(tribPaths[i]);
                 acceptedScales.push(tribScales[i]);
@@ -488,6 +484,7 @@ export class RiverSystem {
             // steps), so pond the water there — the river then visibly flows into its lake instead of just stopping.
             // Checked first, so they take priority over the random lowland lakes; no random draws (sources unchanged).
             for (const p of accepted) {
+                await mayYield();
                 const end = p[p.length - 1].clone().normalize();
                 if (planet.elevationAt(end.x, end.y, end.z, false) <= 0) continue; // reached the sea
                 const basin = this._findBasin(end, planet, R, 35 + ((p.length * 7) % 30));

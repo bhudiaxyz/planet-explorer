@@ -8,6 +8,7 @@ import { canBake, bakePoints } from "../render/bake";
 import { gpuTier, isTouchDevice } from "../render/gputier";
 import { U } from "../render/fx";
 import type { Obs } from "./collision";
+import { slicer } from "../core/util";
 
 const UP = new THREE.Vector3(0, 1, 0);
 const _lod = CFG.treeLod;
@@ -279,7 +280,11 @@ export class Forest {
             return true;
         };
         const acceptedTrees: Tree[] = [];
+        // up to ~100k candidates with a hash-grid spacing test each: 100–400 ms on a phone in one block. Sliced so the
+        // loading spinner (startup) or the running game (rebuild) keeps getting frames.
+        const slice = slicer(8);
         for (let k = 0; k < n && acceptedTrees.length < max; k++) {
+            if ((k & 1023) === 0) await slice();
             const e = sampleData[k * 4],
                 m = sampleData[k * 4 + 1],
                 dens = sampleData[k * 4 + 2],
@@ -333,10 +338,13 @@ export class Forest {
             acceptedDirs.set(dirs.subarray(t.candidateIndex * 3, t.candidateIndex * 3 + 3), i * 3)
         );
         const coarseRadii = await this.sample(acceptedDirs, 2),
-            idsBySpecies = highDetailGeos.map(() => [] as number[]);
+            idsBySpecies = highDetailGeos.map(() => [] as number[]),
+            built: SpeciesList[] = [];
         acceptedTrees.forEach((t, i) => idsBySpecies[t.speciesIndex].push(i));
-        idsBySpecies.forEach((ids, si) => {
-            const cnt = ids.length,
+        for (let si = 0; si < idsBySpecies.length; si++) {
+            await slice();
+            const ids = idsBySpecies[si],
+                cnt = ids.length,
                 cap = Math.max(1, cnt);
             const lists: Lists = {
                 count: cnt,
@@ -390,13 +398,15 @@ export class Forest {
             lowDetailMesh.visible = cnt > 0;
             lowDetailMesh.instanceMatrix.needsUpdate = true;
             lowDetailMesh.instanceColor!.needsUpdate = true;
-            this.speciesLists.push({
+            built.push({
                 ...lists,
                 meshes: speciesMeshes,
                 matrixArrays: speciesMeshes.map((m) => m.instanceMatrix.array as Float32Array),
                 colorArrays: speciesMeshes.map((m) => m.instanceColor!.array as Float32Array),
             });
-        });
+        }
+        // published in one step: the build yields, and the collider caches the list by identity
+        this.speciesLists = built;
     }
 
     /** Solid trunks within radiusM of a unit direction (for the collider). */

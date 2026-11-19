@@ -8,7 +8,7 @@ import { randomDir } from "../core/utilgeo";
 
 export type Spot = { name: string; icon: string; dir: THREE.Vector3; group?: string };
 
-const yield_ = () => new Promise<void>((r) => setTimeout(r));
+import { yieldTask as yield_ } from "../core/util";
 
 // ---- Feature type & pool -------------------------------------------------------
 
