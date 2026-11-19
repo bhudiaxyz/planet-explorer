@@ -111,6 +111,10 @@ export function detectGpuTier(gl: WebGLRenderingContext | WebGL2RenderingContext
     // Intel (U)HD 620–640 (2017–2021 laptops) → medium; UHD 2xx–5xx, HD 4000–5xx, HD 610/615 remain low
     // "HD Graphics 620/630" is the same Kaby Lake chip as UHD 620/630 under older drivers/ANGLE builds
     if (/u?hd.{0,12}6[2-4]\d/i.test(renderer)) return "medium";
+    // UHD 7xx (12th–14th-gen desktop Xe-LP, 2021+) and model-less "UHD Graphics" (Tiger Lake i3, Jasper/Alder Lake-N,
+    // 2020+) are at least UHD 620 class; the broad LOW "hd graphics" match below used to drop them to low.
+    // UHD 600/605 (Gemini Lake Celerons) carry a number, so they still fall through to LOW.
+    if (/uhd.{0,12}7\d{2}(?!\d)|uhd graphics(?!\s*\d)/i.test(renderer)) return "medium";
     // Intel Iris Plus (MacBook Air/Pro 2018–2020, Intel 11th gen) and Iris Xe (11th-13th gen) → medium
     if (/iris/i.test(renderer)) return "medium";
     // Adreno 530/540 (Snapdragon 820/835, Galaxy S7/S8 2016–2017) — 7-year threshold, capable of medium

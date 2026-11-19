@@ -19,6 +19,8 @@
  * Important:
  *   - LOD bands (H0,H1,M0,M1) are CFG.treeLod scaled by tier and must match the shader's U.uLod, which is set in the constructor.
  *   - Collider caches speciesLists by identity, so build() must replace it (not mutate) when trees change.
+ *   - update() seats at most 48 (touch/low) or 128 near trees exactly per frame (CPU radiusAt); the rest use their
+ *     coarse-seated matrix until a later frame, so a forest entry or teleport never costs one long frame.
  *   - pickSpecies/mixStand/sample() CPU paths mirror the GPU treeDensity() (render/terrain.ts); keep them in parity.
  */
 import * as THREE from "three";
@@ -26,7 +28,7 @@ import type { Planet } from "./planet";
 import { smoothstep, randomDir } from "../core/utilgeo";
 import { rng } from "../core/noise";
 import { S, CFG } from "../core/config";
-import { treeGeos, lowGeos, treeMats, getLeafColors, SPECIES, SP, VARIANT } from "./trees";
+import { allTreeGeos, treeMats, getLeafColors, SPECIES, SP, VARIANT } from "./trees";
 import { canBake, bakePoints } from "../render/bake";
 import { gpuTier, isTouchDevice } from "../render/gputier";
 import { U } from "../render/fx";
@@ -129,6 +131,7 @@ export class Forest {
     private scratchColor = new THREE.Color();
     private scratchD = new THREE.Vector3();
     private tierCounts = [0, 0];
+    private placePending = false; // some in-range trees still on coarse seating (per-frame placement budget ran out)
     private scratchAx = new THREE.Vector3();
     private scratchUp = new THREE.Vector3(1, 0, 0);
     private leafColors: THREE.Color[] = [];
@@ -257,13 +260,9 @@ export class Forest {
                     (planetRadius / 700) ** 2
             ),
             rand = rng(S.seed + 7);
-        // Kick off all three geometry builds immediately (each via setTimeout so they run in separate
-        // macrotasks) — they overlap with the GPU bake readback awaits below, cutting wall-clock time.
-        const geosPromise = Promise.all([
-            new Promise<ReturnType<typeof treeGeos>>((r) => setTimeout(() => r(treeGeos(S.seed, 1)), 0)),
-            new Promise<ReturnType<typeof treeGeos>>((r) => setTimeout(() => r(treeGeos(S.seed, 0.5)), 0)),
-            new Promise<ReturnType<typeof lowGeos>>((r) => setTimeout(() => r(lowGeos(S.seed)), 0)),
-        ]);
+        // Geometry builds start now and overlap the GPU sample read-backs below; they yield between species (own slicer,
+        // so their 8 ms budget is not shared with the placement loop's).
+        const geosPromise = allTreeGeos(S.seed, slicer(8));
         const tries = Math.min(max * CFG.forest.tries, 200000),
             candidateDirs = new Float32Array(tries * 3),
             d = new THREE.Vector3();
@@ -487,9 +486,14 @@ export class Forest {
         // animate nearStrength toward nearMode so hi/mid tiers fade in/out over ~0.4 s
         const target = this.nearMode ? 1 : 0;
         this.nearStrength += (target - this.nearStrength) * Math.min(1, dt * CFG.trees.nearFadeSpeed);
-        const onlyCrossfading = cam.distanceToSquared(this.last) < 36;
+        const onlyCrossfading = cam.distanceToSquared(this.last) < 36 && !this.placePending;
         if (onlyCrossfading && Math.abs(this.nearStrength - target) < 0.005) return;
         this.last.copy(cam);
+        // Exact seating is a full CPU terrain evaluation per tree. Entering near mode or teleporting into a forest needed
+        // hundreds at once (a 30–100 ms frame on phones). Capped per frame: the rest draw on their coarse-seated matrix
+        // (≤ ~1.5 m off) and the update reruns next frame until every in-range tree is exact.
+        let placeBudget = isTouchDevice || gpuTier === "low" ? 48 : 128;
+        this.placePending = false;
         const camDirX = cam.x / camLength,
             camDirY = cam.y / camLength,
             camDirZ = cam.z / camLength,
@@ -516,15 +520,19 @@ export class Forest {
                 if (!inHi && !inMid) continue;
                 const s = k * 16;
                 if (!lists.has[k]) {
-                    this.scratchDir.set(dx, dy, dz);
-                    this.place(lists, k, this.pl.radiusAt(this.scratchDir) - 0.15, exactMatrices, s);
-                    lists.has[k] = 1;
+                    if (placeBudget > 0) {
+                        placeBudget--;
+                        this.scratchDir.set(dx, dy, dz);
+                        this.place(lists, k, this.pl.radiusAt(this.scratchDir) - 0.15, exactMatrices, s);
+                        lists.has[k] = 1;
+                    } else this.placePending = true;
                 } // exact ground height, composed once
+                const src = lists.has[k] ? exactMatrices : lists.far;
                 for (let t = 0; t < 2; t++)
                     if (t === 0 ? inHi : inMid) {
                         const w = tierCounts[t] * 16,
                             q = tierCounts[t] * 3;
-                        for (let i = 0; i < 16; i++) matrixArrays[t][w + i] = exactMatrices[s + i];
+                        for (let i = 0; i < 16; i++) matrixArrays[t][w + i] = src[s + i];
                         colorArrays[t][q] = lists.tint[k * 3];
                         colorArrays[t][q + 1] = lists.tint[k * 3 + 1];
                         colorArrays[t][q + 2] = lists.tint[k * 3 + 2];

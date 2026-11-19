@@ -59,7 +59,9 @@ export class Shadows {
             gpuTier === "low" ? CFG.shadow.half * 0.65 : highDesk ? CFG.shadow.half * (190 / 120) : CFG.shadow.half;
         const half = this.half;
         const size = Math.round(rawSize * sizeMul);
-        this.hz = gpuTier === "low" ? 20 : gpuTier === "medium" ? 30 : CFG.shadow.hz;
+        // high desktop: 60 Hz — at 30 Hz shadows visibly step behind the camera when flying low or sprinting on a
+        // 60–144 Hz screen. The depth pass is cheap on a discrete GPU; adaptive resolution absorbs it if not.
+        this.hz = gpuTier === "low" ? 20 : gpuTier === "medium" ? 30 : highDesk ? 60 : CFG.shadow.hz;
         // snap step must use the real map size per light, or texel-snapping only half-works on low/medium and for the moon
         this.tex = (2 * half) / size;
         this.moonTex = (2 * half) / (size >> 1);

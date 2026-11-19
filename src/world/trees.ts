@@ -10,13 +10,13 @@
  *   - SPECIES: one row per species (build, low, trunk radius, lean, width/height, size range, decid, leafSize)
  *   - SP: species name -> index map (typed, so a misspelt name is a compile error)
  *   - VARIANT: base species index -> shape-variant row (pine2, oak2, birch2, spruce2), high tier only
- *   - treeGeos(seed, q): geometries for all species at detail q (leaf-covered when q > 0.7)
- *   - lowGeos(seed): low-poly geometries for all species
+ *   - allTreeGeos(seed, slice): async [detailed (leaf-covered), medium, low-poly] geometries for all species,
+ *     yielding between species via the caller's slicer
  *   - getLeafColors(): base foliage colours from CurrentPalette (plus derived colours for extra species)
  *   - treeMats: re-exported from render/treemat
  *
  * Usage:
- *   forest.ts calls treeGeos/lowGeos (deferred via setTimeout during forest build) and getLeafColors on palette
+ *   forest.ts calls allTreeGeos (overlapping its GPU sample read-backs) during forest build and getLeafColors on palette
  *   change; it reads SPECIES, SP and VARIANT for placement and collision. Runs on planet build/rebuild, not per frame.
  *
  * Important:
@@ -457,14 +457,6 @@ function withLeaves(f: (r: () => number, q: number) => THREE.BufferGeometry, si:
 const BASE_SPECIES = 14;
 const EMPTY = new THREE.BufferGeometry();
 const built = (i: number) => i < BASE_SPECIES || gpuTier === "high";
-export const treeGeos = (seed: number, q = 1) =>
-    SPECIES.map((sp, i) =>
-        !built(i)
-            ? EMPTY
-            : q > 0.7 && sp.leafSize
-              ? withLeaves(sp.build, i, seed, sp.leafSize)
-              : sp.build(rng(seed + 55 + i * 31), q)
-    );
 // base foliage colour per species (HSL in the working space); Forest multiplies in seasonal / blossom / drought variation per tree
 // extra species -> [base slot, dH, dS, dL]: kapok <- mangrove (lush), baobab <- acacia (dusty), spruce <- fir (blue-green), juniper <- pine (dark grey-green)
 const EXTRA: [number, number, number, number][] = [
@@ -678,10 +670,30 @@ const lowJuniper = (r: () => number) => {
     blob(p, new THREE.Vector3(0.6, h * 0.8, 0), 2.6, N0, 0.45, 0);
     return done(p);
 };
-export const lowGeos = (seed: number) => {
-    const r = rng(seed + 56); // one stream shared by every low-poly builder, consumed in SPECIES order
-    return SPECIES.map((sp, i) => (built(i) ? sp.low(r) : EMPTY));
-};
+/** Detailed (q 1, leaf crowns), medium (q 0.5) and low-poly geometry for every species, yielding between species.
+ *  The low-poly builders share one random stream (seed + 56) consumed in SPECIES order. Built as three un-yielded
+ *  setTimeout blocks, a rebuild froze the running game for 100–400 ms on phones; each species build is ~5–20 ms. */
+export async function allTreeGeos(seed: number, slice: () => Promise<void>) {
+    const hi: THREE.BufferGeometry[] = [],
+        mid: THREE.BufferGeometry[] = [],
+        low: THREE.BufferGeometry[] = [],
+        r = rng(seed + 56);
+    for (let i = 0; i < SPECIES.length; i++) {
+        const sp = SPECIES[i];
+        if (!built(i)) {
+            hi.push(EMPTY);
+            mid.push(EMPTY);
+            low.push(EMPTY);
+            continue;
+        }
+        hi.push(sp.leafSize ? withLeaves(sp.build, i, seed, sp.leafSize) : sp.build(rng(seed + 55 + i * 31), 1));
+        await slice();
+        mid.push(sp.build(rng(seed + 55 + i * 31), 0.5));
+        low.push(sp.low(r));
+        await slice();
+    }
+    return [hi, mid, low] as const;
+}
 
 /** One row per tree species, in index order. Order is load-bearing: the detailed / leaf seeds use the index, and all
  *  low-poly builders share one random stream in this order, so reordering rows changes every tree. Append new species.
