@@ -1,3 +1,27 @@
+/**
+ * world/planet.ts — the Planet: terrain function, coarse mesh, water/atmosphere/clouds and world sub-systems
+ *
+ * Purpose:
+ *   Central world object. Owns the seeded noise, the CPU elevation/moisture/temperature model, the coarse six-face
+ *   terrain mesh, ocean, clouds, atmosphere, and the forest, chunk streamer, landmarks and river system.
+ *
+ * Operations:
+ *   - build(): (re)builds noise, GPU terrain uniforms (syncTerrain), atlas, coarse mesh, water/cloud/atmosphere, forest, landmarks.
+ *   - buildRivers(): builds RiverSystem and waterfalls in the background after build().
+ *   - elevationAt/elev/radiusAt/moistureAt/treeDensity/temp/coarseR: CPU terrain queries.
+ *   - update(dir, altitude): streams chunks and horizon-culls the six base faces. tick(dt): landmarks, atlas bake/fade, chunk fades.
+ *   - Re-exports smoothstep and frame from core/utilgeo.
+ *
+ * Usage:
+ *   Created in main.ts; build() on startup and on every world regeneration; update()/tick() per frame. Used by
+ *   nearly every world/ui/player module for terrain queries.
+ *
+ * Important:
+ *   - CPU elevationAt/treeDensity must mirror the GPU terrain shader (render/terrain.ts) exactly; change both together.
+ *   - build() disposes all geometries in the group and per-build materials; water/cloud/atmosphere/tree materials persist.
+ *   - Base mesh sits DROP (CFG.chunk.drop) below true terrain so chunks draw over it; coarseR() accounts for this.
+ *   - Rivers are built separately (buildRivers) to avoid blocking startup; landmarks/forest are rebuilt in build().
+ */
 import * as THREE from "three";
 import { Noise3 } from "../core/noise";
 import { S, CFG } from "../core/config";

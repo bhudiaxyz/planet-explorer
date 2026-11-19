@@ -1,10 +1,28 @@
+/**
+ * world/crystalgeo.ts — procedural geometry for the glowing crystal plant kinds
+ *
+ * Purpose:
+ *   Builds merged vertex-coloured geometries for four crystal kinds, each with near / mid / far tiers (see plants.ts):
+ *   crystal spikes (dry mid-high ground), geodes (dry mid altitude), ice crystals (near the snowline), ember shards
+ *   (hot, dry lowlands).
+ *
+ * Operations:
+ *   - crystalGeo / crystalLow / crystalTiny: spike clusters (leaf = true so tint drives the HDR emissive-style colour).
+ *   - geodeGeo(det, spikes) / geodeLow / geodeTiny: geodes.
+ *   - iceCrystalGeo(spires, shoots) / iceCrystalLow / iceCrystalTiny: ice crystals.
+ *   - emberGeo(n) / emberLow / emberTiny: ember shards.
+ *
+ * Usage:
+ *   Imported by plants.ts, which registers them as scatter layers. Called at geometry-build time, not per frame.
+ *
+ * Important:
+ *   - Deterministic: each builder uses a fixed rng seed, so shapes are identical across rebuilds.
+ *   - Uses geoutil's add/done/tiny; Low and Tiny variants are the mid and far LOD tiers.
+ */
 import * as THREE from "three";
 import { rng } from "../core/noise";
 import { CurrentPalette } from "../core/palette";
 import { N0, add, done, tiny, M } from "./geoutil";
-
-// Glowing crystals. Four kinds, each with near / mid / far tiers (see plants.ts): crystal spikes (dry mid-high ground),
-// geodes (dry mid altitude), ice crystals (near the snowline) and ember shards (hot, dry lowlands).
 
 // Crystal spikes: clusters of elongated octahedra; leaf=true so tint drives the emissive-style HDR color
 export function crystalGeo() {

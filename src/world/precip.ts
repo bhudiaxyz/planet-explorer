@@ -1,9 +1,29 @@
+/**
+ * world/precip.ts — GPU rain and snow particle system
+ *
+ * Purpose:
+ *   A THREE.Points cloud whose motion is computed entirely in the vertex shader. Seeds fall and wrap inside a
+ *   camera-anchored box, so the CPU only uploads a few uniforms per frame.
+ *
+ * Operations:
+ *   - Precip(N): builds N points with random per-point seeds (attribute `sd`) and the shader material
+ *   - Precip.pts / Precip.mat: the Points object (added to the scene by Sky) and its ShaderMaterial
+ *   - Precip.update(cam, up, snow, amt, alt): sets camera basis (right/up/forward), rain vs snow mode, colour and
+ *     opacity; hides the points when effectively invisible
+ *
+ * Usage:
+ *   Created by Sky (sky.ts) with a tier-scaled count; Sky.update() calls update() every frame.
+ *
+ * Important:
+ *   - Opacity fades to zero between 50 and 80 m altitude, and pts.visible is false below a ~0.02 amount.
+ *   - frustumCulled is false because the geometry positions are all zero; the box is built in the shader.
+ *   - Time comes from the shared U.uTime uniform; rain colour tracks CurrentPalette.rain, snow is white.
+ */
 import * as THREE from "three";
 import { U } from "../render/fx";
 import { CurrentPalette } from "../core/palette";
 const FW = new THREE.Vector3(),
     RR = new THREE.Vector3();
-// Rain/snow computed entirely in the vertex shader: seeds fall and wrap inside a camera-anchored box; the CPU only uploads a few uniforms.
 export class Precip {
     pts: THREE.Points;
     mat: THREE.ShaderMaterial;

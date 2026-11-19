@@ -1,3 +1,27 @@
+/**
+ * core/utilgeo.ts — cube-face lattice and sphere geometry helpers
+ *
+ * Purpose:
+ *   Math shared by chunks, ground cover, collision and generators: the fixed cube-face lattice anchored to the
+ *   planet, uniform random directions and tangent-plane projection.
+ *
+ * Operations:
+ *   - smoothstep(edge0, edge1, value): clamped Hermite interpolation.
+ *   - frame(direction, radius, cellSize, scratch?): fills Frame {face, normal, tangentU, tangentV, cellI, cellJ}.
+ *   - basisFromCode(code, normal, tangentU, tangentV): rebuilds the face basis from a face code (0..5).
+ *   - randomDir(rand, out): one rejection-sampling attempt at a uniform unit direction; returns success.
+ *   - tangentForward(forward, up): projects and normalises forward onto the tangent plane (pole-safe).
+ *
+ * Usage:
+ *   world/chunks, planet, vegetation (frame); world/collision (basisFromCode); forest, landmarks, spots
+ *   (randomDir); player (tangentForward); main, planet, forest, vegetation (smoothstep).
+ *
+ * Important:
+ *   - Pass a scratch Frame in per-frame code to avoid allocation; the returned object is the scratch itself.
+ *   - frame() and basisFromCode() must stay consistent (same tangent choice per face).
+ *   - randomDir makes one attempt per call and consumes 3 rand() values, so callers' random sequences depend on it.
+ *   - tangentForward mutates and returns its first argument.
+ */
 import * as THREE from "three";
 
 export const smoothstep = (edge0: number, edge1: number, value: number) => {

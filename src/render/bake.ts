@@ -1,3 +1,32 @@
+/**
+ * render/bake.ts — GPU "compute" via render-to-texture, with read-back
+ *
+ * Purpose:
+ *   Evaluates the GLSL terrain function (TERRAIN_GLSL / BIOME_GLSL) on the GPU into textures once per rebuild, chunk
+ *   load or lattice move, never per frame, so the CPU does not run noise for bulk work.
+ *
+ * Operations:
+ *   - setRenderer(r), canBake(): bind the renderer; canBake needs EXT_color_buffer_float.
+ *   - makeRT(w, h), draw(rt, mat), QUAD_VS, readRT(rt, w, h, cb): render-target helpers, fullscreen-quad draw,
+ *     (async when available) read-back.
+ *   - bakeChunk(rt, rtC, i0, j0, face, cell): bakes a chunk (elevation + normal) and its biome colour texture.
+ *   - bakePoints(dirs, mode, extra?): async bulk point sampling (modes 0-5: elevation/moisture, tree candidates,
+ *     coarse-mesh radius, analytic normals, biome colours, forest stand noise); returns Float32Array RGBA.
+ *   - Atlas: cube-map normal+AO and biome colour for the coarse planet, baked in 128-row strips, one per step().
+ *   - precompileBakes(camera, extra?): compiles every bake program in parallel at startup.
+ *
+ * Usage:
+ *   main.ts (setRenderer, precompileBakes at startup), world/chunks.ts (bakeChunk, makeRT), world/planet.ts and
+ *   world/forest.ts (bakePoints, Atlas), world/vegetation.ts (makeRT, draw, QUAD_VS, readRT).
+ *
+ * Important:
+ *   - CPU/GPU parity: results must match core/noise.ts, since physics and placement use the CPU version.
+ *   - Bake shaders are very expensive to compile on ANGLE/D3D (many inlined e3() calls); keep call counts low and
+ *     materials cached (getBakeMat caches per mode; uRes/uStep follow S.resolution).
+ *   - bakePoints shares a singleton geometry/scene and disposes its GL buffers per call to avoid GPU memory leaks.
+ *   - Atlas colour strips sample the already-baked normal face, so normals must be baked first (step() order).
+ *   - Uses module-level shared quad/state; not re-entrant across overlapping draws.
+ */
 import * as THREE from "three";
 import { T, TERRAIN_GLSL, BIOME_GLSL } from "./terrain";
 import { S, CFG } from "../core/config";

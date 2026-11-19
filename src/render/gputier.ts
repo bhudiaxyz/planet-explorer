@@ -1,3 +1,27 @@
+/**
+ * render/gputier.ts — GPU tier detection and device-class budgets
+ *
+ * Purpose:
+ *   Classifies the device as "high" | "medium" | "low" from the WebGL renderer string and input type, and exposes
+ *   tier-derived budget helpers. The tier gates shader defines, MSAA, shadow size, bloom, plant density, etc.
+ *
+ * Operations:
+ *   - gpuTier (live binding), setGpuTier(t), detectGpuTier(gl): regex/heuristic classifier of the unmasked renderer.
+ *   - isTouchDevice: primary pointer is touch (pointer: coarse, plus iPadOS desktop-mode detection).
+ *   - chunkFade(): [start, end] metre fade range for streamed detailed terrain.
+ *   - plantRadiusMul(): plant instance radius multiplier (1.0 high, 0.65 medium, 0.5 low).
+ *
+ * Usage:
+ *   main.ts detects and sets the tier once at startup, before world/render modules build anything; nearly every
+ *   render/* and world/* module reads gpuTier, and player/touch.ts reads isTouchDevice.
+ *
+ * Important:
+ *   - Default is "medium" until setGpuTier runs; code that bakes the tier into defines or program cache keys must
+ *     run after startup detection (treemat.ts creates its materials lazily for this reason).
+ *   - Order of regex checks in detectGpuTier matters (software rasterisers first, specific Mali/Adreno before
+ *     broad LOW); blocked or unknown renderers fall back to low on touch and medium on desktop.
+ *   - isTouchDevice is evaluated once at import time.
+ */
 export type GpuTier = "high" | "medium" | "low";
 
 export let gpuTier: GpuTier = "medium";

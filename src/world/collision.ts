@@ -1,3 +1,25 @@
+/**
+ * world/collision.ts — player-vs-obstacle collision on the sphere
+ *
+ * Purpose:
+ *   Keeps the walking player out of everything visible and solid (trees, landmarks, shrubs, rocks) and lifts them onto
+ *   walkable tops. Obstacles are elliptical footprints at unit directions on the planet.
+ *
+ * Operations:
+ *   - Obs: obstacle type. mode 0 solid pillar, mode 1 solid unless feet are above ~its top, mode 2 walkable dome.
+ *   - Collider.resolve(dir, feet, rad): pushes dir out of solid obstacles (2 iterations) and returns the ground boost (m).
+ *   - Collider.dirty: set true to force a rebuild of the nearby obstacle list.
+ *
+ * Usage:
+ *   Constructed in main.ts and used by player.ts each frame while walking. The list is rebuilt lazily from forest.collect(),
+ *   landmarks.obs and scatter layers when the player moves > 4 m, the scatter version changes or the forest lists change.
+ *
+ * Important:
+ *   - Shrubs/rocks come from a GPU read-back of the near-tier placement texture (layer.pix), so the CPU never re-derives
+ *     GPU hashes. Scale/yaw formulas in fromLayer() must stay identical to the vertex shader (rock kind 3: s = .3+1.6*h1).
+ *   - All distance tests use an 18 m radius around the player; the lattice scan window is derived from it.
+ *   - refresh() allocates (clones) per obstacle; it is amortised by the 4 m move threshold.
+ */
 import * as THREE from "three";
 import type { Planet } from "./planet";
 import type { Scatter } from "./vegetation";

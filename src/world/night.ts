@@ -1,3 +1,24 @@
+/**
+ * world/night.ts — night-time sky and ground effects
+ *
+ * Purpose:
+ *   Additive, mostly GPU-driven effects that appear in the dark: aurora curtains, fireflies, bioluminescent motes
+ *   and the galactic band of stars.
+ *
+ * Operations:
+ *   - Aurora: additive curtain shell around the camera, strongest at night near the poles; update(cam, up, intensity, time).
+ *   - Fireflies: world-anchored 80 m cube of motes around the camera that hover above the terrain; update(...).
+ *   - Bioluminescence: glowing motes (night, moist ground) around the camera; update(dt, cameraPosition).
+ *   - GalacticBand: static point band at r = 999 (core + Great Rift); rotated by the caller with time of day.
+ *
+ * Usage:
+ *   Constructed in main.ts and updated per frame with night/day factors from the sky. Counts scale with gpuTier.
+ *
+ * Important:
+ *   - Fireflies/Bioluminescence shaders sample the shared terrain function (T, TERRAIN_GLSL), so they stay in
+ *     parity with the real ground height.
+ *   - Opacity is driven by the shared U.uNight uniform (bioluminescence, galactic band); points use frustumCulled = false.
+ */
 import * as THREE from "three";
 import { T, TERRAIN_GLSL } from "../render/terrain";
 import { U } from "../render/fx";

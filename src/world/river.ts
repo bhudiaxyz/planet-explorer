@@ -1,3 +1,31 @@
+/**
+ * world/river.ts — procedural rivers and lakes: path generation, ribbon mesh and water shader
+ *
+ * Purpose:
+ *   Generates rivers that run downhill from high, moist sources to the sea (or a terminal lake), plus lakes and
+ *   mountain tarns, and renders them as one ribbon/sheet mesh with a single water material.
+ *
+ * Operations:
+ *   - RiverSystem.build(planet): async factory; yields during path generation so the browser can repaint. Exposes
+ *     mesh, paths (world-space polylines) and names
+ *   - Path stage (_generatePaths): source search, uphill climb, main rivers, tributaries, lake basins
+ *     (_findBasin), meanders (addMeanders) and Chaikin smoothing (chaikin); clipAtLakes ends rivers at lakes
+ *   - _buildGeometry: ribbon with width per archetype, steepness attribute, and flat spherical-cap lake sheets
+ *   - _buildMaterial: RIVER_FRAG shader (banks, flow, foam, rapids), MeshBasicMaterial on low tier
+ *   - dispose(): frees geometry/material and removes the mesh
+ *
+ * Usage:
+ *   planet.ts calls RiverSystem.build() on each planet (re)build, adds the mesh to the planet group and reads paths
+ *   for waterfalls. spots.ts reads paths/names for river teleport entries.
+ *
+ * Important:
+ *   - Separate rng streams (S.seed + 9999, +3131, +4242, ...) keep existing rivers unchanged when features are added.
+ *   - Terrain is the source of truth: paths come from planet.elevationAt, so rebuild after any terrain change.
+ *   - Shader colour grading must match the ocean (render/fx.ts WATER_DEEP / WATER_GRADE_GLSL / U.uWater).
+ *   - gpuTier scales source and tributary counts and path lengths, disables mountain streams on low, and picks
+ *     the basic material on low and HI shader features on high.
+ *   - Module-level _scratch vectors are reused; the build is not reentrant.
+ */
 import * as THREE from "three";
 import type { Planet } from "./planet";
 import { S, CFG } from "../core/config";

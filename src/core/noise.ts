@@ -1,3 +1,25 @@
+/**
+ * core/noise.ts — seeded PRNG and 3D gradient noise
+ *
+ * Purpose:
+ *   Deterministic randomness for the whole world: a small seeded RNG and Perlin-style 3D noise with fbm. This is
+ *   the CPU reference of the terrain height field.
+ *
+ * Operations:
+ *   - rng(seed): mulberry32-style generator returning a () => [0,1) function.
+ *   - Noise3: seeded permutation table (512 entries); get(x,y,z) improved-Perlin noise; fbm(...) normalised
+ *     octave sum (octaves, lacunarity, persistence).
+ *
+ * Usage:
+ *   rng is used by world generators (forest, landmarks, spots, river, trees, plant/rock/crystal geometry, player).
+ *   Noise3 is built by world/planet.ts on rebuild; render/terrain.ts uploads its permutation to the GPU.
+ *
+ * Important:
+ *   - CPU/GPU parity: the GLSL noise in render/terrain.ts must match Noise3.get/fbm exactly (same permutation,
+ *     fade, gradient set), since physics, trees and placement sample the CPU version.
+ *   - rng mutates its closed-over seed; the same seed always yields the same sequence, so changing the call order
+ *     changes generated worlds.
+ */
 export function rng(seed: number) {
     return () => {
         seed |= 0;

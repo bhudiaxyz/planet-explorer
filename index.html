@@ -1,4 +1,21 @@
 <!doctype html>
+<!--
+  index.html — single page shell for Planet Explorer.
+
+  Purpose:
+    Provides the page styles, the loading splash and HUD elements, then loads the app through Vite.
+
+  Operations:
+    - Defines the splash (#ls, #ls-tip, #ls-enter, #ls-controls) and the #hud element that main.ts updates.
+    - Loads /src/main.ts as an ES module (last script tag).
+
+  Usage:
+    Served by Vite (npm run dev) and bundled by `npm run build` as the entry HTML.
+
+  Important:
+    - Element ids are looked up by main.ts and player/touch.ts; renaming them breaks startup.
+    - The renderer canvas is appended to document.body by main.ts, not declared here.
+-->
 <html>
 
 <head>

@@ -1,3 +1,21 @@
+/**
+ * world/footprints.ts — snow footprints and player foot position uniform
+ *
+ * Purpose:
+ *   Feeds the terrain shader a ring buffer of recent footprints (snow only) and the player's current ground position.
+ *
+ * Operations:
+ *   - Footprints.update(dt): ages prints (fade over 90 s, stored in U.uFoot[i].w), publishes U.uPl (foot position; far
+ *     away when not walking), and every ~0.9 m of walking in snow (temp < S.snowline) stamps a left/right print.
+ *
+ * Usage:
+ *   Created in main.ts (skipped on the low GPU tier) and updated once per frame.
+ *
+ * Important:
+ *   - FOOTPRINT_COUNT (48) must match the size of the U.uFoot uniform array in render/fx.ts.
+ *   - U.uPl also drives grass bending away from the player, so it must be updated even when no print is stamped.
+ *   - No prints while airborne (verticalVelocity != 0).
+ */
 import * as THREE from "three";
 import { U } from "../render/fx";
 import { S } from "../core/config";

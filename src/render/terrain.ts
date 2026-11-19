@@ -1,3 +1,28 @@
+/**
+ * render/terrain.ts — shared terrain-function uniforms and GLSL library
+ *
+ * Purpose:
+ *   Puts the terrain height field and biome colouring on the GPU in a form every shader can include. The CPU noise
+ *   permutation tables are uploaded as a texture, so the GLSL height field is the same function the CPU samples for
+ *   physics, trees and placement.
+ *
+ * Operations:
+ *   - T: shared uniform set (permutation texture, noise params, mountains, sea, amplitude, snowline, radius, colours).
+ *   - syncTerrain(settings, noise1, noise2): copies settings, both permutation tables and biomeColors into T.
+ *   - HELPERS_GLSL: noise-free helpers (sm_, hs, basis); TERRAIN_GLSL: Perlin pn, fb, e3 (elevation), vegetation
+ *     density fields; BIOME_GLSL: biome() colour (beach, rock, snow, ice).
+ *
+ * Usage:
+ *   world/planet.ts calls syncTerrain on every rebuild. fx.ts, bake.ts, treemat.ts, aerialfx.ts, world/life.ts,
+ *   night.ts and vegetation.ts spread/bind T and include the GLSL strings in their shaders.
+ *
+ * Important:
+ *   - CPU/GPU parity: pn/fb/e3 must match core/noise.ts (Noise3.get/fbm); change both or neither.
+ *   - T entries are shared by reference; update .value only.
+ *   - Include HELPERS_GLSL alone where the noise is not needed: the full library is costly to compile on ANGLE/D3D.
+ *   - fb() uses a constant loop bound (8) with break deliberately; octaves are capped at 8.
+ *   - The two permutation tables (rows 0 and 1) are different noise fields: row 0 for height, row 1 for masks/moisture.
+ */
 import * as THREE from "three";
 import type { Noise3 } from "../core/noise";
 import { biomeColors } from "../core/palette";

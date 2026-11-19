@@ -1,3 +1,30 @@
+/**
+ * render/fx.ts — shared shader uniforms, GLSL snippets and material patches
+ *
+ * Purpose:
+ *   Central place for everything shaders share: the global uniform set U, reusable GLSL strings, and the functions
+ *   that patch three.js MeshStandardMaterials (terrain, tree wind, water) through onBeforeCompile.
+ *
+ * Operations:
+ *   - U: shared uniforms (time, wind, sun, day factor, clouds, wetness, snowfall, water colour, tree LOD uLod, 3D noise
+ *     texture uN3, atlas cube maps, chunk/player/footprint data). Mutated by main/world code, bound by reference.
+ *   - GLSL snippets: NOISE, IGN, CLOUD_GLSL, TINT_GLSL, SURF_GLSL, WATER_GRADE_GLSL, WATER_DEEP.
+ *   - terrainMat(cut, gpu, extraUniforms, baked): terrain material for chunks (GPU_H, vertex-displaced from baked
+ *     textures) and the coarse base mesh (per-vertex or BASE_COL); per-pixel biome, snow, wetness, puddles, caustics.
+ *   - wind(material, k): instanced-vertex tree sway (bend, canopy rustle, leaf flutter, palm fronds via defines).
+ *   - waterFx(material): wave trains, foam, Fresnel, plus glitter/subsurface on high.
+ *
+ * Usage:
+ *   world/* modules (planet, chunks, forest, sky, river, precip, life, night, vegetation, footprints), ui/map.ts,
+ *   render/treemat.ts and render/aerialfx.ts. Materials compile lazily on first draw; U is updated per frame.
+ *
+ * Important:
+ *   - Uniforms are shared objects: assign .value, never replace a U entry, or compiled programs lose the link.
+ *   - Program variants depend on gpuTier (defines + customProgramCacheKey), so gpuTier must be set before first use.
+ *   - Terrain GLSL pulls in the full noise library: shader compile cost on ANGLE/D3D is high, so avoid adding calls.
+ *   - The GLSL height field must stay identical to core/noise.ts (CPU) for physics/placement parity.
+ *   - The scene renders into a linear, non-tone-mapped HDR target (see postfx.ts); grade colours in linear space.
+ */
 import * as THREE from "three";
 import { gpuTier, chunkFade } from "./gputier";
 import { T, TERRAIN_GLSL, BIOME_GLSL } from "./terrain";

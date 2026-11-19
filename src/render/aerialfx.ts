@@ -1,14 +1,34 @@
+/**
+ * render/aerialfx.ts — full-screen aerial haze / mist / AO / sun-shaft pass
+ *
+ * Purpose:
+ *   One depth-reading post pass (a ShaderPass) between the scene render and bloom. Each extra is a compile-time
+ *   define, so lower tiers compile exactly the haze-only shader. Built from a ShaderMaterial (not a plain shader
+ *   object): ShaderPass clones plain uniform objects, which froze the shared U.uSun / U.uDayF at their startup values,
+ *   so the haze colour never followed the day/night cycle.
+ *
+ * Operations:
+ *   - AerialPass(depthTexture, {mist, ao, shafts, grade}): defines MIST (dawn/dusk valley mist, sun haze, golden/blue
+ *     grade), AO (8-tap depth AO), SHAFTS (12-tap god rays), DEPTHGRADE (distant desaturation).
+ *   - setCamera(near, far): updates the linear-depth uniforms.
+ *   - update(camera, w, h): per frame, sets uCam, uInvPV, uTexel and the sun screen position/strength (uSunUv).
+ *   - .pass: the ShaderPass to add to the composer.
+ *
+ * Usage:
+ *   Created by PostFX (render/postfx.ts) with options derived from gpuTier; added to the composer and updated each
+ *   frame on medium/high only (skipped entirely on low).
+ *
+ * Important:
+ *   - Shares uniform objects with fx.ts (U.uSun, U.uDayF) and terrain.ts (T.uR, T.uAmp) by reference; keep them shared.
+ *   - Must read the scene target depth texture (PostFX sceneTarget), not a composer ping-pong buffer.
+ *   - Fog density derives from uFar, so call setCamera when the far plane changes.
+ *   - AO and shafts are high-desktop only (many depth taps per pixel).
+ */
 import * as THREE from "three";
 import { ShaderPass } from "three/examples/jsm/postprocessing/ShaderPass.js";
 import { U } from "./fx";
 import { T } from "./terrain";
 
-/**
- * Aerial haze + (medium/high) dawn/dusk valley mist + (high) ambient occlusion and sun shafts, in one full-screen pass
- * that already reads scene depth. Each extra is a compile-time define, so lower tiers compile exactly the haze-only shader.
- * Built from a ShaderMaterial (not a plain shader object): ShaderPass clones plain uniform objects, which froze the shared
- * U.uSun / U.uDayF at their startup values — the haze colour never followed the day/night cycle.
- */
 export class AerialPass {
     pass: ShaderPass;
     readonly uniforms: Record<string, { value: any }>;

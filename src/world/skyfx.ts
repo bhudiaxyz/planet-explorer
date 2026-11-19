@@ -1,3 +1,27 @@
+/**
+ * world/skyfx.ts — cloud shell and sky dome shader meshes
+ *
+ * Purpose:
+ *   The two sky-surface effects that are pure shader meshes: a planet-anchored drifting cloud layer and a
+ *   camera-following gradient dome with sun halo and rainbow. Driven by the state held in Sky (sky.ts).
+ *
+ * Operations:
+ *   - CloudShell: ShaderMaterial on a sphere above the peaks. make(R) builds the mesh, update(cam, sky) feeds
+ *     camera position, fog colour, day factor and space factor, and hides it when coverage (U.uCov) is low
+ *   - SkyDome: BackSide dome (radius 17000) with horizon-matched gradient, sun glow and primary/secondary rainbow.
+ *     update(cam, up, sky, dt) moves it to the camera and computes uBow from rain memory, cloud, and sun elevation
+ *
+ * Usage:
+ *   CloudShell is owned by Planet (planet.clouds; mesh built on planet rebuild) and updated per frame from main.ts.
+ *   SkyDome is created and updated per frame in main.ts after sky.update().
+ *
+ * Important:
+ *   - Clouds sample shared uniforms (U.uCT, uCov, uSun, uN3) and GLSL (NOISE, CLOUD_GLSL) from render/fx.ts, so
+ *     they must stay in step with any other consumer of the same cloud density.
+ *   - SkyDome horizon colour equals sky.bg (the fog colour) so distant terrain melts into it; it renders first
+ *     (renderOrder -100, no depth test).
+ *   - Silver lining is compiled only on the high GPU tier (HI define).
+ */
 import * as THREE from "three";
 import { U, NOISE, CLOUD_GLSL } from "../render/fx";
 import type { Sky } from "./sky";

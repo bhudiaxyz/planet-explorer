@@ -1,3 +1,27 @@
+/**
+ * core/palette.ts — per-world colour palettes
+ *
+ * Purpose:
+ *   Defines the WorldPalette shape (biome, sky, atmosphere, rock, landmark, plant and tree colours) and one
+ *   palette per solar-system body, plus the currently active palette.
+ *
+ * Operations:
+ *   - WorldPalette: the interface; EARTH, MERCURY ... HAUMEA: concrete palettes.
+ *   - PALETTES: name -> palette map (used for the GUI selector).
+ *   - CurrentPalette: live binding to the active palette (starts as EARTH).
+ *   - biomeColors: stable mutable copy of the six biome colours.
+ *   - setPalette(p): switches CurrentPalette and copies biome colours into biomeColors.
+ *
+ * Usage:
+ *   ui/gui.ts calls setPalette on selection (then the world is rebuilt). world/* generators (sky, trees, plants,
+ *   rocks, crystals, landmarks, precip, planet) and render/fx.ts read CurrentPalette; render/terrain.ts and the GUI
+ *   bind to biomeColors.
+ *
+ * Important:
+ *   - Always read CurrentPalette at use time (it is reassigned); do not cache it across a palette swap.
+ *   - setPalette only updates colours; consumers must be rebuilt/resynced to show them.
+ *   - Array lengths matter: islandTurf 4, islandRock 4, islandFoliage 5, treeLeavesHSL/treeBark one per species.
+ */
 export interface WorldPalette {
     // terrain biome
     sand: string;

@@ -1,3 +1,26 @@
+/**
+ * world/life.ts — ambient life and weather/sky events (birds, meteors, waterfall mist, lightning, butterflies)
+ *
+ * Purpose:
+ *   Everything is GPU-driven: positions come from time + per-instance seeds in the vertex shader, so there is no
+ *   per-frame CPU work beyond a handful of uniforms, and each effect is a single draw call.
+ *
+ * Operations:
+ *   - Birds: instanced flocks (gulls on coast, crows over forest, geese on open land) crossing the view; update() daytime.
+ *   - ShootingStars: streak quads on a 9 km shell around the camera; night only.
+ *   - buildWaterfalls(paths, R, maxFalls): one-off spray sprites at steep river drops; returns a Group or null.
+ *   - Lightning: jagged bolt built in the vertex shader during heavy rain; update() returns the flash strength (0..1).
+ *   - Flutter: butterflies over meadows and falling leaves under trees; daylight, low altitude, high tier only.
+ *
+ * Usage:
+ *   main.ts creates Birds/ShootingStars/Lightning (not on low)/Flutter (high only) and updates them per frame. Planet
+ *   .buildRivers() calls buildWaterfalls and adds the group to the planet (disposed on rebuild).
+ *
+ * Important:
+ *   - Shaders sample the shared terrain function (render/terrain.ts T / TERRAIN_GLSL) so effects hover over the real ground.
+ *   - Lightning's flash must be applied by the caller AFTER sky.update, which rebuilds bg/fog/ambient each frame.
+ *   - Hashes are sin-free (Hoskins) because sin() hashes lose precision in float32 on some GPUs.
+ */
 import * as THREE from "three";
 import { T, TERRAIN_GLSL } from "../render/terrain";
 import { U } from "../render/fx";

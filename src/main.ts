@@ -1,3 +1,31 @@
+/**
+ * main.ts — application entry point: renderer setup, staged startup, per-frame loop.
+ *
+ * Purpose:
+ *   Detects the GPU tier, configures the WebGLRenderer and quality settings (S), then builds the planet and all
+ *   systems in a 5-step loading sequence and drives the single render loop. Everything else hangs off this file.
+ *
+ * Operations:
+ *   - Module level: WebGL 2 probe + detectGpuTier/setGpuTier, tier-based S.resolution/renderScale/octaves, renderer,
+ *     scene, camera, context-loss listeners.
+ *   - Startup async IIFE, steps: 1 Building terrain (precompileBakes, Planet.build/buildRivers), 2 Setting up world
+ *     (Player, Sky, Scatter, Collider, PostFX, night/life effects), 3 Scouting locations (findSpots, setupGui,
+ *     setupTouch), 4 Compiling shaders (compileAsync against postFX.sceneTarget), 5 Warming up (one postFX.render).
+ *   - rebuild(respawn): debounced (120 ms), chained planet rebuild; also used for context-loss recovery.
+ *   - renderer.setAnimationLoop: sub-stepped player update, sky/planet/effects updates, shared uniforms U, HUD, map.
+ *   - Splash handling: showSplash/hideSplash, pointer-lock resume; startup errors are shown on the loading screen.
+ *
+ * Usage:
+ *   Loaded by index.html as <script type="module" src="/src/main.ts">; runs once on page load. Nothing imports it.
+ *
+ * Important:
+ *   - Startup order matters (see DESIGN.md §2): the animation loop must be running and one frame rendered before the
+ *     splash is revealed; compileAsync must target postFX.sceneTarget so the programs warmed are the ones used.
+ *   - Tier detection and renderer creation run at module level, outside the startup try/catch.
+ *   - rebuild() calls are chained because Planet.build awaits GPU bakes; concurrent builds would duplicate meshes.
+ *   - renderer.debug.checkShaderErrors is only on in dev: it forces synchronous shader compiles.
+ *   - Movement is sub-stepped in <=33 ms slices; the per-frame loop must not allocate (scratch vectors).
+ */
 import * as THREE from "three";
 import { Planet } from "./world/planet";
 import { Sky } from "./world/sky";

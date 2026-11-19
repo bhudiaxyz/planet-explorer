@@ -1,4 +1,23 @@
-// GPU tier classifier self-check against real device renderer strings. Run: npm run test:tiers
+/**
+ * scripts/gputier.test.mts — GPU tier classifier self-check against real device renderer strings.
+ *
+ * Purpose:
+ *   Regression table for render/gputier.ts: given a WebGL renderer string and a faked browser environment, checks the
+ *   tier ("low" | "medium" | "high") returned by detectGpuTier and, for trackpad iPads, isTouchDevice.
+ *
+ * Operations:
+ *   - setEnv(): fakes window, matchMedia and navigator (touch points, platform, UA) before each case.
+ *   - gl(): minimal fake WebGL context exposing the debug renderer info and ASTC extension.
+ *   - load(): re-imports src/render/gputier.ts with a unique query so module-level state is re-evaluated per case.
+ *   - cases table: desktop NVIDIA/AMD/Intel, Apple, iPad sizes ("@WxH" in label sets screen), Adreno/Mali, blocked ext.
+ *
+ * Usage:
+ *   npm run test:tiers  (node --experimental-strip-types). Prints ok/FAIL per case; exits non-zero on any failure.
+ *
+ * Important:
+ *   - Add new devices as rows in cases: [label, renderer, coarse, touchPoints, platform, astc, expected].
+ *   - Not part of the Vite build; runs under Node with type stripping, so no TS-only syntax such as enums.
+ */
 import assert from "node:assert/strict";
 const setEnv = (coarse: boolean, touchPoints = 0, platform = "Win32", ua = "Mozilla/5.0") => {
     (globalThis as any).window = coarse ? { ontouchstart: null } : {};

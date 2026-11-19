@@ -1,3 +1,21 @@
+/**
+ * core/names.ts — procedural name pools
+ *
+ * Purpose:
+ *   Static data: sci-fi name lists for landmarks, rivers and spots, kept in one place.
+ *
+ * Operations:
+ *   - LANDMARK_NAMES_BY_KIND: per-landmark-kind name pools (Record<kind, names[]>).
+ *   - RIVER_NAMES: pool for rivers.
+ *   - SPOT_NAMES: pool for spots.
+ *
+ * Usage:
+ *   world/landmarks.ts, world/river.ts and world/spots.ts index into these when generating a world (on rebuild).
+ *
+ * Important:
+ *   - Selection is index-based and seeded (see notes below), so reordering or resizing a pool changes which name
+ *     each existing seed produces.
+ */
 // All procedural name pools in one place.
 // Landmark names are picked by (seed + instance) % pool.length per kind.
 // River names are picked by Math.abs(seed + index × 7) % RIVER_NAMES.length.

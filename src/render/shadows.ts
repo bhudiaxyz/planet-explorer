@@ -1,13 +1,33 @@
+/**
+ * render/shadows.ts — sun and moon shadow rig
+ *
+ * Purpose:
+ *   Configures and drives the directional-light shadow maps: one ortho frustum per light follows the camera, snapped
+ *   to shadow-texel steps (no crawling) and refreshed at a limited rate instead of every frame.
+ *
+ * Operations:
+ *   - Shadows(renderer, sunLight, moonLight?): sets map size, frustum half-extent, update rate, biases and PCF radius
+ *     by gpuTier / isTouchDevice; on high desktop patches the three PCF chunk for distance-scaled softness.
+ *   - update(dt, alt, dayF, sun, cam): per frame; altitude hysteresis (on below 150 m, off above 190 m), fades shadow
+ *     intensity, repositions lights, and sets needsUpdate flags at the tier Hz.
+ *
+ * Usage:
+ *   Constructed in main.ts startup (before the scene compiles) and updated every frame.
+ *
+ * Important:
+ *   - castShadow stays true all session: toggling it recompiles every lit material. Fade shadow.intensity instead.
+ *   - Manual shadow updates (autoUpdate = false); needsUpdate is set at construction so the first render allocates
+ *     every light map.
+ *   - Snap step must use the real per-light map size (the moon map is half size).
+ *   - The ShaderChunk patch must run before any lit material compiles; it warns and skips if the chunk changed.
+ *   - The shadowed range is only the +-half frustum around the camera, and is smaller on the low tier.
+ */
 import * as THREE from "three";
 import { CFG } from "../core/config";
 import { gpuTier, isTouchDevice } from "./gputier";
 const X = new THREE.Vector3(1, 0, 0),
     Y = new THREE.Vector3(0, 1, 0);
 
-/**
- * Sun + moon shadow rig. One ortho shadow frustum per light follows the camera, snapped to shadow-texel steps (no crawling) and refreshed at CFG.shadow.hz instead of every frame.
- * `castShadow` stays true for the whole session (toggling it recompiles every material); shadow *intensity* fades in/out instead.
- */
 export class Shadows {
     private on = false;
     private timer = 0;

@@ -1,3 +1,29 @@
+/**
+ * player/player.ts — player state, input handling and movement in walk, drone and fly modes.
+ *
+ * Purpose:
+ *   Owns the camera's position and orientation on the spherical planet. Reads keyboard, mouse-look and the virtual
+ *   touch inputs, and moves the camera each frame according to the current mode.
+ *
+ * Operations:
+ *   - Player class: mode ("walk" | "fly" | "drone"), dir, up, forward, pitch, alt, keys, touch* input fields.
+ *   - spawn(): picks a seeded temperate land spot; warpTo(dir): teleport to a direction (used by the locations panel).
+ *   - toggle(): cycles walk -> drone -> fly -> walk; land(): descend via drone and snap to ground.
+ *   - look(dx, dy): mouse/touch look; refresh(): re-clamp ground height after a planet rebuild.
+ *   - update(dt): per-mode movement, gravity/jump, collision via col (Collider), terrain following, camera pose.
+ *
+ * Usage:
+ *   Created in main.ts (camera, planet, canvas); main sets player.col and calls update() in the frame loop
+ *   (sub-stepped).
+ *   Also used by touch.ts (writes touch* fields, calls look/toggle/land), ui/gui.ts, ui/map.ts and world/footprints.ts.
+ *
+ * Important:
+ *   - Constructor registers global keydown/keyup/mousemove listeners (F toggle, L land, [ ] time step).
+ *   - update() uses module-level scratch vectors: no per-frame allocation, so keep it that way.
+ *   - In walk mode `dir` is the unit direction from planet centre; fly/drone use world-space position vectors.
+ *   - Fly mode orients the camera directly (roll allowed); walk/drone rebuild orientation from forward + pitch.
+ *   - Teleports and mode changes reset planet.forest.last and mark the collider dirty so caches rebuild.
+ */
 import * as THREE from "three";
 import { Planet } from "../world/planet";
 import { S, stepTime } from "../core/config";

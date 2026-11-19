@@ -1,3 +1,32 @@
+/**
+ * world/trees.ts — tree species catalog and procedural tree geometry (detailed, medium and low-poly tiers)
+ *
+ * Purpose:
+ *   Defines every tree species as a geometry builder plus shape metadata, and produces the merged geometries that
+ *   forest.ts instances. Tiers: q = 1 detailed (with polygonal leaves for species with leafSize), q = 0.5 medium,
+ *   and a separate low-poly builder per species for the distance tier.
+ *
+ * Operations:
+ *   - SPECIES: one row per species (build, low, trunk radius, lean, width/height, size range, decid, leafSize)
+ *   - SP: species name -> index map (typed, so a misspelt name is a compile error)
+ *   - VARIANT: base species index -> shape-variant row (pine2, oak2, birch2, spruce2), high tier only
+ *   - treeGeos(seed, q): geometries for all species at detail q (leaf-covered when q > 0.7)
+ *   - lowGeos(seed): low-poly geometries for all species
+ *   - getLeafColors(): base foliage colours from CurrentPalette (plus derived colours for extra species)
+ *   - treeMats: re-exported from render/treemat
+ *
+ * Usage:
+ *   forest.ts calls treeGeos/lowGeos (deferred via setTimeout during forest build) and getLeafColors on palette
+ *   change; it reads SPECIES, SP and VARIANT for placement and collision. Runs on planet build/rebuild, not per frame.
+ *
+ * Important:
+ *   - SPECIES order is load-bearing: detailed seeds use the row index and all low-poly builders share ONE random
+ *     stream in row order. Reordering changes every tree; append new species at the end.
+ *   - q = 1 and q = 0.5 use the same seed, so tiers share height and lean and match in silhouette.
+ *   - Leaves use their own rng stream so crown shape is unchanged; leaf count is capped by LEAF_BUDGET.
+ *   - Variant rows (index >= BASE_SPECIES = 14) are built only on the high tier; elsewhere they are an empty
+ *     placeholder geometry.
+ */
 import * as THREE from "three";
 import { rng } from "../core/noise";
 import { CurrentPalette } from "../core/palette";

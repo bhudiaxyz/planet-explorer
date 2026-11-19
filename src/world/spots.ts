@@ -1,3 +1,29 @@
+/**
+ * world/spots.ts — scouting/teleport location finder
+ *
+ * Purpose:
+ *   Picks named points of interest on the planet for the map and teleport GUI: fixed spots, terrain archetypes found
+ *   by scanning random surface points, landmarks and rivers.
+ *
+ * Operations:
+ *   - findSpots(planet, riversReady?): async scan of up to 4000 random points; scores each against FEATURES
+ *     (Beach, Mountain Peak, Canyon, Island, Coastal Cliffs, Open Plains, Snow Field, Desert, Lagoon, Rainforest,
+ *     Dense Forest, Crystal Field), keeping up to 3 candidates per feature at least ~30 degrees apart
+ *   - Falls back to a rescan and then cloned offsets so every feature gets 3 candidates
+ *   - Appends fixed spots (poles, auroras, equator marks), landmarks and river entries
+ *   - Types: Spot (name, icon, dir, group), Feature
+ *
+ * Usage:
+ *   main.ts calls findSpots at startup and again after a planet rebuild; ui/gui.ts and ui/map.ts consume the Spot
+ *   list. Yields to the event loop every ~4 ms so it does not block rendering.
+ *
+ * Important:
+ *   - Pass riversReady so scanning runs concurrently with river generation; river spots are read from
+ *     planet.riverSystem only after awaiting it.
+ *   - Dense Forest scoring reads module-level _planet/_tmp set by findSpots, so concurrent calls would share state.
+ *   - The scan uses rng(S.seed ^ 0xdeadbeef), so results are deterministic per seed.
+ *   - Landmarks need planet.landmarks to be built already.
+ */
 import * as THREE from "three";
 import type { Planet } from "./planet";
 import { LANDMARK_ICON } from "./landmarks";

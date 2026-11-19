@@ -1,3 +1,28 @@
+/**
+ * render/treemat.ts — tree materials for the three LOD tiers
+ *
+ * Purpose:
+ *   Builds the instanced tree MeshStandardMaterials: tiers 0 (detailed), 1 (medium) and 2 (low-poly). Each tier is
+ *   patched with wind, screen-door LOD cross-fade, per-tree tint, canopy shading, foliage translucency and snow.
+ *
+ * Operations:
+ *   - treeMats(): lazily created array of the three materials.
+ *   - treeMat(tier) (internal): tier 0 = LEAF_FLUTTER + FROND_SWAY + CANOPY_SWAY, tier 1 = FROND_SWAY + CANOPY_SWAY,
+ *     tier 2 = no wind and adds a vertex cull; the HI define (high tier, tiers 0-1) adds cloud shadows and stronger
+ *     leaf transmission.
+ *
+ * Usage:
+ *   Re-exported by world/trees.ts and used by the tree instance meshes; compiled on first draw.
+ *
+ * Important:
+ *   - Created on first use, not at import: the HI define depends on gpuTier, which main.ts sets after module import.
+ *   - Tiers cross-fade with strictly complementary dither over uLod (H0,H1,M0,M1) (U.uLod, from CFG.treeLod):
+ *     tier0 keeps noise >= a, tier1 keeps b <= noise < a, tier2 keeps noise < b: no holes, double coverage or pops.
+ *   - Foliage vertices have aLeaf = 1 and a neutral colour; per-tree hue comes from instanceColor. Trunks (aLeaf = 0)
+ *     ignore it.
+ *   - The low-poly tier has no wind, which saves sin/cos work on ~1 M vertices per frame.
+ *   - customProgramCacheKey must stay in sync with the tier/HI variants.
+ */
 import * as THREE from "three";
 import { wind, U, IGN, TINT_GLSL, NOISE, CLOUD_GLSL } from "./fx";
 import { gpuTier } from "./gputier";

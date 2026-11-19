@@ -1,3 +1,30 @@
+/**
+ * render/postfx.ts — post-processing chain and adaptive resolution
+ *
+ * Purpose:
+ *   Owns the EffectComposer: HDR scene render, NaN/Inf sanitiser, aerial haze, bloom and tone-map/output. Also scales
+ *   the pixel ratio to hold frame rate.
+ *
+ * Operations:
+ *   - PostFX(renderer, scene, camera): builds the chain; exposes composer, bloom, aerial and sceneTarget.
+ *   - requestScale(scale): asks for a pixel ratio, applied at the start of the next render().
+ *   - resize(): re-sizes renderer and composer, capping the pixel ratio for a lower-DPR screen.
+ *   - render(dt): applies pending scale, updates the aerial pass, renders, then runs adaptive resolution
+ *     (downscale after sustained slow frames, cautious upscale, frame-cap detection via useless-downscale counting).
+ *   - ScenePass (internal): renders the scene into the MSAA + depth-texture target and copies it via the sanitiser.
+ *
+ * Usage:
+ *   main.ts creates it at startup and calls render(dt) every frame (instead of renderer.render) and resize() on
+ *   window resize; ui/gui.ts references its type (render scale control).
+ *
+ * Important:
+ *   - Programs must be compiled against sceneTarget (linear, no tone map), not the canvas.
+ *   - Sanitiser exists because one NaN/Inf pixel in a float target is smeared by bloom into a black frame.
+ *   - Scene target has MSAA + depth texture; composer ping-pong buffers are plain, so aerial reads stable depth.
+ *   - Resolution changes are applied right before drawing: resizing the canvas clears it (blank-frame flash).
+ *   - Tier gating: low tier has no aerial or bloom pass and no MSAA; AO and shafts are high-desktop only.
+ *   - Adaptive scale is deliberately slow (react to sustained load only) since each step reallocates every target.
+ */
 import * as THREE from "three";
 import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";

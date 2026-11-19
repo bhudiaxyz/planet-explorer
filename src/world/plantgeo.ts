@@ -1,3 +1,28 @@
+/**
+ * world/plantgeo.ts — procedural geometry builders for ground-cover plants (grass, shrubs, ferns, cacti, logs...)
+ *
+ * Purpose:
+ *   Builds the small merged BufferGeometries that vegetation.ts instances across the terrain. Each plant has a
+ *   detailed near mesh, a low-poly mid mesh and a "tiny" far-tier mesh. Geometry only: placement and colour
+ *   variation live in plants.ts (catalog) and the vegetation shader.
+ *
+ * Operations:
+ *   - grassGeo(blades, segs, wScale): tapered blade fans with baked vertex colour gradient and face-aligned normals
+ *   - shrubGeo/shrubLow, alpineGeo/alpineLow, flowerGeo, fernGeo, mushroomGeo, cactusGeo/cactusLow,
+ *     deadScrubGeo/deadScrubLow, sedgeGeo/sedgeLow, reedGeo, logGeo/logLow: per-plant near and low tiers
+ *   - shrubTiny, alpineTiny, cactusTiny, deadScrubTiny, sedgeTiny, reedTiny, fernTiny, logTiny: far-tier proxies
+ *     built with geoutil tiny()
+ *
+ * Usage:
+ *   Imported only by plants.ts, which wraps each builder in a lazy `geo: () => ...` per tier. Runs once per Layer
+ *   construction in Scatter (startup), never per frame.
+ *
+ * Important:
+ *   - Builders seed rng() with fixed constants, so output is deterministic (same shape every build).
+ *   - Foliage is neutral-shaded (white / N0); the vegetation shader supplies per-plant hue. Some meshes use
+ *     CurrentPalette colours (stems, cactus, reed caps) baked at build time.
+ *   - Instance count is high: keep vertex counts low (see the shrub detail-2 note in shrubGeo).
+ */
 import * as THREE from "three";
 import { rng } from "../core/noise";
 import { CurrentPalette } from "../core/palette";

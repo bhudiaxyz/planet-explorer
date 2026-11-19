@@ -1,3 +1,28 @@
+/**
+ * player/touch.ts — touch controls (joystick, swipe-look, on-screen buttons) and pointer-lock helper.
+ *
+ * Purpose:
+ *   Builds the mobile/tablet UI and translates touches into the Player's virtual input fields. Also hosts the shared
+ *   isTouchDevice re-export and lockPointer, used by desktop input as well.
+ *
+ * Operations:
+ *   - isTouchDevice: re-exported from render/gputier.
+ *   - lockPointer(el): requestPointerLock that swallows the rejected promise / thrown error.
+ *   - setupTouch(player, dom): injects styles and DOM (nipplejs joystick, action/roll/time buttons, ☰ button),
+ *     right-half swipe-to-look, and a rAF loop that shows land/roll buttons per player mode. No-op on desktop.
+ *   - setGuiToggle(fn) / setMapToggle(fn): attach the ☰ and map button handlers.
+ *
+ * Usage:
+ *   main.ts calls setupTouch once during startup, then setGuiToggle/setMapToggle on touch devices and lockPointer on
+ *   splash click. player.ts and ui/gui.ts import isTouchDevice / lockPointer.
+ *
+ * Important:
+ *   - touch.ts and player.ts import each other (player.ts runtime, touch.ts type-only); keep touch's import type-only.
+ *   - Buttons stop propagation on touch events so they do not trigger look; touchstart on the canvas is non-passive.
+ *   - Writes Player.touchMove/touchStrafe/touchJump/touchSprint/touchDescend/touchRoll*; look() input is scaled by
+ *     S.touchLookSensitivity.
+ *   - The button-visibility rAF loop in setupTouch runs forever once started.
+ */
 import nipplejs from "nipplejs";
 import type { Player } from "./player";
 import { S, stepTime } from "../core/config";

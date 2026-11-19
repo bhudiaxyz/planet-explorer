@@ -1,3 +1,28 @@
+/**
+ * ui/map.ts — full-screen equirectangular world map overlay (M key / touch map button).
+ *
+ * Purpose:
+ *   Renders a 2D map of the planet from the terrain atlas cubemaps, with rivers, landmarks, scouted spots, a
+ *   day/night terminator, a compass and the player's heading arrow.
+ *
+ * Operations:
+ *   - MapOverlay class: toggle() shows/hides (Esc and backdrop click/tap also close).
+ *   - tick(): per-frame redraw while visible (base image, night overlay, player arrow, compass).
+ *   - setSpots(spots): non-landmark spots to draw; reset(): invalidate the cached base image after a rebuild.
+ *   - Private bakeBase(): one GPU pass over planet.atlas cubemaps into a 1024x512 canvas, then 2D-canvas rivers/labels.
+ *
+ * Usage:
+ *   Constructed in main.ts (renderer, planet, player); main calls tick() every frame, toggle() from the M key and touch
+ *   button, setSpots() after scouting/rebuild, reset() on rebuild; ui/gui.ts triggers reset via resetMap on water
+ *   colour change.
+ *
+ * Important:
+ *   - bakeBase needs planet.atlas.done; until then the map shows "Map building"; tick() bakes once ready.
+ *   - bakeBase temporarily switches the renderer's render target and restores it; it does a synchronous GPU readback.
+ *   - The base is cached in baseCanvas; the night overlay recomputes pixels only when U.uSun moves noticeably.
+ *   - The player arrow uses player.dir and player.forward (not player.up); heading is measured from north toward east.
+ *   - Sea colour comes from the shared U.uWater uniform, so palette changes need reset() to show on the map.
+ */
 import * as THREE from "three";
 import type { Planet } from "../world/planet";
 import type { Player } from "../player/player";

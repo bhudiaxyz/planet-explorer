@@ -1,8 +1,30 @@
+/**
+ * world/geoutil.ts — shared procedural-geometry helpers for plants, trees, rocks, crystals and landmarks
+ *
+ * Purpose:
+ *   Every plant/tree part is baked into one merged, vertex-coloured, non-indexed geometry. Foliage parts carry
+ *   aLeaf = 1 and a neutral height-AO shade (hue is supplied per tree / plant); other parts keep their own colour.
+ *   Also holds clipAtLakes, a path helper used by rivers.
+ *
+ * Operations:
+ *   - add(parts, geo, matrix, colour, ...): bakes one primitive into a part list (leaf = foliage, soft = jittered blob).
+ *   - cyl, blob, leaves, frond: tapered cylinders, canopy blobs, leaf clusters, fronds built on add().
+ *   - T, M: translation / compose-matrix helpers. UP, N0, C: shared constants and colour factory.
+ *   - done(parts): merges the part list into one BufferGeometry. tiny(...): single-quad far-tier geometry.
+ *   - logCanopies(log): while set, blob() records canopy ellipsoids (trees.ts uses it to add leaves to detailed crowns).
+ *   - clipAtLakes(path, lakes, surfaceOffset, tail): truncates a river path where it enters a lake.
+ *
+ * Usage:
+ *   Imported by trees.ts, plantgeo.ts, rockgeo.ts, crystalgeo.ts, landmarks.ts (geometry, at build time) and river.ts.
+ *
+ * Important:
+ *   - Argument evaluation order matters: callers draw random numbers inside arguments, so changing it alters the seeded
+ *     shapes (see M).
+ *   - canopyLog is module-level mutable state; always reset it to null after use.
+ */
 import * as THREE from "three";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 
-// Shared procedural-geometry helpers: every plant/tree part is baked into one merged, vertex-coloured, non-indexed geometry.
-// Foliage parts carry aLeaf = 1 and a neutral height-AO shade (hue is supplied per tree / per plant); other parts keep their own colour.
 export const UP = new THREE.Vector3(0, 1, 0),
     C = (h: number) => new THREE.Color(h);
 export const N0 = C(0);

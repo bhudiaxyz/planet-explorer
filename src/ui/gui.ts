@@ -1,3 +1,27 @@
+/**
+ * ui/gui.ts — lil-gui settings panel and the teleport ("locations") panel.
+ *
+ * Purpose:
+ *   Exposes the live settings object S (terrain, biomes, sky/weather, render scale) as a lil-gui panel, plus a second
+ *   compact panel of scouted spots that warp the player. Wires settings changes to rebuild callbacks.
+ *
+ * Operations:
+ *   - setupGui(ctx): builds both panels, returns { gui, locs }. ctx = { planet, player, post, rebuild, rebuildVeg,
+ *     resetMap, spots }.
+ *   - Controls: random world (new seed word + weather), palette picker, seed box, terrain/biome sliders (rebuild on
+ *     release; radius also respawns), water colour (live + map reset), render scale, fly/land buttons, G key toggle.
+ *   - Exported types: GUI (lil-gui), SetupGuiResult.
+ *
+ * Usage:
+ *   Called once from main.ts at startup step 3, after spots are scouted. main.ts also uses gui._hidden / locs.show()
+ *   for the touch ☰ toggle.
+ *
+ * Important:
+ *   - Module load appends a <style> to document.head for the locations panel.
+ *   - Panels use z-index 49, just under the loading splash (50), so they stay hidden until the splash fades.
+ *   - On touch devices the locations panel starts hidden and sits below the ☰ / time buttons.
+ *   - locs is null when no spots were found; spots are fixed at setup (rebuilds do not refresh the panel).
+ */
 import GUI from "lil-gui";
 import { S, WEATHER_TYPE, type Settings } from "../core/config";
 import { pushSeedUrl, currentSeedWord } from "../core/config";

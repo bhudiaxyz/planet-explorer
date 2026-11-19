@@ -1,3 +1,26 @@
+/**
+ * world/forest.ts — tree placement and three-tier instanced LOD
+ *
+ * Purpose:
+ *   Places trees in clustered stands (GPU-sampled candidates, density/spacing acceptance, species by climate) and renders
+ *   them as instanced meshes in three tiers: static low-poly (all trees), plus detailed and medium sets rebuilt near the camera.
+ *
+ * Operations:
+ *   - Forest.build(): samples candidates (GPU bake modes 1/2/5, CPU fallback), picks species/style, builds speciesLists.
+ *   - Forest.update(cam): rebuilds detailed/medium instance sets after the camera moves >= 6 m; animates near-tier crossfade.
+ *   - Forest.collect(dir, radiusM, out): appends solid trunk Obs (mode 0) near a direction, for the collider.
+ *   - Forest.warmAllTiers(): shows every tier for one render so shadow-depth programs compile during loading; returns restore fn.
+ *   - Forest.speciesLists: per-species CPU arrays + meshes (published in one step at the end of build()).
+ *
+ * Usage:
+ *   Owned by Planet (planet.forest); planet.build() awaits forest.build(). main.ts calls forest.update(camera.position)
+ *   per frame and warmAllTiers() during startup. collision.ts calls collect().
+ *
+ * Important:
+ *   - LOD bands (H0,H1,M0,M1) are CFG.treeLod scaled by tier and must match the shader's U.uLod, which is set in the constructor.
+ *   - Collider caches speciesLists by identity, so build() must replace it (not mutate) when trees change.
+ *   - pickSpecies/mixStand/sample() CPU paths mirror the GPU treeDensity() (render/terrain.ts); keep them in parity.
+ */
 import * as THREE from "three";
 import type { Planet } from "./planet";
 import { smoothstep, randomDir } from "../core/utilgeo";

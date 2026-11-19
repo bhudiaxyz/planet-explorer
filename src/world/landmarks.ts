@@ -1,3 +1,27 @@
+/**
+ * world/landmarks.ts — rare deterministic landmarks (24 per world)
+ *
+ * Purpose:
+ *   Builds monolith rings, twisted spires, tombstone fields, floating islands, stone arches, crashed ships, basalt
+ *   pillar fields and impact craters, placed on suitable terrain. Each landmark's parts are baked into ONE
+ *   vertex-coloured mesh (plus one unlit crystal mesh), so ~210 draw calls and shadow draws become ~16.
+ *
+ * Operations:
+ *   - buildLandmarks(pl, group): places 24 landmarks (kinds cycle through 8), returns { list, obs, tick }.
+ *     list = Landmark[] (name, label, pos) for the map/teleport UI; obs = collision Obs; tick(t) bobs floating islands.
+ *   - Landmark: type of a list entry. LANDMARK_ICON: map/UI emoji per landmark name.
+ *   - BUILDERS: one build_<kind>(ctx) per kind, driven by the shared Ctx (rng stream, frame, ground sampler, part/bake/glow).
+ *
+ * Usage:
+ *   Called from Planet.build() (planet.landmarks); Planet.tick() calls landmarks.tick(). Consumed by collision.ts (obs),
+ *   ui/map.ts and world/spots.ts (list, icons) and main.ts (teleport entries).
+ *
+ * Important:
+ *   - Deterministic: rng(S.seed + 900) is one shared stream consumed in placement order; builders must keep their
+ *     draw order or every later landmark changes.
+ *   - Geometry is built at planet build time only; materials are registered in Planet.buildMats for disposal.
+ *   - Placement needs elevation in (0.04, kind max) and temperature > 0.3, retrying up to 400 random directions.
+ */
 import * as THREE from "three";
 import type { Planet } from "./planet";
 import type { Obs } from "./collision";

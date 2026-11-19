@@ -1,4 +1,22 @@
-// River-into-lake clip self-check. Run: npm run test:lakeclip
+/**
+ * scripts/lakeclip.test.mts — river-into-lake clip self-check.
+ *
+ * Purpose:
+ *   Verifies clipAtLakes (world/geoutil.ts) truncates a river path where the ground dips below a lake surface and
+ *   ends it with points sitting just above the water.
+ *
+ * Operations:
+ *   - Builds a 40-point river along the equator of a 500 m planet with a basin at 200 m holding a lake.
+ *   - Asserts: clipped length, untouched prefix, tail sits at lake.level + 0.05, nothing below the surface.
+ *   - Asserts: a path short of the lake is unchanged, and an empty lake list returns the same path object.
+ *
+ * Usage:
+ *   npm run test:lakeclip  (node --experimental-strip-types). Prints "lakeclip ok"; throws on failure.
+ *
+ * Important:
+ *   - Expected counts (17 kept + 3 surface points) depend on the 10 m step and 0.3 clearance; change them together.
+ *   - Runs under Node with type stripping, so no TS-only syntax such as enums.
+ */
 import assert from "node:assert/strict";
 import * as THREE from "three";
 import { clipAtLakes } from "../src/world/geoutil.ts";

@@ -1,3 +1,27 @@
+/**
+ * world/rockgeo.ts — procedural geometry builders for rock-like ground cover
+ *
+ * Purpose:
+ *   Builds the merged BufferGeometries for every rock family scattered by vegetation.ts: boulders, slabs, frost
+ *   rocks, cobbles, tors, scree and basalt columns. Each has a near, a low-poly and (mostly) a tiny far-tier mesh.
+ *
+ * Operations:
+ *   - rockGeo/rockLow/rockTiny: single jittered icosahedron boulder
+ *   - rockSlabGeo/rockSlabLow/rockSlabTiny: flat layered slabs (warm ochre palette)
+ *   - frostRockGeo/frostRockLow/frostRockTiny: angular pale rocks near the snowline (cool palette)
+ *   - cobbleGeo(n)/cobbleLow: shore and riverbed pebbles
+ *   - torGeo/torLow/torTiny: stacked weathered blocks (uplands)
+ *   - screeGeo(n)/screeLow/screeTiny: angular octahedron shards
+ *   - basaltGeo(n)/basaltLow/basaltTiny: clustered flat-shaded hexagonal prisms
+ *
+ * Usage:
+ *   Imported only by plants.ts, which wires the builders into the PLANTS catalog tiers. Called once per tier at
+ *   Scatter construction (startup), not per frame.
+ *
+ * Important:
+ *   - Colours come from CurrentPalette (rockWarm, rockWarmAlt, rockWarmDark, rockCool) at build time.
+ *   - Fixed rng() seeds keep shapes deterministic. Per-instance hue and size come from the catalog `look` in plants.ts.
+ */
 import * as THREE from "three";
 import { rng } from "../core/noise";
 import { CurrentPalette } from "../core/palette";

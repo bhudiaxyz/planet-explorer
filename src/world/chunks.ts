@@ -1,3 +1,27 @@
+/**
+ * world/chunks.ts — streams GPU-baked terrain chunks around the player
+ *
+ * Purpose:
+ *   Draws the near-field terrain at higher detail than the coarse six-face planet mesh. Chunks are CS×CS-cell patches
+ *   on the planet's cube-face lattice; heights/normals/colour are baked into small render targets (render/bake.ts).
+ *
+ * Operations:
+ *   - ChunkManager.update(dir, altitude): on entering a new centre chunk, picks wanted chunks (in fade reach), bakes
+ *     missing ones within a per-call budget, retires the rest. Fine (2x denser) grid for the centre 3x3 on non-low,
+ *     non-touch tiers; half-res index buffer on the outer ring.
+ *   - ChunkManager.tick(dt): fade-in, LOD geomorph, fade-out of retired chunks (returned to pools).
+ *   - ChunkManager.clear(instant): drops all chunks (planet rebuild, or leaving the surface).
+ *
+ * Usage:
+ *   Owned by Planet (planet.ts) as planet.chunks; Planet.update() calls update(), Planet.tick() calls tick(),
+ *   Planet.build() calls clear(). Chunks exist only below CFG.chunk.makeAlt/clearAlt (hysteresis).
+ *
+ * Important:
+ *   - Meshes, materials, bake targets and vertex buffers are pooled/shared; pools are keyed by grid size (fine/coarse).
+ *   - A fine chunk costs 2 bake-budget units; the empty-map burst (FIRST) is skipped above 200 m altitude.
+ *   - Chunks beyond the shader fade distance (chunkFade) are skipped; the retire step waits until all wanted chunks exist.
+ *   - Requires GPU baking: make() calls bakeChunk unconditionally.
+ */
 import * as THREE from "three";
 import { S, CFG } from "../core/config";
 import { terrainMat } from "../render/fx";

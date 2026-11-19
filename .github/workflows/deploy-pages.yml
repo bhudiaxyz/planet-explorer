@@ -1,3 +1,22 @@
+# .github/workflows/deploy-pages.yml — build the app and publish it to GitHub Pages.
+#
+# Purpose:
+#   CI/CD for the static site: builds with Vite and deploys the dist folder to GitHub Pages.
+#
+# Operations:
+#   - Triggers: push to main, or manual workflow_dispatch.
+#   - Job build: checkout, Node 24 with npm cache, configure-pages, `npm ci`, `npm run build` (tsc --noEmit + vite
+#     build), upload dist as the Pages artifact.
+#   - Job deploy: runs after build in the github-pages environment via actions/deploy-pages.
+#
+# Usage:
+#   Runs on GitHub automatically; no local invocation. Pages source must be set to "GitHub Actions" in repo settings.
+#
+# Important:
+#   - A type error fails the build (npm run build runs tsc first), so nothing is deployed.
+#   - concurrency group "pages" with cancel-in-progress false: queued deploys finish rather than being cancelled.
+#   - The base path in vite.config.ts must match the Pages URL.
+
 name: Deploy to GitHub Pages
 
 on:

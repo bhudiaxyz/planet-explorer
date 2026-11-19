@@ -1,3 +1,31 @@
+/**
+ * world/plants.ts — ground-cover plant catalog and GLSL generation for GPU placement
+ *
+ * Purpose:
+ *   Single source of truth for every scattered plant/rock type. Each PlantSpec holds its per-tier geometry plus GLSL
+ *   snippets (pre, gate, result, look). This file assembles those snippets into the placement-bake shader and the
+ *   per-kind appearance code used by vegetation.ts. The catalog comment further down documents the snippet variables.
+ *
+ * Operations:
+ *   - PLANTS: the catalog (grass, shrubs, flowers, ferns, reeds, cacti, rocks, crystals, logs, ...)
+ *   - PlantSpec / Tier: spec and tier interfaces (cell size, disc radius K, LOD distances, scales, near/far flags)
+ *   - decideGLSL(): one merged `decide()` placement function; kinds are dispatched on the uKind uniform
+ *   - lookGLSL(): per-kind scale/tint code as compile-time `#if KIND==k` blocks
+ *   - Internal helpers tier() and plant() fill defaults; plant() marks each kind's first tier as `near`
+ *
+ * Usage:
+ *   vegetation.ts reads PLANTS to create Layers and splices decideGLSL()/lookGLSL() into its shaders. Geometry comes
+ *   from plantgeo.ts, rockgeo.ts and crystalgeo.ts. Evaluated at module load; shaders are built at startup.
+ *
+ * Important:
+ *   - To add a plant: add geometry in plantgeo/rockgeo and one catalog entry; nothing else.
+ *   - Placement is a single program for all kinds (uKind branches), not per-kind defines; this avoids ~36 s of
+ *     ANGLE/D3D compile on Windows. Do not reintroduce per-kind #if in decide().
+ *   - REJECT sets a flag (single exit) instead of returning early, for fxc compatibility.
+ *   - A kind's first tier is `near` (collidable, kept on low GPU tier, casts shadows); `look` runs in the visible
+ *     and the shadow depth pass, so guard vertex-colour use with USE_COLOR.
+ *   - Rejected cells have texel.x = -9999; vegetation.ts treats x < -5000 as empty.
+ */
 import * as THREE from "three";
 import { CFG } from "../core/config";
 import {

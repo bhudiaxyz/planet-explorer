@@ -1,3 +1,31 @@
+/**
+ * world/vegetation.ts — GPU ground cover scattering (grass, shrubs, rocks, flowers...) around the player
+ *
+ * Purpose:
+ *   Renders all PLANTS from plants.ts as instanced meshes laid out on a lattice around the player. Placement is
+ *   decided on the GPU in a bake pass; the per-frame vertex shader rebuilds each instance from hashes. Includes
+ *   wind, gusts, player push, snow caps and screen-door LOD fades (tier lifecycle details in the comment after the imports).
+ *
+ * Operations:
+ *   - Scatter: owns one Layer per (plant kind, tier); update(playerDirection, alt) fades by altitude, hides the
+ *     group high up, and rebakes layers round-robin under a per-frame budget; rebuild() forces a full rebake
+ *   - Layer (internal): instanced geometry, placement render target, patched MeshStandardMaterial (and a depth
+ *     material for shadows); update() rebakes when the lattice cell changes; compact() trims instances to accepted cells
+ *   - placementBakeMaterial(uniforms): the single shared placement-bake program (kind chosen by uKind)
+ *
+ * Usage:
+ *   main.ts creates Scatter(planet), adds scatter.group to the scene, calls scatter.update() every frame, and
+ *   sets scatter.dirty / calls rebuild() on planet or palette changes. main.ts also warms placementBakeMaterial()
+ *   via precompileBakes. collision.ts reads Scatter layers (collision is currently disabled, see Scatter ctor).
+ *
+ * Important:
+ *   - Placement (decideGLSL) and appearance (lookGLSL) are generated from the plants.ts catalog; the GPU result
+ *     and the CPU collider must agree on the baked texel (readRT snapshot).
+ *   - Only structural flags (KIND, DISP, PUSH, MOSS, RUSTLE, STONE) are defines, so tiers share compiled programs.
+ *   - Bakes are budgeted per frame by gpuTier; far tiers are high-tier only, mid tiers medium and up.
+ *   - Sparse near layers draw the full disc until the async bake readback arrives, then compact().
+ *   - The shadow depth material must run the same placement code, or instances pile up at the planet centre.
+ */
 import * as THREE from "three";
 import type { Planet } from "./planet";
 import { frame, smoothstep } from "../core/utilgeo";

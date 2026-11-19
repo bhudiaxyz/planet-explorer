@@ -1,3 +1,28 @@
+/**
+ * core/config.ts — central tuning constants (CFG) and mutable runtime settings (S)
+ *
+ * Purpose:
+ *   Every former magic number lives here so a change is made once. Distances are metres. Also owns the word-based
+ *   world seed and its URL sync.
+ *
+ * Operations:
+ *   - CFG: frozen (as const) constants: chunk streaming, tree/plant LOD bands, shadow, sky, atmosphere, lights,
+ *     ocean, river, vegetation altitude fade.
+ *   - S (Settings): mutable runtime state: seed, radius, terrain noise params, biome thresholds, renderScale,
+ *     time of day, weather, wind, cloudiness.
+ *   - WEATHER_TYPE / Weather: weather enum-like values.
+ *   - stepTime(dir): steps timeOfDay by 1/8 day, wrapping.
+ *   - currentSeedWord, pushSeedUrl(word): seed word (from ?seed= or random) and its hash into S.seed; updates URL.
+ *
+ * Usage:
+ *   Imported nearly everywhere (world/*, render/*, player/*, ui/gui.ts, main.ts). Module load reads location.search
+ *   and sets S.seed once at startup; the GUI mutates S and calls pushSeedUrl on reseed.
+ *
+ * Important:
+ *   - CFG is read-only; S is shared mutable state, so consumers must re-read it (or be rebuilt) after changes.
+ *   - Importing this module has side effects (reads location, derives the seed).
+ *   - S.seed is a hash (0..99999) of the seed word, not the word itself.
+ */
 import { genSeedWord, hashSeedWord } from "./util";
 // Central tuning constants. Distances are metres; everything that used to be a scattered magic number lives here so a change is made once.
 export const CFG = {

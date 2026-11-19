@@ -1,3 +1,28 @@
+/**
+ * world/sky.ts — time of day, weather state, sun/moon lighting, stars and fog
+ *
+ * Purpose:
+ *   Owns the sky simulation: the sun direction from S.timeOfDay, weather state machine, sky/fog colour, the scene
+ *   lights and the celestial and weather objects (sun and moon discs, stars, nebulae, dawn band, precipitation).
+ *
+ * Operations:
+ *   - Sky: constructor adds lights, FogExp2 and meshes to the scene; sizes stars, rain and nebulae by gpuTier
+ *   - Sky.update(dt, cam, up, alt, temp): advances time of day, picks weather (auto or S.weather), eases cloud,
+ *     fogWeight and precipitationAmount, rebuilds bg/fog/light colours, positions discs, drives Precip and the
+ *     atmosphere uniforms on Planet
+ *   - Public state read elsewhere: sun, dayF, space, cloud, fogWeight, precipitationAmount, kind, snow, bg, light,
+ *     moon, ambientLight
+ *
+ * Usage:
+ *   Created once in main.ts; update() runs every frame with player up vector, altitude and local temperature.
+ *   skyfx.ts (SkyDome, CloudShell) and main.ts read its state to feed shared U.* uniforms.
+ *
+ * Important:
+ *   - update() rebuilds bg, fog and ambient from scratch each frame; main.ts applies lightning flash AFTER it.
+ *   - Returns early (no time advance) if alt or temp is non-finite.
+ *   - Palette colours are re-parsed only when the CurrentPalette object identity changes (palRef).
+ *   - Weather smoothing uses 1 - exp(-dt * 0.5); snow is chosen when kind is snow or precip with temp < 0.35.
+ */
 import * as THREE from "three";
 import { Planet, smoothstep } from "./planet";
 import { S, CFG } from "../core/config";

@@ -1,3 +1,24 @@
+/**
+ * core/util.ts — seed words and cooperative yielding
+ *
+ * Purpose:
+ *   Small non-geometry helpers: generate/hash the human-readable seed word, and let long CPU jobs yield to the
+ *   browser between slices.
+ *
+ * Operations:
+ *   - genSeedWord(): random pronounceable capitalised word(s), using Math.random.
+ *   - hashSeedWord(s): string -> integer in [0, 100000) used as the noise seed.
+ *   - yieldTask(): resolves after yielding to the event loop (scheduler.yield, else MessageChannel, else setTimeout).
+ *   - slicer(ms = 4): returns an async checkpoint that yields only once ms of work has elapsed since the last yield.
+ *
+ * Usage:
+ *   config.ts uses genSeedWord/hashSeedWord at startup and on reseed; ui/gui.ts uses genSeedWord;
+ *   world/forest.ts and world/river.ts use slicer; world/spots.ts uses yieldTask during generation.
+ *
+ * Important:
+ *   - genSeedWord is not seeded (Math.random); determinism starts after hashSeedWord.
+ *   - Do not use setTimeout(0) for yielding in hot loops: nested clamping to >= 4 ms wastes time.
+ */
 const _ON = "bdgklmnrstvz",
     _CO = "lnrsk",
     _V = "aeiou";
